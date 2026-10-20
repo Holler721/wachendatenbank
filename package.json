@@ -1,0 +1,9 @@
+{
+  "name": "jedi-shadow-network",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Terminal der Jedi-Schatten mit Anmeldung und Rechten",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

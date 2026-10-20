@@ -1,0 +1,337 @@
+{
+ "persons": [
+  {
+   "n": "Kael Orren",
+   "r": "Schatten-Meister",
+   "s": "Verbündet",
+   "p": 88,
+   "l": "Kel Varos",
+   "seen": "17.10.",
+   "note": "Leitet Zelle Drei. Keine Auffälligkeiten, hohe Verlässlichkeit."
+  },
+  {
+   "n": "Mira Tallon",
+   "r": "Schatten",
+   "s": "Verbündet",
+   "p": 71,
+   "l": "Corvane",
+   "seen": "17.10.",
+   "note": "Spezialistin für Archivzugriffe. Meldet täglich."
+  },
+  {
+   "n": "Ilen Maro",
+   "r": "Schatten",
+   "s": "Verbündet",
+   "p": 64,
+   "l": "Corvane",
+   "seen": "16.10.",
+   "note": "Datenbeschaffung, zuletzt im Zirkel-System aktiv."
+  },
+  {
+   "n": "Torvan Ashe",
+   "r": "Adjutant",
+   "s": "Verbündet",
+   "p": 42,
+   "l": "Halden Reach",
+   "seen": "17.10.",
+   "note": "Verwaltet Orders und Freigaben."
+  },
+  {
+   "n": "Sorin Valk",
+   "r": "Informant",
+   "s": "Unklar",
+   "p": 35,
+   "l": "Tarsis Minor",
+   "seen": "04.10.",
+   "note": "Liefert Gutachten, Motive nicht geklärt."
+  },
+  {
+   "n": "Rhea Calder",
+   "r": "Zielperson",
+   "s": "Unklar",
+   "p": 79,
+   "l": "Myrrh",
+   "seen": "04.10.",
+   "note": "Hohe Machtsensitivität laut Gutachten. Beobachtung läuft."
+  },
+  {
+   "n": "Dr. Lyra Senn",
+   "r": "Informant",
+   "s": "Verbündet",
+   "p": 28,
+   "l": "Kel Varos",
+   "seen": "16.10.",
+   "note": "Medizinische Kontaktperson der Zelle Drei."
+  },
+  {
+   "n": "Dax Holloran",
+   "r": "Zielperson",
+   "s": "Dunkel",
+   "p": 91,
+   "l": "Umbra Gate",
+   "seen": "15.10.",
+   "note": "Verdacht auf Kontakt zu dunklen Zirkeln. Nicht ansprechen."
+  },
+  {
+   "n": "Vesper Quill",
+   "r": "Zielperson",
+   "s": "Dunkel",
+   "p": 84,
+   "l": "Ossuary",
+   "seen": "12.10.",
+   "note": "Tauchte nach dem Vorfall in Ossuary unter."
+  },
+  {
+   "n": "Oren Thale",
+   "r": "Schatten",
+   "s": "Verbündet",
+   "p": 57,
+   "l": "Dren Station",
+   "seen": "14.10.",
+   "note": "Zuständig für Funkaufklärung."
+  },
+  {
+   "n": "Ysolde Karn",
+   "r": "Informant",
+   "s": "Unklar",
+   "p": 22,
+   "l": "Vell",
+   "seen": "09.10.",
+   "note": "Händlerin mit Kontakten in drei Systemen."
+  },
+  {
+   "n": "Bram Odessa",
+   "r": "Adjutant",
+   "s": "Verbündet",
+   "p": 31,
+   "l": "Halden Reach",
+   "seen": "17.10.",
+   "note": "Logistik und Transport."
+  },
+  {
+   "n": "Taryn Vol",
+   "r": "Schatten",
+   "s": "Verbündet",
+   "p": 68,
+   "l": "Cinder",
+   "seen": "13.10.",
+   "note": "Infiltration, derzeit unter Tarnidentität."
+  },
+  {
+   "n": "Juno Prax",
+   "r": "Zielperson",
+   "s": "Unklar",
+   "p": 48,
+   "l": "Vell",
+   "seen": "11.10.",
+   "note": "Ehemaliger Schatten, Loyalität ungewiss."
+  },
+  {
+   "n": "Edric Sol",
+   "r": "Schatten-Meister",
+   "s": "Verbündet",
+   "p": 93,
+   "l": "Cinder",
+   "seen": "10.10.",
+   "note": "Leitet Zelle Fünf. Selten erreichbar."
+  },
+  {
+   "n": "Neve Arlen",
+   "r": "Schatten",
+   "s": "Verbündet",
+   "p": 52,
+   "l": "Tarsis Minor",
+   "seen": "16.10.",
+   "note": "Nachwuchs, erste Feldeinsätze."
+  },
+  {
+   "n": "Harrow Bright",
+   "r": "Zielperson",
+   "s": "Dunkel",
+   "p": 73,
+   "l": "Umbra Gate",
+   "seen": "08.10.",
+   "note": "Schmuggelrouten durch den Sektor."
+  },
+  {
+   "n": "Cade Ilvane",
+   "r": "Informant",
+   "s": "Unklar",
+   "p": 19,
+   "l": "Myrrh",
+   "seen": "02.10.",
+   "note": "Gelegentlicher Kontakt, unzuverlässig."
+  },
+  {
+   "n": "Sable Renn",
+   "r": "Schatten",
+   "s": "Verbündet",
+   "p": 60,
+   "l": "Dren Station",
+   "seen": "17.10.",
+   "note": "Spurensicherung und Verhöre."
+  },
+  {
+   "n": "Quill Morrow",
+   "r": "Adjutant",
+   "s": "Verbündet",
+   "p": 26,
+   "l": "Kel Varos",
+   "seen": "15.10.",
+   "note": "Protokollführung der Zelle Eins."
+  },
+  {
+   "n": "Anya Drev",
+   "r": "Zielperson",
+   "s": "Dunkel",
+   "p": 86,
+   "l": "Ossuary",
+   "seen": "06.10.",
+   "note": "Mögliche Anführerin. Höchste Vorsicht."
+  },
+  {
+   "n": "Marcus Pell",
+   "r": "Informant",
+   "s": "Verbündet",
+   "p": 24,
+   "l": "Corvane",
+   "seen": "12.10.",
+   "note": "Archivar, liefert Hintergrunddaten."
+  }
+ ],
+ "map": {
+  "nodes": [
+   {
+    "k": "n0",
+    "id": "Kel Varos",
+    "x": 0.18,
+    "y": 0.3,
+    "s": "Verbündet",
+    "i": "Stützpunkt der Zelle Drei. Gute Funkabdeckung, zwei Agenten vor Ort."
+   },
+   {
+    "k": "n1",
+    "id": "Corvane",
+    "x": 0.34,
+    "y": 0.62,
+    "s": "Verbündet",
+    "i": "Archivwelt. Versiegelt seit dem 17.10., Zugang nur mit Freigabe."
+   },
+   {
+    "k": "n2",
+    "id": "Halden Reach",
+    "x": 0.5,
+    "y": 0.28,
+    "s": "Unklar",
+    "i": "Handelsknoten mit wechselnden Loyalitäten. Zelle Eins beobachtet."
+   },
+   {
+    "k": "n3",
+    "id": "Tarsis Minor",
+    "x": 0.52,
+    "y": 0.7,
+    "s": "Verbündet",
+    "i": "Kleine Kolonie, Quelle mehrerer Informanten."
+   },
+   {
+    "k": "n4",
+    "id": "Umbra Gate",
+    "x": 0.72,
+    "y": 0.24,
+    "s": "Dunkel",
+    "i": "Sprungtor unter dunkler Kontrolle. Verdacht auf Schmuggel und Zirkeltreffen."
+   },
+   {
+    "k": "n5",
+    "id": "Myrrh",
+    "x": 0.8,
+    "y": 0.55,
+    "s": "Unklar",
+    "i": "Heimat einer Zielperson mit hoher Machtsensitivität."
+   },
+   {
+    "k": "n6",
+    "id": "Ossuary",
+    "x": 0.9,
+    "y": 0.82,
+    "s": "Dunkel",
+    "i": "Verlassene Gräberwelt. Letzter bekannter Aufenthaltsort mehrerer Gesuchter."
+   },
+   {
+    "k": "n7",
+    "id": "Dren Station",
+    "x": 0.3,
+    "y": 0.86,
+    "s": "Verbündet",
+    "i": "Funkaufklärung. Möglicher Angriff laut abgefangenem Verkehr."
+   },
+   {
+    "k": "n8",
+    "id": "Vell",
+    "x": 0.66,
+    "y": 0.88,
+    "s": "Unklar",
+    "i": "Händlerwelt mit Kontakten in drei Systemen."
+   },
+   {
+    "k": "n9",
+    "id": "Cinder",
+    "x": 0.9,
+    "y": 0.12,
+    "s": "Verbündet",
+    "i": "Stützpunkt der Zelle Fünf. Selten erreichbar, hohe Sicherheit."
+   }
+  ],
+  "edges": [
+   [
+    "n0",
+    "n1"
+   ],
+   [
+    "n0",
+    "n2"
+   ],
+   [
+    "n1",
+    "n3"
+   ],
+   [
+    "n2",
+    "n3"
+   ],
+   [
+    "n2",
+    "n4"
+   ],
+   [
+    "n4",
+    "n5"
+   ],
+   [
+    "n5",
+    "n6"
+   ],
+   [
+    "n3",
+    "n8"
+   ],
+   [
+    "n8",
+    "n6"
+   ],
+   [
+    "n1",
+    "n7"
+   ],
+   [
+    "n4",
+    "n9"
+   ],
+   [
+    "n5",
+    "n8"
+   ]
+  ],
+  "rev": 1
+ }
+}

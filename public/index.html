@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Jedi Shadow Network</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: schwebende Seitenleiste links, sieben Terminal-Ansichten rechts, Sternenfeld und Radar als Atmosphäre */
+:root{
+  --bg:#000000; --bg2:#050505; --panel:#0a0a0a; --panel2:#111111; --line:#242424; --line2:#3a3a3a;
+  --fg:#f0f0f0; --mute:#9c9c9c; --dim:#727272;
+  --acc:#c4c4c4; --acc-d:#5a5a5a; --acc-glow:rgba(210,210,210,.28);
+  --cyan:#e6e6e6; --red:#fb4d6d; --amber:#8f8f8f; --green:#bdbdbd;
+  --display:'Chakra Petch',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+:root.alarm{--acc:#fb4d6d;--acc-d:#a11d3a;--acc-glow:rgba(251,77,109,.4);--line2:#6b2f44}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--fg); font-family:var(--display); font-size:14px; line-height:1.5;
+  padding-block:0; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+  min-height:100vh; overflow-x:hidden;
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+#stars{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.glow{position:fixed;inset:0;z-index:0;pointer-events:none;background:
+  radial-gradient(900px 520px at 80% -10%,color-mix(in srgb,var(--acc) 12%,transparent),transparent 70%),
+  radial-gradient(700px 500px at 5% 105%,rgba(230,230,230,.05),transparent 70%)}
+.scan{position:fixed;inset:0;z-index:50;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 3px);animation:drift 8s linear infinite}
+@keyframes drift{to{background-position:0 180px}}
+@keyframes blink{50%{opacity:.25}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes marquee{to{transform:translateX(-50%)}}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes alarmPulse{0%,100%{box-shadow:0 0 0 rgba(251,77,109,0)}50%{box-shadow:0 0 40px rgba(251,77,109,.5)}}
+@keyframes glitch{0%,92%,100%{transform:none;opacity:0}93%{transform:translate(-3px,1px);opacity:.9}95%{transform:translate(3px,-1px);opacity:.9}97%{transform:translate(-2px,0);opacity:.9}}
+@keyframes bootOut{to{opacity:0;visibility:hidden}}
+
+/* Boot */
+#boot{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;animation:bootOut .5s ease 2.6s forwards}
+#boot pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--cyan);white-space:pre-wrap;max-width:560px;width:100%}
+#boot .skip{position:absolute;bottom:max(24px,env(safe-area-inset-bottom,0px));font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--dim)}
+#boot.done{display:none}
+
+.app{position:relative;z-index:2;display:flex;gap:24px;align-items:flex-start;max-width:1500px;margin:0 auto;padding-block:20px 32px}
+.side{flex:0 0 232px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 20px);display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,rgba(16,16,16,.92),rgba(5,5,5,.92));border:1px solid var(--line);border-radius:14px;padding:18px 12px 14px;backdrop-filter:blur(6px)}
+.brand{display:flex;align-items:center;gap:12px;padding:0 6px 14px}
+.brand svg{width:46px;height:46px;flex:none}
+.brand b{display:block;font-size:15px;line-height:1.1}
+.brand span{font-family:var(--mono);font-size:9px;letter-spacing:.24em;color:var(--acc)}
+.cls{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--red);text-align:center;padding:8px 0;border-block:1px solid var(--line);margin-bottom:8px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;background:transparent;border:0;border-left:2px solid transparent;border-radius:6px;padding:9px 10px;color:#bfbfbf;font-size:13px;transition:background .15s,color .15s,padding .15s}
+.nav button:hover{background:rgba(200,200,200,.12);color:#fff;padding-left:15px}
+.nav button[aria-current=page]{background:rgba(200,200,200,.18);color:#fff;border-left-color:var(--acc)}
+.nav small{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--dim)}
+.nav .live{color:var(--cyan);border:1px solid #4e4e4e;background:rgba(230,230,230,.1);padding:1px 6px;border-radius:4px}
+.side .foot{font-family:var(--mono);font-size:10px;color:var(--dim);padding:12px 8px 2px;border-top:1px solid var(--line);margin-top:8px;line-height:1.6}
+.kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--line2);border-radius:4px;padding:1px 6px;color:var(--mute)}
+
+.main{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:20px}
+.status{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:10px 16px;border:1px solid var(--line);border-radius:10px;background:rgba(5,5,5,.8)}
+.status .ok{color:var(--cyan);display:inline-flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor;animation:blink 1.6s ease-in-out infinite;display:inline-block}
+.status .sp{flex:1 1 0}
+.status .pill{color:#e6e6e6;border:1px solid var(--line2);background:rgba(190,190,190,.15);padding:2px 10px;border-radius:4px}
+.ticker{overflow:hidden;border-block:1px solid var(--line);background:rgba(5,5,5,.6);font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--mute);white-space:nowrap}
+.ticker div{display:inline-block;padding:7px 0;animation:marquee 60s linear infinite}
+.ticker span{padding:0 28px}
+.ticker span::before{content:"◆ ";color:var(--acc)}
+
+.view{display:flex;flex-direction:column;gap:20px;animation:rise .35s ease}
+.view[hidden]{display:none}
+.head{display:flex;flex-wrap:wrap;align-items:center;gap:16px 22px}
+.head .emb{position:relative;width:84px;height:84px;flex:none}
+.head .emb::before{content:"";position:absolute;inset:-8px;border-radius:50%;border:1px dashed var(--line2);animation:spin 26s linear infinite}
+.head .emb svg{width:84px;height:84px}
+.head .t{flex:1 1 320px;min-width:0}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--red);margin-bottom:6px}
+h1{margin:0;font-size:clamp(30px,5vw,48px);line-height:1.02;font-weight:700;letter-spacing:-.01em;position:relative;display:inline-block;color:#fff}
+h1 .g{color:var(--acc)}
+h1::after{content:attr(data-t);position:absolute;left:0;top:0;color:var(--cyan);mix-blend-mode:screen;animation:glitch 9s infinite;pointer-events:none}
+h1.sm{font-size:clamp(24px,3.4vw,34px)}
+.lead{margin:8px 0 0;color:var(--mute);max-width:62ch}
+h2{margin:0;font-size:18px}
+.date{font-family:var(--mono);font-size:11px;color:var(--mute);letter-spacing:.08em;text-align:right}
+.panel{border:1px solid var(--line);border-radius:14px;background:rgba(8,8,8,.88);padding:20px 22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:20px;align-items:stretch}
+.row>*{flex:1 1 340px;min-width:0}
+.ph{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.mono{font-family:var(--mono)}
+.muted{color:var(--mute)}
+.chip{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;border:1px solid currentColor;border-radius:99px;padding:3px 11px;text-transform:uppercase;white-space:nowrap}
+.chip.cyan{color:var(--cyan);background:rgba(230,230,230,.1)}
+.chip.red{color:var(--red);background:rgba(251,77,109,.12)}
+.chip.amber{color:var(--amber);background:rgba(150,150,150,.1)}
+.chip.vio{color:var(--acc);background:rgba(200,200,200,.12)}
+.chip.grey{color:#b4b4b4;background:rgba(166,166,166,.1)}
+.btn{min-height:42px;border-radius:8px;padding:0 18px;font-weight:600;border:1px solid var(--line2);background:rgba(190,190,190,.14);color:#efefef;transition:background .15s,box-shadow .15s}
+.btn:hover{background:rgba(190,190,190,.3);box-shadow:0 0 22px var(--acc-glow)}
+.btn.danger{border-color:var(--red);background:rgba(251,77,109,.12);color:#ffd9e0}
+.btn.danger:hover{background:rgba(251,77,109,.3);box-shadow:0 0 24px rgba(251,77,109,.45)}
+.btn.ghost{background:transparent}
+.btn.sm{min-height:34px;padding:0 12px;font-size:12px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--amber)}
+input[type=text],input[type=search],select{min-height:42px;background:#000000;border:1px solid var(--line2);border-radius:8px;padding:0 14px;color:#fff;outline-offset:2px;width:100%}
+input.id{font-family:var(--mono);font-weight:700;letter-spacing:.1em}
+
+.umbra{transition:border-color .2s}
+.alarm .umbra{border-color:var(--red);animation:alarmPulse 1.2s ease-in-out infinite}
+.umbra .ctl{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px}
+.umbra .ctl .field{flex:0 1 320px}
+.umbra .hint{flex:1 1 240px;color:var(--mute);min-height:42px;display:flex;align-items:center}
+
+.radar{position:relative;width:min(100%,260px);aspect-ratio:1;flex:none}
+.radar canvas{width:100%;height:100%;display:block;border-radius:50%}
+.lagebild{display:flex;flex-wrap:wrap;gap:20px;align-items:center}
+.lagebild .txt{flex:1 1 190px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--mute)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.gauge{display:flex;flex-direction:column;gap:7px}
+.gauge .l{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:#d8d8d8}
+.gauge b{font-family:var(--mono);font-weight:700}
+.bar{height:8px;border-radius:99px;background:#1a1a1a;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;transition:width .6s ease}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{text-align:left;border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,rgba(18,18,18,.75),rgba(4,4,4,.9));padding:16px;display:flex;flex-direction:column;gap:8px;transition:border-color .2s,box-shadow .2s,transform .2s}
+.card:hover{border-color:var(--acc);box-shadow:0 0 28px var(--acc-glow);transform:translateY(-2px)}
+.card .top{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim)}
+.card .top b{color:var(--acc);font-weight:500}
+.card .n{font-size:38px;font-weight:700;line-height:1.05;color:#fff;font-variant-numeric:tabular-nums}
+.card .d{font-size:12px;color:var(--cyan);opacity:.9}
+.card .go{margin-top:auto;padding-top:8px;border-top:1px solid var(--line);display:flex;justify-content:space-between;color:#e0e0e0;font-size:13px}
+.card .go span:last-child{color:var(--acc)}
+
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;flex-direction:column;gap:5px;text-align:left;width:100%;border:1px solid var(--line);border-radius:9px;background:rgba(0,0,0,.7);padding:11px 14px;transition:background .15s,border-color .15s}
+button.item:hover,.item.sel{background:rgba(200,200,200,.1);border-color:var(--line2)}
+.item.sel{border-color:var(--acc)}
+.item .r1{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.item .ti{font-weight:600;font-size:14px}
+.item .by{font-size:12px;color:var(--mute)}
+.tag{font-family:var(--mono);font-size:9px;letter-spacing:.16em;padding:2px 8px;border-radius:4px;border:1px solid currentColor;text-transform:uppercase}
+.tag.report{color:var(--red);background:rgba(251,77,109,.12)}
+.tag.order{color:var(--amber);background:rgba(150,150,150,.12)}
+.tag.dokument{color:#a6a6a6;background:rgba(166,166,166,.1)}
+.tag.funk{color:var(--cyan);background:rgba(230,230,230,.1)}
+.tag.notfall{color:var(--red);background:rgba(251,77,109,.18)}
+.dt{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.sig{display:inline-flex;align-items:flex-end;gap:2px;height:12px}
+.sig i{width:3px;background:var(--cyan)}
+.sig i.off{background:#262626}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{min-height:32px;padding:0 13px;border-radius:99px;border:1px solid var(--line2);background:transparent;color:#b4b4b4;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.tabs button[aria-pressed=true]{background:rgba(190,190,190,.3);border-color:var(--acc);color:#fff}
+.split{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.split>.a{flex:1.4 1 420px;min-width:0}
+.split>.b{flex:1 1 320px;min-width:0;position:sticky;top:calc(env(safe-area-inset-top,0px) + 20px)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:620px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);text-align:left;font-weight:500;padding:10px 14px;border-bottom:1px solid var(--line);text-transform:uppercase;background:rgba(0,0,0,.8)}
+td{padding:10px 14px;border-bottom:1px solid #1a1a1a;font-size:13px;white-space:nowrap}
+tbody tr{cursor:pointer;transition:background .15s}
+tbody tr:hover,tbody tr.sel{background:rgba(200,200,200,.1)}
+tbody tr:last-child td{border-bottom:0}
+td .mini{display:inline-block;width:70px;height:6px;background:#1a1a1a;border-radius:99px;vertical-align:middle;margin-right:8px;overflow:hidden}
+td .mini i{display:block;height:100%}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.toolbar .field{flex:1 1 160px}
+.toolbar .field:first-child{flex:2 1 220px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13px}
+.kv dt{color:var(--dim);font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding-top:3px}
+.kv dd{margin:0}
+.avatar{width:64px;height:64px;border-radius:12px;border:1px solid var(--line2);background:radial-gradient(circle at 30% 25%,var(--panel2),#000000);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--acc);flex:none}
+
+.reader h3{margin:0;font-size:20px;line-height:1.2}
+.reader p{margin:0;color:#e0e0e0;max-width:62ch}
+.rx{background:#262626;color:transparent;border-radius:3px;user-select:none;transition:background .4s,color .4s}
+.reader.open .rx{background:rgba(251,77,109,.16);color:#ffb3c1;user-select:auto}
+
+.feed{display:flex;flex-direction:column;gap:8px;max-height:520px;overflow-y:auto;padding-right:4px}
+.feed .item{animation:rise .3s ease}
+.spec{width:100%;height:150px;display:block;border-radius:8px;background:#000000;border:1px solid var(--line)}
+canvas.map{width:100%;aspect-ratio:16/10;min-height:300px;display:block;border-radius:12px;background:radial-gradient(circle at 50% 40%,#0d0d0d,#000000);border:1px solid var(--line);cursor:crosshair;touch-action:manipulation}
+
+.ops{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.op{border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.75);padding:16px;display:flex;flex-direction:column;gap:10px}
+.op .nm{font-weight:700;font-size:16px}
+.op .meta{font-size:12px;color:var(--mute)}
+.op .acts{display:flex;gap:8px;flex-wrap:wrap}
+.phases{display:flex;gap:4px}
+.phases i{flex:1;height:4px;border-radius:2px;background:#1c1c1c}
+.phases i.on{background:var(--acc);box-shadow:0 0 8px var(--acc-glow)}
+
+.term{background:#000000;border:1px solid var(--line2);border-radius:12px;padding:16px;font-family:var(--mono);font-size:13px;min-height:420px;max-height:560px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.term .ln{white-space:pre-wrap;word-break:break-word;color:#d8d8d8}
+.term .ln.in{color:#fff}
+.term .ln.ok{color:var(--cyan)}
+.term .ln.er{color:var(--red)}
+.term .ln.hl{color:var(--acc)}
+.prompt{display:flex;gap:8px;align-items:center;margin-top:6px}
+.prompt span{color:var(--acc);white-space:nowrap}
+.prompt input{background:transparent;border:0;outline:0;min-height:28px;padding:0;font-family:var(--mono);font-size:13px;color:#fff;flex:1;min-width:0}
+
+#pal{position:fixed;inset:0;z-index:80;background:rgba(5,5,5,.7);backdrop-filter:blur(4px);display:flex;justify-content:center;align-items:flex-start;padding:12vh 16px 16px}
+#pal[hidden]{display:none}
+#pal .box{width:min(560px,100%);background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 20px 80px rgba(0,0,0,.6)}
+#pal ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto}
+#pal li button{width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;gap:10px}
+#pal li button.on,#pal li button:hover{background:rgba(200,200,200,.18)}
+#toasts{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:90;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none}
+.toast{background:var(--panel2);border:1px solid var(--line2);border-left:3px solid var(--acc);border-radius:8px;padding:10px 14px;font-size:13px;max-width:320px;animation:rise .25s ease;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.toast.red{border-left-color:var(--red)}
+.toast.cyan{border-left-color:var(--cyan)}
+.alertbar{display:none;font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-align:center;padding:9px;border-radius:10px;border:1px solid var(--red);background:repeating-linear-gradient(45deg,rgba(251,77,109,.22) 0 14px,rgba(251,77,109,.08) 14px 28px);color:#ffd9e0}
+.alarm .alertbar{display:block}
+footer{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--dim);text-align:center;border-top:1px solid var(--line);padding-top:16px}
+
+textarea{width:100%;background:#000000;border:1px solid var(--line2);border-radius:8px;padding:10px 14px;color:#fff;font-family:inherit;resize:vertical;min-height:80px}
+input[type=range]{accent-color:var(--acc);width:100%;min-height:32px}
+.btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+input[type=password]{min-height:42px;background:#000;border:1px solid var(--line2);border-radius:8px;padding:0 14px;color:#fff;width:100%;outline-offset:2px}
+#login{position:fixed;inset:0;z-index:110;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+#login[hidden]{display:none}
+.loginbox{width:min(400px,100%);display:flex;flex-direction:column;gap:14px;border:1px solid var(--line2);border-radius:14px;background:rgba(8,8,8,.95);padding:28px 24px}
+.loginbox .lgo{width:64px;height:64px;color:var(--acc)}
+.loginbox .hintline{min-height:18px;color:var(--red)}
+.ugrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end}
+.utbl td{white-space:normal}
+.utbl .acts{display:flex;gap:6px;flex-wrap:wrap}
+.btn[aria-pressed=true]{background:rgba(150,150,150,.2);border-color:var(--amber);color:#fff}
+.card.static{cursor:default}
+.card.static:hover{transform:none;box-shadow:none;border-color:var(--line)}
+.mbar{flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 16px;border-color:var(--amber)}
+.addf{display:flex;flex-direction:column;gap:12px}
+canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-action:none}
+@media (max-width:860px){
+  .app{flex-direction:column;gap:16px;padding-top:12px}
+  .side{position:static;flex:none;width:100%;padding:12px}
+  .brand{padding-bottom:8px}
+  .cls,.side .foot{display:none}
+  .nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:4px}
+  .nav button{width:auto;white-space:nowrap;border:1px solid var(--line);border-radius:99px;padding:8px 14px}
+  .nav button:hover{padding-left:14px}
+  .nav button[aria-current=page]{border-color:var(--acc)}
+  .nav small{display:none}
+  .split>.b{position:static}
+  .date{text-align:left}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition:none!important}
+  #boot{display:none}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="emb" viewBox="0 0 64 64">
+    <circle cx="32" cy="32" r="29" fill="#050505" stroke="currentColor" stroke-width="1.8"/>
+    <circle cx="32" cy="32" r="23" fill="none" stroke="#444444" stroke-width="1" stroke-dasharray="3 4"/>
+    <path d="M40 14 A19 19 0 1 0 40 50 A15 15 0 1 1 40 14 Z" fill="currentColor"/>
+    <rect x="30.5" y="5" width="3" height="54" rx="1.5" fill="#b0b0b0"/>
+    <circle cx="32" cy="32" r="3.2" fill="#080808" stroke="#b0b0b0" stroke-width="1"/>
+  </symbol>
+</svg>
+
+<canvas id="stars" aria-hidden="true"></canvas>
+<div class="glow" aria-hidden="true"></div>
+<div class="scan" aria-hidden="true"></div>
+
+<div id="boot" role="status" aria-live="polite">
+  <pre id="bootTxt"></pre>
+  <div class="skip">KLICKEN ZUM ÜBERSPRINGEN</div>
+</div>
+
+<div class="app">
+  <aside class="side" aria-label="Navigation">
+    <div class="brand">
+      <svg style="color:var(--acc)" role="img" aria-label="Emblem der Jedi-Schatten"><use href="#emb"/></svg>
+      <div><b>Jedi<br>Shadow</b><span>NETWORK</span></div>
+    </div>
+    <div class="cls">STRENG VERTRAULICH</div>
+    <nav class="nav" id="nav">
+      <button data-nav="dashboard"><span>Dashboard</span><small>SR-00</small></button>
+      <button data-nav="register"><span>Personenregister</span><small>SR-01</small></button>
+      <button data-nav="berichte"><span>Berichte</span><small>SR-02</small></button>
+      <button data-nav="karte"><span>Schattenkarte</span><small>SR-04</small></button>
+      <button data-nav="ops"><span>Operationen</span><small>SR-03</small></button>
+      <button data-nav="terminal"><span>Terminal</span><small>SR-OS</small></button>
+      <button data-nav="konto" id="navKonto" hidden><span>Konto</span><small>SR-KT</small></button>
+    </nav>
+    <div class="foot">Befehlspalette <span class="kbd">Strg K</span><br>Notfall <span class="kbd">UMBRA</span></div>
+  </aside>
+
+  <div class="main">
+    <div class="status" id="statusBar">
+      <span class="ok"><i class="dot"></i><span id="stTxt">Einsatzbereit</span></span>
+      <span class="pill" id="whoPill">Agent</span>
+      <span class="pill" id="rolePill">Zugriff: Nur Lesen</span>
+      <span>Verschlüsselte Sitzung</span>
+      <span class="sp"></span>
+      <span id="clock">--:--:--</span>
+      <button class="btn sm ghost" id="logoutBtn" hidden>Abmelden</button>
+      <span>Tarnsektor 7</span>
+    </div>
+    <div class="alertbar" role="alert">▲ UMBRA AKTIV · ALLE ZELLEN ALARMIERT · ARCHIVE VERSIEGELT · ZUGÄNGE GESPERRT ▲</div>
+    <div class="ticker" aria-hidden="true"><div id="tick"></div></div>
+
+    <!-- DASHBOARD -->
+    <section class="view" id="v-dashboard">
+      <header class="head">
+        <div class="emb" style="color:var(--acc)"><svg role="img" aria-label="Emblem"><use href="#emb"/></svg></div>
+        <div class="t">
+          <div class="eyebrow">KLASSIFIZIERT · ZUGRIFF WIRD PROTOKOLLIERT</div>
+          <h1 data-t="Jedi Shadow Network">Jedi Shadow <span class="g">Network</span></h1>
+          <p class="lead">Operatives Terminal der Schatten: was ansteht, was zuletzt einging und wohin es von hier aus weitergeht.</p>
+        </div>
+        <div class="date" id="dateTxt">Samstag, 17.10.2026</div>
+      </header>
+
+      <section class="panel umbra" aria-labelledby="umbraH">
+        <div class="ph">
+          <div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline"><h2 id="umbraH">Notfallprotokoll · UMBRA</h2><span class="mono dim" style="font-size:10px;letter-spacing:.14em;color:var(--dim)">SR-TRIGGER-PROTOKOLL</span></div>
+          <span class="chip cyan" id="umChip"><i class="dot"></i><span>Bereit</span></span>
+        </div>
+        <div class="ctl">
+          <div class="field"><label for="agentId">AGENTENKENNUNG</label><input class="id" id="agentId" type="text" value="SD-NYX-0417" autocomplete="off"></div>
+          <button class="btn danger" id="umBtn">→ Notfall vorbereiten</button>
+          <button class="btn ghost" id="umCancel" hidden>Abbrechen</button>
+          <div class="hint" id="umHint">Löst die Evakuierung aller Schatten-Zellen aus und versiegelt die Archive.</div>
+        </div>
+      </section>
+
+      <div class="row">
+        <section class="panel" aria-labelledby="radH">
+          <h2 id="radH">Schattenkarte · Sektor 7</h2>
+          <div class="lagebild">
+            <div class="radar"><canvas id="radar" aria-label="Radar mit fünf Signaturen im Sektor"></canvas></div>
+            <div class="txt">
+              <p class="muted" style="margin:0;font-size:13px" id="radTxt">Fünf Signaturen im Radius, zwei davon mit dunkler Präsenz. Aktualisierung alle 4,5 Sekunden.</p>
+              <div class="legend"><span><i style="background:var(--cyan)"></i>VERBÜNDET</span><span><i style="background:var(--red)"></i>DUNKEL</span><span><i style="background:var(--amber)"></i>UNKLAR</span></div>
+              <button class="btn sm" data-go="karte" style="align-self:flex-start">Zur Schattenkarte</button>
+            </div>
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="mlH">
+          <h2 id="mlH">Machtlage</h2>
+          <div id="gauges" style="display:flex;flex-direction:column;gap:16px"></div>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="zpH">
+        <h2 id="zpH">Zugriffspunkte</h2>
+        <div class="cards" id="cards"></div>
+      </section>
+
+      <div class="row">
+        <section class="panel" aria-labelledby="dbH" style="flex:1.4 1 380px">
+          <div class="ph"><h2 id="dbH">Dokumente und Berichte</h2><button class="btn sm ghost" data-go="berichte">Alle öffnen</button></div>
+          <div class="list" id="dashDocs"></div>
+        </section>
+        <section class="panel" aria-labelledby="doH">
+          <div class="ph"><h2 id="doH">Laufende Operationen</h2><button class="btn sm ghost" data-go="ops">Verwalten</button></div>
+          <div class="list" id="dashOps"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- REGISTER -->
+    <section class="view" id="v-register" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SR-PR-01 · PERSONEN- UND MACHTSENSITIVEN-DATENBANK</div><h1 class="sm" data-t="Personenregister">Personenregister</h1><p class="lead" id="regLead"></p></div></header>
+      <div class="split">
+        <div class="a panel">
+          <div class="toolbar">
+            <div class="field"><label for="q">SUCHE</label><input id="q" type="search" placeholder="Name, Ort oder Rang" autocomplete="off"></div>
+            <div class="field"><label for="fs">STATUS</label><select id="fs"><option value="">Alle</option><option>Verbündet</option><option>Dunkel</option><option>Unklar</option></select></div>
+            <div class="field"><label for="so">SORTIERUNG</label><select id="so"><option value="name">Name</option><option value="power">Machtlevel absteigend</option><option value="last">Zuletzt gesehen</option></select></div>
+            <div class="field" style="flex:0 0 auto"><button class="btn" id="addP" hidden>+ Person hinzufügen</button></div>
+          </div>
+          <div class="tbl"><table><thead><tr><th>Name</th><th>Rang</th><th>Status</th><th>Machtlevel</th><th>Ort</th></tr></thead><tbody id="pBody"></tbody></table></div>
+          <div class="dt" id="pCount"></div>
+        </div>
+        <aside class="b panel" id="pDetail" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <!-- BERICHTE -->
+    <section class="view" id="v-berichte" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SR-BE-02 · REPORTS · ORDERS · DOKUMENTE</div><h1 class="sm" data-t="Berichte">Berichte</h1><p class="lead">Eingänge der letzten Wochen. Geschwärzte Stellen lassen sich mit Freigabe deklassifizieren.</p></div></header>
+      <div class="split">
+        <div class="a panel">
+          <div class="tabs" id="rTabs"></div>
+          <div class="list" id="rList"></div>
+        </div>
+        <aside class="b panel reader" id="reader"></aside>
+      </div>
+    </section>
+
+    <!-- KARTE -->
+    <section class="view" id="v-karte" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SR-KA-04 · TARNSEKTOR 7 UND UMGEBUNG</div><h1 class="sm" data-t="Schattenkarte">Schattenkarte</h1><p class="lead" id="mapLead">Wähle ein System, um Lage und Einsatzoptionen zu sehen.</p></div>
+        <button class="btn" id="mEdit" hidden>Karte bearbeiten</button></header>
+      <div class="panel mbar" id="mapBar" hidden>
+        <button class="btn sm" id="mAdd" aria-pressed="false">+ System setzen</button>
+        <button class="btn sm" id="mLink" aria-pressed="false">Route ziehen</button>
+        <span class="muted" id="mHint" style="flex:1 1 220px;font-size:12px"></span>
+        <button class="btn sm ghost" id="mDiscard">Abbrechen</button>
+        <button class="btn sm" id="mSave" disabled>Speichern</button>
+      </div>
+      <div class="split">
+        <div class="a"><canvas class="map" id="map" aria-label="Karte der Systeme"></canvas></div>
+        <aside class="b panel" id="nodeInfo" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <!-- OPS -->
+    <section class="view" id="v-ops" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SR-OP-03 · LAUFENDE UND ARCHIVIERTE OPERATIONEN</div><h1 class="sm" data-t="Operationen">Operationen</h1><p class="lead">Treibe Phasen voran oder brich Einsätze ab. Neue Operationen startest du über die Schattenkarte.</p></div></header>
+      <div class="ops" id="opsGrid"></div>
+    </section>
+
+    <!-- KONTO -->
+    <section class="view" id="v-konto" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SR-KT · KONTO UND ZUGÄNGE</div><h1 class="sm" data-t="Konto">Konto</h1><p class="lead" id="ktLead"></p></div></header>
+      <section class="panel" aria-labelledby="pwH">
+        <h2 id="pwH">Passwort ändern</h2>
+        <form id="pwForm" class="ugrid">
+          <div class="field"><label for="pwCur">AKTUELL</label><input id="pwCur" type="password" autocomplete="current-password" required></div>
+          <div class="field"><label for="pwNew">NEU (MIN. 10 ZEICHEN)</label><input id="pwNew" type="password" autocomplete="new-password" minlength="10" required></div>
+          <div class="field"><label for="pwNew2">NEU WIEDERHOLEN</label><input id="pwNew2" type="password" autocomplete="new-password" minlength="10" required></div>
+          <div><button class="btn" type="submit">Passwort speichern</button></div>
+        </form>
+      </section>
+      <section class="panel" id="usersPanel" aria-labelledby="usH" hidden>
+        <h2 id="usH">Konten verwalten</h2>
+        <p class="muted" style="margin:0">Viewer lesen nur. Contributor pflegen das Personenregister. Editor bearbeiten zusätzlich die Karte.</p>
+        <div class="tbl"><table class="utbl"><thead><tr><th>Benutzer</th><th>Rolle</th><th>Neues Passwort</th><th>Aktion</th></tr></thead><tbody id="uBody"></tbody></table></div>
+        <h2 style="margin-top:6px">Neues Konto</h2>
+        <form id="newUserForm" class="ugrid">
+          <div class="field"><label for="nuName">BENUTZERNAME</label><input id="nuName" type="text" autocomplete="off" required maxlength="24"></div>
+          <div class="field"><label for="nuRole">ROLLE</label><select id="nuRole"><option value="viewer">Viewer</option><option value="agent" selected>Contributor</option><option value="editor">Editor</option></select></div>
+          <div class="field"><label for="nuPass">PASSWORT (MIN. 10 ZEICHEN)</label><input id="nuPass" type="password" autocomplete="new-password" minlength="10" required></div>
+          <div><button class="btn" type="submit">Konto anlegen</button></div>
+        </form>
+      </section>
+    </section>
+
+    <!-- TERMINAL -->
+    <section class="view" id="v-terminal" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SCHATTEN-OS · KOMMANDOEBENE</div><h1 class="sm" data-t="Terminal">Terminal</h1><p class="lead">Tippe <b class="mono" style="color:var(--cyan)">help</b> für alle Befehle.</p></div></header>
+      <div class="term" id="term" role="log" aria-live="polite">
+        <div id="termOut"></div>
+        <form class="prompt" id="termForm"><span id="termPs">nyx@shadow:~$</span><input id="termIn" type="text" autocomplete="off" spellcheck="false" aria-label="Befehl"></form>
+      </div>
+    </section>
+
+    <footer>JEDI SHADOW NETWORK · TERMINAL · DISZIPLIN · VERBORGENHEIT · LICHT</footer>
+  </div>
+</div>
+
+<div id="pal" hidden role="dialog" aria-modal="true" aria-label="Befehlspalette">
+  <div class="box"><input id="palIn" type="text" placeholder="Ansicht oder Aktion suchen" autocomplete="off"><ul id="palList"></ul></div>
+</div>
+<div id="login" hidden>
+  <form id="loginForm" class="loginbox">
+    <svg class="lgo" role="img" aria-label="Emblem der Jedi-Schatten"><use href="#emb"/></svg>
+    <div><div class="eyebrow">KLASSIFIZIERT · ANMELDUNG ERFORDERLICH</div><h2>Jedi Shadow Network</h2></div>
+    <div class="field"><label for="lUser">BENUTZERNAME</label><input id="lUser" type="text" autocomplete="username" autocapitalize="off" required></div>
+    <div class="field"><label for="lPass">PASSWORT</label><input id="lPass" type="password" autocomplete="current-password" required></div>
+    <div class="hintline" id="lErr" role="alert"></div>
+    <button class="btn" type="submit">Anmelden</button>
+  </form>
+</div>
+<datalist id="locs"></datalist>
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s)}, $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var rnd=function(a,b){return a+Math.random()*(b-a)}, pick=function(a){return a[Math.floor(Math.random()*a.length)]};
+var pad=function(n){return (n<10?'0':'')+n};
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var COL={Verbündet:'#e6e6e6',Dunkel:'#fb4d6d',Unklar:'#8f8f8f'};
+var CHIP={Verbündet:'cyan',Dunkel:'red',Unklar:'amber'};
+var STATES=['Verbündet','Dunkel','Unklar'],RANKS=['Schatten-Meister','Schatten','Adjutant','Informant','Zielperson'];
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function num(v,d){v=+v;return isFinite(v)?v:d}
+
+/* ---------- Standarddaten (Anzeige ohne Datenbank und Vorlage zum Befüllen) ---------- */
+var DEF_PERSONS=[
+ {n:'Kael Orren',r:'Schatten-Meister',s:'Verbündet',p:88,l:'Kel Varos',seen:'17.10.',note:'Leitet Zelle Drei. Keine Auffälligkeiten, hohe Verlässlichkeit.'},
+ {n:'Mira Tallon',r:'Schatten',s:'Verbündet',p:71,l:'Corvane',seen:'17.10.',note:'Spezialistin für Archivzugriffe. Meldet täglich.'},
+ {n:'Ilen Maro',r:'Schatten',s:'Verbündet',p:64,l:'Corvane',seen:'16.10.',note:'Datenbeschaffung, zuletzt im Zirkel-System aktiv.'},
+ {n:'Torvan Ashe',r:'Adjutant',s:'Verbündet',p:42,l:'Halden Reach',seen:'17.10.',note:'Verwaltet Orders und Freigaben.'},
+ {n:'Sorin Valk',r:'Informant',s:'Unklar',p:35,l:'Tarsis Minor',seen:'04.10.',note:'Liefert Gutachten, Motive nicht geklärt.'},
+ {n:'Rhea Calder',r:'Zielperson',s:'Unklar',p:79,l:'Myrrh',seen:'04.10.',note:'Hohe Machtsensitivität laut Gutachten. Beobachtung läuft.'},
+ {n:'Dr. Lyra Senn',r:'Informant',s:'Verbündet',p:28,l:'Kel Varos',seen:'16.10.',note:'Medizinische Kontaktperson der Zelle Drei.'},
+ {n:'Dax Holloran',r:'Zielperson',s:'Dunkel',p:91,l:'Umbra Gate',seen:'15.10.',note:'Verdacht auf Kontakt zu dunklen Zirkeln. Nicht ansprechen.'},
+ {n:'Vesper Quill',r:'Zielperson',s:'Dunkel',p:84,l:'Ossuary',seen:'12.10.',note:'Tauchte nach dem Vorfall in Ossuary unter.'},
+ {n:'Oren Thale',r:'Schatten',s:'Verbündet',p:57,l:'Dren Station',seen:'14.10.',note:'Zuständig für Funkaufklärung.'},
+ {n:'Ysolde Karn',r:'Informant',s:'Unklar',p:22,l:'Vell',seen:'09.10.',note:'Händlerin mit Kontakten in drei Systemen.'},
+ {n:'Bram Odessa',r:'Adjutant',s:'Verbündet',p:31,l:'Halden Reach',seen:'17.10.',note:'Logistik und Transport.'},
+ {n:'Taryn Vol',r:'Schatten',s:'Verbündet',p:68,l:'Cinder',seen:'13.10.',note:'Infiltration, derzeit unter Tarnidentität.'},
+ {n:'Juno Prax',r:'Zielperson',s:'Unklar',p:48,l:'Vell',seen:'11.10.',note:'Ehemaliger Schatten, Loyalität ungewiss.'},
+ {n:'Edric Sol',r:'Schatten-Meister',s:'Verbündet',p:93,l:'Cinder',seen:'10.10.',note:'Leitet Zelle Fünf. Selten erreichbar.'},
+ {n:'Neve Arlen',r:'Schatten',s:'Verbündet',p:52,l:'Tarsis Minor',seen:'16.10.',note:'Nachwuchs, erste Feldeinsätze.'},
+ {n:'Harrow Bright',r:'Zielperson',s:'Dunkel',p:73,l:'Umbra Gate',seen:'08.10.',note:'Schmuggelrouten durch den Sektor.'},
+ {n:'Cade Ilvane',r:'Informant',s:'Unklar',p:19,l:'Myrrh',seen:'02.10.',note:'Gelegentlicher Kontakt, unzuverlässig.'},
+ {n:'Sable Renn',r:'Schatten',s:'Verbündet',p:60,l:'Dren Station',seen:'17.10.',note:'Spurensicherung und Verhöre.'},
+ {n:'Quill Morrow',r:'Adjutant',s:'Verbündet',p:26,l:'Kel Varos',seen:'15.10.',note:'Protokollführung der Zelle Eins.'},
+ {n:'Anya Drev',r:'Zielperson',s:'Dunkel',p:86,l:'Ossuary',seen:'06.10.',note:'Mögliche Anführerin. Höchste Vorsicht.'},
+ {n:'Marcus Pell',r:'Informant',s:'Verbündet',p:24,l:'Corvane',seen:'12.10.',note:'Archivar, liefert Hintergrunddaten.'}
+];
+var DEF_NODES=[
+ {k:'n0',id:'Kel Varos',x:.18,y:.3,s:'Verbündet',i:'Stützpunkt der Zelle Drei. Gute Funkabdeckung, zwei Agenten vor Ort.'},
+ {k:'n1',id:'Corvane',x:.34,y:.62,s:'Verbündet',i:'Archivwelt. Versiegelt seit dem 17.10., Zugang nur mit Freigabe.'},
+ {k:'n2',id:'Halden Reach',x:.5,y:.28,s:'Unklar',i:'Handelsknoten mit wechselnden Loyalitäten. Zelle Eins beobachtet.'},
+ {k:'n3',id:'Tarsis Minor',x:.52,y:.7,s:'Verbündet',i:'Kleine Kolonie, Quelle mehrerer Informanten.'},
+ {k:'n4',id:'Umbra Gate',x:.72,y:.24,s:'Dunkel',i:'Sprungtor unter dunkler Kontrolle. Verdacht auf Schmuggel und Zirkeltreffen.'},
+ {k:'n5',id:'Myrrh',x:.8,y:.55,s:'Unklar',i:'Heimat einer Zielperson mit hoher Machtsensitivität.'},
+ {k:'n6',id:'Ossuary',x:.9,y:.82,s:'Dunkel',i:'Verlassene Gräberwelt. Letzter bekannter Aufenthaltsort mehrerer Gesuchter.'},
+ {k:'n7',id:'Dren Station',x:.3,y:.86,s:'Verbündet',i:'Funkaufklärung. Möglicher Angriff laut abgefangenem Verkehr.'},
+ {k:'n8',id:'Vell',x:.66,y:.88,s:'Unklar',i:'Händlerwelt mit Kontakten in drei Systemen.'},
+ {k:'n9',id:'Cinder',x:.9,y:.12,s:'Verbündet',i:'Stützpunkt der Zelle Fünf. Selten erreichbar, hohe Sicherheit.'}
+];
+var DEF_EDGES=[['n0','n1'],['n0','n2'],['n1','n3'],['n2','n3'],['n2','n4'],['n4','n5'],['n5','n6'],['n3','n8'],['n8','n6'],['n1','n7'],['n4','n9'],['n5','n8']];
+var DEF_MAP={nodes:DEF_NODES,edges:DEF_EDGES};
+
+var reports=[
+ {t:'Report',ti:'Einsatz vom 16.10. im System Kel Varos',by:'S-07 · Mira Tallon',d:'17.10.2026',b:['Die Zelle erreichte das Zielgebiet um 03:40 Ortszeit. Der Kontakt erschien wie vereinbart, brach das Gespräch jedoch nach vier Minuten ab.','Auf dem Rückweg wurde die Gruppe von [[einem unbekannten Schiff der Dunklen Zirkel]] verfolgt. Der Kontakt [[Dax Holloran]] wurde nicht angesprochen.','Empfehlung: Treffpunkt wechseln und Funkkennung erneuern.']},
+ {t:'Report',ti:'Sicherung des Archivs von Corvane',by:'Ilen Maro',d:'17.10.2026',b:['Das Archiv wurde um 22:10 versiegelt. 14 Datenträger wurden in die Zelle Drei überführt.','Zwei Regale waren bereits [[von Unbefugten durchsucht]]. Spuren wurden gesichert.','Weitere Maßnahmen liegen bei der Leitung.']},
+ {t:'Report',ti:'Datenbeschaffung (Übertrag aus dem Zirkel-System)',by:'Ilen Maro',d:'16.10.2026',b:['Der Übertrag umfasst 312 Datensätze, davon 41 mit Bezug zu Personen im Register.','Die Quelle nannte als Gegenleistung [[Zugang zum Kanal der Zelle Fünf]]. Das wurde abgelehnt.','Die Daten liegen im Register zur Prüfung.']},
+ {t:'Order',ti:'Abgefangener Funkverkehr: Erhöhte Bedrohungslage',by:'Torvan Ashe',d:'05.10.2026',b:['Ab sofort gilt für alle Zellen erhöhte Bereitschaft. Funkdisziplin ist einzuhalten, Klartext nur im Notfall.','Anlass sind abgefangene Sprüche, die auf [[einen Angriff auf Station Dren]] hindeuten.','Rückmeldung der Zellenleiter bis 20:00 Uhr.']},
+ {t:'Dokument',ti:'Gutachten zur Machtsensitivität, Rhea Calder',by:'Sorin Valk',d:'04.10.2026',b:['Die Untersuchung ergab eine ungewöhnlich starke Resonanz bei Reizen unter der Wahrnehmungsschwelle.','Die Probandin zeigt keine Anzeichen von Beeinflussung, jedoch [[Träume, die Ereignisse vorwegnehmen]].','Eine Ausbildung im Orden wird empfohlen, sofern die Probandin zustimmt.']},
+ {t:'Order',ti:'Aufhebung der Anordnung 0-1-SR-ka9tz2',by:'Torvan Ashe',d:'30.09.2026',b:['Die Anordnung ist mit Wirkung zum heutigen Tag aufgehoben. Alle zugehörigen Sperren in Archiv und Funk werden entfernt.','Betroffene Zellen erhalten [[neue Zugangscodes]] über den üblichen Weg.']}
+];
+var ops=[
+ {n:'Operation Nachtfalter',c:'Zelle Drei',loc:'Tarnsektor 7',p:68,ph:3,risk:'mittel'},
+ {n:'Operation Stille Kluft',c:'Zelle Eins',loc:'Halden Reach',p:31,ph:2,risk:'hoch'},
+ {n:'Operation Dämmerwache',c:'Zelle Fünf',loc:'Cinder',p:92,ph:4,risk:'niedrig'}
+];
+var ticks=['LAGE: ERHÖHTE BEREITSCHAFT IN ALLEN ZELLEN','ZELLE DREI MELDET KONTAKT IN KEL VAROS','ARCHIV CORVANE VERSIEGELT','FUNKDISZIPLIN EINHALTEN, KLARTEXT NUR IM NOTFALL','SIGNATUR MIT DUNKLER PRÄSENZ IM SEKTOR 7','ZIRKEL-ÜBERTRAG: 312 DATENSÄTZE ZUR PRÜFUNG'];
+
+/* ---------- State ---------- */
+var S={alarm:false,phase:0,view:'dashboard',selP:null,selN:null,rep:0,tab:'Alle',
+  persons:DEF_PERSONS.map(function(p,i){var o=clone(p);o.id='d'+i;return o}),
+  map:clone(DEF_MAP),draft:null,editing:false,tool:'select',dirty:false,linkFrom:null,hovN:null,
+  add:false,db:null,canWrite:false,canMap:false,role:'Nur Lesen',who:'Agent',confirmDel:null,confirmNode:false,confirmDisc:false,loaded:false};
+function mapData(){return S.editing&&S.draft?S.draft:S.map}
+function find(id){for(var i=0;i<S.persons.length;i++)if(S.persons[i].id===id)return S.persons[i];return null}
+
+/* ---------- Toasts ---------- */
+function toast(msg,kind){
+  var t=document.createElement('div');t.className='toast '+(kind||'');t.textContent=msg;$('#toasts').appendChild(t);
+  setTimeout(function(){t.style.transition='opacity .4s';t.style.opacity='0';setTimeout(function(){t.remove()},450)},3600);
+}
+function writeErr(e){
+  if(e&&(e.code==='invalid_argument'||e.code==='revoked')){S.canWrite=false;S.canMap=false;if(S.editing)leaveEdit();applyRights();toast('Dir fehlen die Rechte für diese Änderung. Nichts wurde gespeichert.','red')}
+  else if(e&&e.code==='quota_exceeded')toast('Speicherlimit erreicht. Entferne zuerst Einträge.','red');
+  else toast('Speichern fehlgeschlagen. Bitte versuche es erneut.','red');
+}
+
+/* ---------- Boot ---------- */
+(function(){
+  var lines=['SCHATTEN-OS 4.3 · KALTSTART','> Prüfe Tarnidentität ............ OK','> Lade Personenregister .......... OK','> Prüfe Zugriffsrechte ........... OK','> Starte Radar, Sektor 7 ......... OK','> Zugriff wird protokolliert','','Willkommen zurück, Agent.'];
+  var el=$('#bootTxt'),i=0,boot=$('#boot');
+  function fin(){boot.classList.add('done')}
+  boot.addEventListener('click',fin);
+  if(reduce){fin();return}
+  (function step(){ if(i<lines.length){el.textContent+=lines[i++]+'\n';setTimeout(step,200)}else setTimeout(fin,500)})();
+})();
+
+/* ---------- Sternenfeld ---------- */
+var stars=[],sc=$('#stars'),sx=sc.getContext('2d'),mx=0,my=0;
+function sizeStars(){var d=Math.min(window.devicePixelRatio||1,2);sc.width=innerWidth*d;sc.height=innerHeight*d;sx.setTransform(d,0,0,d,0,0);
+  stars=[];var n=Math.round(innerWidth*innerHeight/9000);for(var i=0;i<n;i++)stars.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,z:rnd(.2,1),p:rnd(0,6.28)})}
+sizeStars();
+addEventListener('resize',sizeStars);
+addEventListener('pointermove',function(e){mx=(e.clientX/innerWidth-.5);my=(e.clientY/innerHeight-.5)});
+function drawStars(t){
+  sx.clearRect(0,0,innerWidth,innerHeight);
+  for(var i=0;i<stars.length;i++){var s=stars[i];
+    var x=s.x-mx*24*s.z,y=s.y-my*24*s.z,a=.25+.55*s.z*(.6+.4*Math.sin(t*.001*s.z*3+s.p));
+    sx.fillStyle=(S.alarm&&s.z>.85)?'rgba(251,77,109,'+a+')':'rgba(226,226,226,'+a+')';
+    sx.fillRect(x,y,s.z*1.8,s.z*1.8)}
+}
+
+/* ---------- Canvas-Registry ---------- */
+var cv=[];
+function reg(id,view,draw){var el=document.getElementById(id);var o={el:el,view:view,draw:draw,ctx:el.getContext('2d'),w:0,h:0};cv.push(o);return o}
+function fit(o){
+  var r=o.el.getBoundingClientRect();if(!r.width||!r.height)return false;
+  var d=Math.min(window.devicePixelRatio||1,2),W=Math.round(r.width*d),H=Math.round(r.height*d);
+  if(o.el.width!==W||o.el.height!==H){o.el.width=W;o.el.height=H}
+  o.ctx.setTransform(d,0,0,d,0,0);o.w=r.width;o.h=r.height;return true;
+}
+
+/* Radar */
+var blips=[{a:.6,d:.62,s:'Verbündet'},{a:2.3,d:.45,s:'Dunkel'},{a:3.4,d:.78,s:'Unklar'},{a:4.4,d:.5,s:'Verbündet'},{a:5.5,d:.72,s:'Dunkel'}];
+var extra=[{a:1.2,d:.85,s:'Dunkel'},{a:2.9,d:.35,s:'Dunkel'},{a:4.9,d:.9,s:'Dunkel'},{a:.1,d:.4,s:'Dunkel'}];
+function drawRadar(o,t){
+  var c=o.ctx,w=o.w,h=o.h,cx=w/2,cy=h/2,R=Math.min(w,h)/2-2;
+  c.clearRect(0,0,w,h);
+  var g=c.createRadialGradient(cx,cy,0,cx,cy,R);g.addColorStop(0,'#0c0c0c');g.addColorStop(1,'#000000');
+  c.fillStyle=g;c.beginPath();c.arc(cx,cy,R,0,6.283);c.fill();
+  var acc=S.alarm?'251,77,109':'190,190,190';
+  c.strokeStyle='rgba('+acc+',.35)';c.lineWidth=1;
+  for(var i=1;i<=4;i++){c.beginPath();c.arc(cx,cy,R*i/4,0,6.283);c.stroke()}
+  c.beginPath();c.moveTo(cx-R,cy);c.lineTo(cx+R,cy);c.moveTo(cx,cy-R);c.lineTo(cx,cy+R);c.stroke();
+  var sw=(t*.0014)%6.283;
+  for(var k=0;k<40;k++){var a0=sw-k*.025;c.strokeStyle='rgba(230,230,230,'+(.5*(1-k/40))+')';c.lineWidth=2;c.beginPath();c.moveTo(cx,cy);c.lineTo(cx+Math.cos(a0)*R,cy+Math.sin(a0)*R);c.stroke()}
+  var list=S.alarm?blips.concat(extra):blips;
+  list.forEach(function(b){
+    var diff=((sw-b.a)%6.283+6.283)%6.283,br=Math.max(.25,1-diff/6.283*1.2);
+    var x=cx+Math.cos(b.a)*R*b.d,y=cy+Math.sin(b.a)*R*b.d;
+    c.fillStyle=COL[b.s];c.globalAlpha=br;c.shadowColor=COL[b.s];c.shadowBlur=12;c.beginPath();c.arc(x,y,4.5,0,6.283);c.fill();c.shadowBlur=0;c.globalAlpha=1});
+  c.fillStyle='#fff';c.beginPath();c.arc(cx,cy,3,0,6.283);c.fill();
+  c.strokeStyle='rgba('+acc+',.8)';c.lineWidth=1.5;c.beginPath();c.arc(cx,cy,R,0,6.283);c.stroke();
+}
+reg('radar','dashboard',drawRadar);
+
+/* Karte */
+var mapHit=[];
+function drawMap(o,t){
+  var m=mapData(),c=o.ctx,w=o.w,h=o.h;c.clearRect(0,0,w,h);
+  c.strokeStyle='rgba(90,90,90,.25)';c.lineWidth=1;
+  for(var x=0;x<w;x+=40){c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke()}
+  for(var y=0;y<h;y+=40){c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke()}
+  var by={};m.nodes.forEach(function(n){by[n.k]=n});
+  var px=function(n){return {x:16+n.x*(w-32),y:24+n.y*(h-48)}};
+  c.setLineDash([5,7]);c.lineDashOffset=-(t*.02)%12;c.lineWidth=1.2;
+  m.edges.forEach(function(e){var A=by[e[0]],B=by[e[1]];if(!A||!B)return;var a=px(A),b=px(B);
+    var hot=S.selN&&(e[0]===S.selN||e[1]===S.selN);
+    c.strokeStyle=hot?'rgba(230,230,230,.9)':'rgba(190,190,190,.4)';c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke()});
+  c.setLineDash([]);
+  mapHit=[];
+  m.nodes.forEach(function(n,i){
+    var p=px(n),col=COL[n.s]||'#909090',sel=S.selN===n.k,hov=S.hovN===n.k;
+    mapHit.push({x:p.x,y:p.y,k:n.k});
+    var pulse=4+2*Math.sin(t*.003+i);
+    c.shadowColor=col;c.shadowBlur=sel||hov?24:12;c.fillStyle=col;c.beginPath();c.arc(p.x,p.y,sel?9:6.5,0,6.283);c.fill();c.shadowBlur=0;
+    c.strokeStyle=col;c.globalAlpha=.4;c.lineWidth=1;c.beginPath();c.arc(p.x,p.y,(sel?9:6.5)+pulse,0,6.283);c.stroke();c.globalAlpha=1;
+    if(sel){c.strokeStyle=S.linkFrom===n.k?'#909090':'#fff';c.lineWidth=1.5;c.beginPath();c.arc(p.x,p.y,16,0,6.283);c.stroke()}
+    c.fillStyle=sel||hov?'#fff':'#d0d0d0';c.font=(sel?'600 ':'')+'12px Chakra Petch, sans-serif';
+    var label=String(n.id||''),tw=c.measureText(label).width,tx=Math.min(Math.max(p.x-tw/2,4),w-tw-4);
+    c.fillText(label,tx,p.y+(p.y>h-40?-16:24));
+  });
+  if(S.editing){c.fillStyle='#909090';c.font='10px JetBrains Mono, monospace';c.fillText('BEARBEITUNGSMODUS'+(S.dirty?' · UNGESPEICHERT':''),10,16)}
+}
+var mapO=reg('map','karte',drawMap);
+
+var last=0;
+function loop(t){
+  if(!reduce||t-last>500){drawStars(t);cv.forEach(function(o){if(S.view===o.view&&fit(o))o.draw(o,t)});last=t}
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- Rechte ---------- */
+function applyRights(){
+  $('#whoPill').textContent=S.hosted?S.who:'Agent '+S.who;
+  $('#rolePill').textContent='Zugriff: '+S.role;
+  $('#addP').hidden=!S.canWrite;
+  syncMap();renderCards();renderRegister();
+}
+
+/* ---------- Dashboard ---------- */
+function renderGauges(){
+  var g=[
+   {l:'Dunkle Präsenz im Sektor',v:S.alarm?81:37,c:'#fb4d6d',c2:'#7f1d3a'},
+   {l:'Tarnung intakt',v:S.alarm?62:94,c:'#b0b0b0',c2:'#454545'},
+   {l:'Verschlüsselte Kanäle',v:100,c:'#c2c2c2',c2:'#595959',txt:'12 / 12'},
+   {l:'Machtstörung',v:S.alarm?90:60,c:'#909090',c2:'#4a4a4a',txt:S.alarm?'Stufe 5':'Stufe 3'}];
+  $('#gauges').innerHTML=g.map(function(x){return '<div class="gauge"><div class="l"><span>'+x.l+'</span><b style="color:'+x.c+'">'+(x.txt||x.v+' %')+'</b></div><div class="bar"><i style="width:'+x.v+'%;background:linear-gradient(90deg,'+x.c2+','+x.c+');box-shadow:0 0 14px '+x.c+'"></i></div></div>'}).join('');
+}
+function renderCards(){
+  var active=ops.filter(function(o){return o.p<100}).length;
+  var cs=[
+   {t:'PERSONENREGISTER',c:'SR-PR-01',n:[[String(S.persons.length),'Akten im Register']],d:'Personen- und Machtsensitiven-Datenbank',g:'Register öffnen',v:'register'},
+   {t:'BERICHTE',c:'SR-BE-02',n:[['134','Reports'],['21','Orders'],['11','Dokumente']],d:'Reports · Orders · Dokumente',g:'Berichte lesen',v:'berichte'},
+   {t:'OPERATIONEN',c:'SR-OP-03',n:[[String(active),'aktive Operationen']],d:'Laufende und archivierte Operationen',g:'Operationen verwalten',v:'ops'},
+   {t:'SCHATTENKARTE',c:'SR-KA-04',n:[[String(S.map.nodes.length),'Systeme im Blick']],d:'Sektor 7 und Umgebung',g:'Karte öffnen',v:'karte'},
+   {t:'SCHATTEN-OS',c:'SR-OS-05',n:[['44','aktive Agenten']],d:'Kommandoebene und Befehle',g:'Terminal starten',v:'terminal'},
+   {t:'ZUGRIFF',c:'SR-ZG-06',n:[[S.role,'deine Rolle']],d:'Personen: '+(S.canWrite?'bearbeiten':'nur lesen')+' · Karte: '+(S.canMap?'bearbeiten':'nur lesen'),g:S.hosted?'Rechte vergibt der Owner unter Konto':'Rechte vergibt der Owner über Teilen',v:null}];
+  $('#cards').innerHTML=cs.map(function(c){
+    var tag=c.v?'button':'div',attr=c.v?' data-go="'+c.v+'"':'',cls=c.v?'card':'card static';
+    return '<'+tag+' class="'+cls+'"'+attr+'><div class="top"><b>'+c.t+'</b><span>'+c.c+'</span></div><div style="display:flex;flex-wrap:wrap;gap:4px 22px">'+
+      c.n.map(function(n){return '<div><div class="n">'+esc(n[0])+'</div><div class="muted" style="font-size:12px">'+n[1]+'</div></div>'}).join('')+
+      '</div><div class="d">'+c.d+'</div><div class="go"><span>'+c.g+'</span><span>'+(c.v?'›':'')+'</span></div></'+tag+'>'}).join('');
+}
+function docItem(d,i){return '<button class="item" data-doc="'+i+'"><div class="r1"><span class="tag '+d.t.toLowerCase()+'">'+d.t+'</span><span class="dt">'+d.d+'</span></div><div class="ti">'+d.ti+'</div><div class="by">'+d.by+'</div></button>'}
+function renderDash(){
+  $('#dashDocs').innerHTML=reports.slice(0,5).map(docItem).join('');
+  renderOpsMini();
+}
+function renderOpsMini(){
+  $('#dashOps').innerHTML=ops.map(function(o){var col=o.p>=100?'#a4a4a4':(o.p>80?'#b0b0b0':(o.p>50?'#c2c2c2':'#909090'));
+    return '<div class="item"><div class="r1"><span class="ti">'+esc(o.n)+'</span><span class="mono" style="font-size:11px;color:'+col+'">'+Math.min(o.p,100)+'%</span></div><div class="bar" style="height:6px"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div><div class="by">'+esc(o.c)+' · '+esc(o.loc)+'</div></div>'}).join('')||'<div class="muted">Keine Operationen aktiv.</div>';
+}
+
+/* ---------- Register ---------- */
+function filtered(){
+  var q=$('#q').value.trim().toLowerCase(),fs=$('#fs').value,so=$('#so').value;
+  var l=S.persons.filter(function(p){
+    return (!fs||p.s===fs)&&(!q||((p.n||'')+' '+(p.l||'')+' '+(p.r||'')).toLowerCase().indexOf(q)>-1)});
+  var key=function(p){return String(p.seen||'').split('.').reverse().join('')};
+  l.sort(function(a,b){return so==='power'?num(b.p,0)-num(a.p,0):(so==='last'?(key(b)>key(a)?1:-1):String(a.n).localeCompare(String(b.n)))});
+  return l;
+}
+function renderLocs(){$('#locs').innerHTML=S.map.nodes.map(function(n){return '<option value="'+esc(n.id)+'">'}).join('')}
+function renderRegister(){
+  var l=filtered();
+  if(!S.add&&(S.selP===null||!find(S.selP)))S.selP=l.length?l[0].id:null;
+  $('#pBody').innerHTML=l.map(function(p){var c=COL[p.s]||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
+    return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b></td><td>'+esc(p.r)+'</td><td><span class="chip '+(CHIP[p.s]||'amber')+'">'+esc(p.s)+'</span></td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Akten gefunden.</td></tr>';
+  $('#pCount').textContent=l.length+' von '+S.persons.length+' Akten';
+  $('#regLead').textContent=S.canWrite?'Du kannst Akten hinzufügen, ändern und entfernen. Änderungen sehen alle sofort.':'Du hast Lesezugriff. Akten ändern dürfen nur Personen mit Contributor- oder Editor-Rechten.';
+  renderDetail();
+}
+function renderDetail(){
+  var el=$('#pDetail');
+  if(S.add&&S.canWrite){
+    el.innerHTML='<h2>Neue Akte</h2><form id="addForm" class="addf" autocomplete="off">'+
+     '<div class="field"><label for="nName">NAME</label><input id="nName" type="text" maxlength="40" required></div>'+
+     '<div class="field"><label for="nRank">RANG</label><select id="nRank">'+RANKS.map(function(r){return '<option>'+r+'</option>'}).join('')+'</select></div>'+
+     '<div class="field"><label for="nState">STATUS</label><select id="nState">'+STATES.map(function(r){return '<option>'+r+'</option>'}).join('')+'</select></div>'+
+     '<div class="field"><label for="nPow">MACHTLEVEL <b id="nPowV" class="mono" style="color:var(--cyan)">50</b></label><input id="nPow" type="range" min="0" max="100" value="50"></div>'+
+     '<div class="field"><label for="nLoc">ORT</label><input id="nLoc" type="text" maxlength="40" list="locs" placeholder="System wählen oder eintippen"></div>'+
+     '<div class="field"><label for="nNote">NOTIZ</label><textarea id="nNote" rows="3" maxlength="300"></textarea></div>'+
+     '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="submit">Akte anlegen</button><button class="btn ghost" type="button" data-act="cancelAdd">Abbrechen</button></div></form>';
+    return;
+  }
+  var p=find(S.selP);
+  if(!p){
+    el.innerHTML='<h2>Keine Akte gewählt</h2><p class="muted" style="margin:0">'+(S.persons.length?'Wähle links eine Akte.':'Das Register ist leer.')+'</p>'+
+      (!S.persons.length&&S.canWrite?'<div><button class="btn sm" data-act="seed">Standarddaten laden</button></div>':'');
+    return;
+  }
+  var ini=String(p.n||'?').replace('Dr. ','').split(' ').map(function(x){return x[0]||''}).join('').slice(0,3),col=COL[p.s]||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
+  el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2><span class="chip '+(CHIP[p.s]||'amber')+'" style="margin-top:6px">'+esc(p.s)+'</span>'+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+'</div></div>'+
+   '<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd><dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
+   '<div class="gauge"><div class="l"><span>Machtlevel</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
+   (S.canWrite?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm ghost" data-act="contact">Kontakt aufnehmen</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
+   '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Zum Ändern brauchst du Contributor- oder Editor-Rechte.</p>');
+}
+['q','fs','so'].forEach(function(id){$('#'+id).addEventListener('input',renderRegister)});
+$('#pBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;S.confirmDel=null;renderRegister()}});
+$('#pBody').addEventListener('keydown',function(e){if(e.key==='Enter'){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;renderRegister()}}});
+$('#addP').addEventListener('click',function(){S.add=true;renderRegister();var n=$('#nName');if(n)n.focus()});
+function today(){var d=new Date();return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'}
+$('#pDetail').addEventListener('input',function(e){if(e.target.id==='nPow')$('#nPowV').textContent=e.target.value});
+$('#pDetail').addEventListener('submit',function(e){
+  e.preventDefault();if(!S.db||!S.canWrite)return;
+  var n=$('#nName').value.trim();if(!n)return;
+  var data={n:n,r:$('#nRank').value,s:$('#nState').value,p:num($('#nPow').value,50),l:$('#nLoc').value.trim()||'Unbekannt',seen:today(),note:$('#nNote').value.trim()||'Keine Notiz.',watch:false,ts:Date.now()};
+  S.db.collection('persons').add(data).then(function(ref){S.add=false;S.selP=ref.id;toast(n+' wurde ins Register aufgenommen.','cyan');renderRegister()}).catch(writeErr);
+});
+$('#pDetail').addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act;
+  if(a==='cancelAdd'){S.add=false;renderRegister();return}
+  if(a==='seed'){seedDefaults();return}
+  var p=find(S.selP);if(!p||!S.db||!S.canWrite)return;var ref=S.db.collection('persons').doc(p.id);
+  if(a==='watch')ref.update({watch:!p.watch}).then(function(){toast(!p.watch?p.n+' wird beschattet.':'Beschattung von '+p.n+' beendet.','cyan')}).catch(writeErr);
+  if(a==='contact')toast('Verschlüsselte Anfrage an '+p.n+' gesendet.');
+  if(a==='flag')ref.update({s:'Dunkel'}).then(function(){toast(p.n+' als Gefahr markiert.','red')}).catch(writeErr);
+  if(a==='remove'){
+    if(S.confirmDel!==p.id){S.confirmDel=p.id;renderDetail();setTimeout(function(){if(S.confirmDel===p.id){S.confirmDel=null;renderDetail()}},4000);return}
+    S.confirmDel=null;ref.delete().then(function(){S.selP=null;toast(p.n+' wurde aus dem Register entfernt.','red')}).catch(writeErr);
+  }
+});
+function seedDefaults(){
+  if(!S.db||!S.canWrite)return;toast('Standarddaten werden geladen.');
+  DEF_PERSONS.reduce(function(pr,p){return pr.then(function(){var o=clone(p);o.watch=false;o.ts=Date.now();return S.db.collection('persons').add(o)})},Promise.resolve()).catch(writeErr);
+}
+
+/* ---------- Berichte ---------- */
+function rx(s){return s.replace(/\[\[(.+?)\]\]/g,'<span class="rx">$1</span>')}
+function renderReports(){
+  var tabs=['Alle','Report','Order','Dokument'];
+  $('#rTabs').innerHTML=tabs.map(function(t){return '<button data-tab="'+t+'" aria-pressed="'+(S.tab===t)+'">'+t+'</button>'}).join('');
+  $('#rList').innerHTML=reports.map(function(d,i){return {d:d,i:i}}).filter(function(x){return S.tab==='Alle'||x.d.t===S.tab}).map(function(x){
+    return docItem(x.d,x.i).replace('class="item"','class="item'+(S.rep===x.i?' sel':'')+'"').replace('data-doc','data-rep')}).join('');
+  var d=reports[S.rep],open=$('#reader').classList.contains('open');
+  $('#reader').innerHTML='<div class="ph"><span class="tag '+d.t.toLowerCase()+'">'+d.t+'</span><span class="dt">'+d.d+'</span></div><h3>'+d.ti+'</h3><div class="by muted">'+d.by+'</div>'+d.b.map(function(p){return '<p>'+rx(p)+'</p>'}).join('')+
+    '<div><button class="btn sm" data-act="declass">'+(open?'Wieder schwärzen':'Deklassifizieren')+'</button></div>';
+}
+$('#rTabs').addEventListener('click',function(e){var b=e.target.closest('[data-tab]');if(b){S.tab=b.dataset.tab;renderReports()}});
+$('#rList').addEventListener('click',function(e){var b=e.target.closest('[data-rep]');if(b){S.rep=+b.dataset.rep;$('#reader').classList.remove('open');renderReports()}});
+$('#reader').addEventListener('click',function(e){if(e.target.closest('[data-act=declass]')){var r=$('#reader');r.classList.toggle('open');toast(r.classList.contains('open')?'Freigabe erteilt: Schwärzungen aufgehoben.':'Schwärzungen wiederhergestellt.',r.classList.contains('open')?'cyan':'');renderReports()}});
+$('#dashDocs').addEventListener('click',function(e){var b=e.target.closest('[data-doc]');if(b){S.rep=+b.dataset.doc;$('#reader').classList.remove('open');go('berichte')}});
+
+/* ---------- Karte: Anzeige ---------- */
+function nodeAt(e){var r=mapO.el.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,best=null,bd=22;
+  mapHit.forEach(function(h){var d=Math.hypot(h.x-x,h.y-y);if(d<bd){bd=d;best=h.k}});return best}
+function nodeByKey(k){var n=mapData().nodes;for(var i=0;i<n.length;i++)if(n[i].k===k)return n[i];return null}
+function renderNode(){
+  var el=$('#nodeInfo'),m=mapData(),n=S.selN?nodeByKey(S.selN):null;
+  if(S.selN&&!n)S.selN=null;
+  if(S.editing){
+    if(!n){el.innerHTML='<h2>Bearbeitungsmodus</h2><p class="muted" style="margin:0">Wähle ein System zum Ändern, ziehe es an eine neue Position oder setze mit „System setzen“ ein neues.</p>';return}
+    el.innerHTML='<h2>System bearbeiten</h2>'+
+     '<div class="field"><label for="eName">NAME</label><input id="eName" type="text" maxlength="40" value="'+esc(n.id)+'"></div>'+
+     '<div class="field"><label for="eState">STATUS</label><select id="eState">'+STATES.map(function(s){return '<option'+(s===n.s?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
+     '<div class="field"><label for="eInfo">LAGE</label><textarea id="eInfo" rows="4" maxlength="300">'+esc(n.i)+'</textarea></div>'+
+     '<div><button class="btn sm danger" data-act="delNode">'+(S.confirmNode?'Wirklich löschen?':'System löschen')+'</button></div>';
+    return;
+  }
+  if(!n){el.innerHTML='<h2>Kein System gewählt</h2><p class="muted" style="margin:0">Klicke auf einen Punkt der Karte. Verbindungen des Systems leuchten auf.</p>';return}
+  var links=m.edges.filter(function(e){return e[0]===n.k||e[1]===n.k}).map(function(e){var o=nodeByKey(e[0]===n.k?e[1]:e[0]);return o?esc(o.id):''}).filter(Boolean);
+  el.innerHTML='<div class="ph"><h2 style="overflow-wrap:anywhere">'+esc(n.id)+'</h2><span class="chip '+(CHIP[n.s]||'amber')+'">'+esc(n.s)+'</span></div><p style="margin:0;color:#e0e0e0;overflow-wrap:anywhere">'+esc(n.i)+'</p><dl class="kv"><dt>Routen</dt><dd>'+(links.join(', ')||'keine')+'</dd></dl><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="send">Zelle entsenden</button><button class="btn sm ghost" data-act="scan">Scannen</button></div>';
+}
+$('#nodeInfo').addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act,n=S.selN?nodeByKey(S.selN):null;if(!n)return;
+  if(a==='delNode'){
+    if(!S.confirmNode){S.confirmNode=true;renderNode();setTimeout(function(){if(S.confirmNode){S.confirmNode=false;if(S.editing)renderNode()}},4000);return}
+    S.draft.nodes=S.draft.nodes.filter(function(x){return x.k!==n.k});
+    S.draft.edges=S.draft.edges.filter(function(x){return x[0]!==n.k&&x[1]!==n.k});
+    S.selN=null;S.confirmNode=false;markDirty();renderNode();return;
+  }
+  if(a==='send')newOp(n);
+  if(a==='scan')toast('Scan von '+n.id+': '+(n.s==='Dunkel'?'dunkle Präsenz bestätigt.':(n.s==='Unklar'?'Signaturen uneindeutig.':'keine Auffälligkeiten.')),n.s==='Dunkel'?'red':'cyan');
+});
+$('#nodeInfo').addEventListener('input',function(e){
+  if(!S.editing)return;var n=nodeByKey(S.selN);if(!n)return;
+  if(e.target.id==='eName')n.id=e.target.value;
+  if(e.target.id==='eState')n.s=e.target.value;
+  if(e.target.id==='eInfo')n.i=e.target.value;
+  markDirty();
+});
+
+/* ---------- Karte: Editor (nur mit Editor-Recht) ---------- */
+function syncMap(){
+  var ed=S.editing;
+  $('#mEdit').hidden=ed||!S.canMap;
+  $('#mapBar').hidden=!ed;
+  mapO.el.classList.toggle('editing',ed);
+  $('#mAdd').setAttribute('aria-pressed',String(S.tool==='add'));
+  $('#mLink').setAttribute('aria-pressed',String(S.tool==='link'));
+  $('#mSave').disabled=!S.dirty;
+  $('#mDiscard').textContent=S.confirmDisc?'Wirklich verwerfen?':(S.dirty?'Verwerfen':'Abbrechen');
+  $('#mHint').textContent=S.tool==='add'?'Klicke auf die Karte, um ein neues System zu setzen.':(S.tool==='link'?(S.linkFrom?'Wähle das zweite System. Besteht die Route schon, wird sie entfernt.':'Wähle das erste System der Route.'):'Ziehe Systeme an eine neue Position oder wähle eines zum Bearbeiten.');
+  $('#mapLead').textContent=S.canMap?'Wähle ein System. Mit „Karte bearbeiten“ passt du Systeme und Routen an.':'Wähle ein System, um Lage und Einsatzoptionen zu sehen. Bearbeiten dürfen nur Personen mit Editor-Rechten.';
+}
+function markDirty(){S.dirty=true;S.confirmDisc=false;syncMap()}
+function enterEdit(){
+  if(!S.canMap)return;S.editing=true;S.draft=clone(S.map);S.tool='select';S.dirty=false;S.linkFrom=null;S.confirmNode=false;S.confirmDisc=false;syncMap();renderNode();
+}
+function leaveEdit(){S.editing=false;S.draft=null;S.tool='select';S.dirty=false;S.linkFrom=null;S.confirmNode=false;S.confirmDisc=false;syncMap();renderNode();renderLocs()}
+function setTool(t){S.tool=S.tool===t?'select':t;S.linkFrom=null;syncMap()}
+function newKey(){return 'n'+Date.now().toString(36)+Math.floor(Math.random()*1000).toString(36)}
+function toggleEdge(a,b){
+  var ed=S.draft.edges,i=-1;
+  for(var j=0;j<ed.length;j++)if((ed[j][0]===a&&ed[j][1]===b)||(ed[j][0]===b&&ed[j][1]===a))i=j;
+  if(i>-1){ed.splice(i,1);toast('Route entfernt.')}else{ed.push([a,b]);toast('Route gezogen.','cyan')}
+  markDirty();
+}
+function saveMap(){
+  if(!S.editing||!S.dirty||!S.db||!S.canMap)return;
+  var d=S.draft;
+  if(d.nodes.some(function(n){return !String(n.id).trim()})){toast('Jedes System braucht einen Namen.','red');return}
+  if(d.nodes.length>60){toast('Maximal 60 Systeme.','red');return}
+  S.db.doc('map/layout').set({nodes:d.nodes.map(function(n){return {k:n.k,id:String(n.id).trim(),x:+n.x,y:+n.y,s:n.s,i:String(n.i||'')}}),edges:d.edges,rev:Date.now()}).then(function(){
+    S.map=clone(d);leaveEdit();toast('Karte gespeichert. Alle sehen die neue Lage.','cyan');renderCards();
+  }).catch(writeErr);
+}
+$('#mEdit').addEventListener('click',enterEdit);
+$('#mAdd').addEventListener('click',function(){setTool('add')});
+$('#mLink').addEventListener('click',function(){setTool('link')});
+$('#mSave').addEventListener('click',saveMap);
+$('#mDiscard').addEventListener('click',function(){
+  if(S.dirty&&!S.confirmDisc){S.confirmDisc=true;syncMap();setTimeout(function(){if(S.confirmDisc){S.confirmDisc=false;syncMap()}},4000);return}
+  leaveEdit();toast('Änderungen verworfen.');
+});
+var drag=null;
+mapO.el.addEventListener('pointerdown',function(e){
+  if(!S.editing)return;
+  var k=nodeAt(e);
+  if(S.tool==='add'){
+    if(k!==null)return;
+    var r=mapO.el.getBoundingClientRect(),w=mapO.w,h=mapO.h;
+    var x=Math.min(.98,Math.max(.02,(e.clientX-r.left-16)/(w-32))),y=Math.min(.98,Math.max(.02,(e.clientY-r.top-24)/(h-48)));
+    if(S.draft.nodes.length>=60){toast('Maximal 60 Systeme.','red');return}
+    var n={k:newKey(),id:'Neues System',x:x,y:y,s:'Unklar',i:'Noch keine Lage bekannt.'};
+    S.draft.nodes.push(n);S.selN=n.k;S.tool='select';markDirty();renderNode();
+    var inp=$('#eName');if(inp){inp.focus();inp.select()}
+    return;
+  }
+  if(S.tool==='link'){
+    if(k===null){S.linkFrom=null;syncMap();return}
+    if(!S.linkFrom){S.linkFrom=k;S.selN=k}
+    else if(S.linkFrom!==k){toggleEdge(S.linkFrom,k);S.linkFrom=null;S.selN=k}
+    else S.linkFrom=null;
+    syncMap();renderNode();return;
+  }
+  S.selN=k;S.confirmNode=false;
+  if(k!==null){drag={k:k};try{mapO.el.setPointerCapture(e.pointerId)}catch(x){}}
+  renderNode();
+});
+mapO.el.addEventListener('pointermove',function(e){
+  if(drag&&S.editing){
+    var n=nodeByKey(drag.k);if(!n)return;
+    var r=mapO.el.getBoundingClientRect(),w=mapO.w,h=mapO.h;
+    n.x=Math.min(.98,Math.max(.02,(e.clientX-r.left-16)/(w-32)));n.y=Math.min(.98,Math.max(.02,(e.clientY-r.top-24)/(h-48)));
+    if(!S.dirty)markDirty();else S.dirty=true;
+    return;
+  }
+  S.hovN=nodeAt(e);this.style.cursor=S.hovN!==null?(S.editing?'grab':'pointer'):'crosshair';
+});
+function endDrag(){drag=null}
+mapO.el.addEventListener('pointerup',endDrag);mapO.el.addEventListener('pointercancel',endDrag);
+mapO.el.addEventListener('click',function(e){if(S.editing)return;S.selN=nodeAt(e);renderNode()});
+
+/* ---------- Operationen ---------- */
+var cells=['Zelle Eins','Zelle Zwei','Zelle Drei','Zelle Vier','Zelle Fünf'],opNames=['Falkenauge','Aschenwind','Schwarzglas','Morgenrot','Stummer Ruf','Nebelpfad'];
+function newOp(n){
+  if(ops.some(function(o){return o.loc===n.id&&o.p<100})){toast('In '+n.id+' läuft bereits eine Operation.','red');return}
+  ops.push({n:'Operation '+pick(opNames),c:pick(cells),loc:n.id,p:5,ph:1,risk:n.s==='Dunkel'?'hoch':'mittel'});
+  toast('Zelle nach '+n.id+' entsandt. Operation gestartet.','cyan');renderOps();renderOpsMini();renderCards();
+}
+function renderOps(){
+  $('#opsGrid').innerHTML=ops.map(function(o,i){
+    var done=o.p>=100,col=done?'#a4a4a4':(o.risk==='hoch'?'#fb4d6d':'#c2c2c2');
+    return '<div class="op"><div class="ph"><span class="nm">'+esc(o.n)+'</span><span class="chip '+(done?'cyan':(o.risk==='hoch'?'red':'vio'))+'">'+(done?'Abgeschlossen':'Risiko '+o.risk)+'</span></div>'+
+     '<div class="meta">'+esc(o.c)+' · '+esc(o.loc)+'</div><div class="phases" aria-hidden="true">'+[1,2,3,4].map(function(k){return '<i class="'+(k<=o.ph?'on':'')+'"></i>'}).join('')+'</div>'+
+     '<div class="gauge"><div class="l"><span>Fortschritt · Phase '+Math.min(o.ph,4)+' von 4</span><b style="color:'+col+'">'+Math.min(o.p,100)+'%</b></div><div class="bar"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
+     '<div class="acts">'+(done?'<button class="btn sm ghost" data-op="'+i+'" data-a="archive">Archivieren</button>':'<button class="btn sm" data-op="'+i+'" data-a="adv">Phase vorantreiben</button><button class="btn sm danger" data-op="'+i+'" data-a="abort">Abbrechen</button>')+'</div></div>'}).join('')||'<div class="panel muted">Keine Operationen aktiv. Wähle auf der Schattenkarte ein System.</div>';
+}
+$('#opsGrid').addEventListener('click',function(e){
+  var b=e.target.closest('[data-op]');if(!b)return;var i=+b.dataset.op,o=ops[i];
+  if(b.dataset.a==='adv'){o.p=Math.min(100,o.p+Math.round(rnd(9,19)));o.ph=Math.min(4,Math.max(o.ph,Math.ceil(o.p/25)));if(o.p>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')}
+  else if(b.dataset.a==='abort'){ops.splice(i,1);toast(o.n+' abgebrochen. Zelle zurückbeordert.','red')}
+  else if(b.dataset.a==='archive'){ops.splice(i,1);toast(o.n+' archiviert.')}
+  renderOps();renderOpsMini();renderCards();
+});
+
+/* ---------- UMBRA ---------- */
+var umText=['Löst die Evakuierung aller Schatten-Zellen aus und versiegelt die Archive.','Letzte Warnung: Alle aktiven Agenten werden sofort abgerufen. Erneut drücken zum Auslösen.','Alle Zellen alarmiert. Archive versiegelt, Zugänge gesperrt.'];
+function setPhase(p){
+  S.phase=p;var chip=$('#umChip'),btn=$('#umBtn');
+  chip.className='chip '+['cyan','amber','red'][p];chip.querySelector('span').textContent=['Bereit','Bestätigung erforderlich','UMBRA ausgelöst'][p];
+  btn.textContent=['→ Notfall vorbereiten','⚠ Jetzt auslösen','■ Protokoll beenden'][p];
+  $('#umCancel').hidden=p!==1;$('#umHint').textContent=umText[p];
+  var alarm=p===2;
+  if(alarm!==S.alarm){S.alarm=alarm;document.documentElement.classList.toggle('alarm',alarm);
+    $('#stTxt').textContent=alarm?'UMBRA aktiv':'Einsatzbereit';$('.status .ok').style.color=alarm?'var(--red)':'';
+    $('#radTxt').textContent=alarm?'Neun Signaturen im Radius, sechs davon mit dunkler Präsenz. Alle Zellen alarmiert.':'Fünf Signaturen im Radius, zwei davon mit dunkler Präsenz. Aktualisierung alle 4,5 Sekunden.';
+    toast(alarm?'UMBRA ausgelöst. Alle Zellen alarmiert.':'UMBRA beendet. Lage normalisiert.',alarm?'red':'cyan');renderGauges()}
+}
+$('#umBtn').addEventListener('click',function(){setPhase(S.phase===0?1:(S.phase===1?2:0))});
+$('#umCancel').addEventListener('click',function(){setPhase(0)});
+
+/* ---------- Terminal ---------- */
+var out=$('#termOut'),hist=[],hi=0;
+function say(t,c){var d=document.createElement('div');d.className='ln '+(c||'');d.textContent=t;out.appendChild(d);var tm=$('#term');tm.scrollTop=tm.scrollHeight}
+function typeLines(arr,c,i){i=i||0;if(i<arr.length){say(arr[i],c);setTimeout(function(){typeLines(arr,c,i+1)},reduce?0:140)}}
+var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,terminal:1,konto:1};
+var CMD={
+ help:function(){typeLines(['help          diese Übersicht','status        Lage und Zähler','scan          Sektor 7 scannen','agents        Schatten im Register','ops           laufende Operationen','rechte        deine Zugriffsrechte','umbra on|off Notfallprotokoll schalten','go <ansicht>  dashboard, register, berichte, karte, ops','whoami        Kennung anzeigen','clear         Bildschirm leeren'],'hl')},
+ status:function(){say('Lage: '+(S.alarm?'UMBRA AKTIV':'bereit'),S.alarm?'er':'ok');say('Operationen aktiv: '+ops.filter(function(o){return o.p<100}).length);say('Akten im Register: '+S.persons.length);say('Systeme auf der Karte: '+S.map.nodes.length);say('Dunkle Präsenz: '+(S.alarm?81:37)+' %')},
+ scan:function(){typeLines(['Scanne Sektor 7 ...','▓▓▓▓▓▓▓▓▓▓ 100%','Signaturen: '+(S.alarm?9:5)+' (dunkel: '+(S.alarm?6:2)+')','Nächstes Ziel: Umbra Gate, Entfernung 2,4 Parsec'],'ok')},
+ agents:function(){var l=S.persons.filter(function(p){return /Schatten/.test(p.r)}).slice(0,6);if(!l.length)say('Keine Schatten im Register.');l.forEach(function(p){say(String(p.n).padEnd(18)+String(p.r).padEnd(18)+p.l)})},
+ ops:function(){if(!ops.length)say('Keine Operationen.');ops.forEach(function(o){say(o.n.padEnd(26)+(Math.min(o.p,100)+'%').padEnd(6)+o.c)})},
+ rechte:function(){say('Rolle: '+S.role,'ok');say('Akten ändern: '+(S.canWrite?'ja':'nein'));say('Karte bearbeiten: '+(S.canMap?'ja':'nein'))},
+ whoami:function(){say('Agent '+S.who+' · Rolle '+S.role,'ok')},
+ clear:function(){out.innerHTML=''},
+ sudo:function(){say('Zugriff verweigert. Dieser Vorfall wird gemeldet.','er')},
+ umbra:function(a){if(a[0]==='on'){setPhase(2);say('UMBRA ausgelöst.','er')}else if(a[0]==='off'){setPhase(0);say('UMBRA beendet.','ok')}else say('Verwendung: umbra on | umbra off','er')},
+ go:function(a){if(VIEWS[a[0]]){say('Wechsle zu '+a[0]+' ...','ok');go(a[0])}else say('Unbekannte Ansicht. Siehe help.','er')}
+};
+function runCmd(raw){
+  var parts=raw.trim().split(/\s+/),c=parts[0].toLowerCase();if(!c)return;
+  say($('#termPs').textContent+' '+raw,'in');
+  if(CMD.hasOwnProperty(c))CMD[c](parts.slice(1));else say('Unbekannter Befehl: '+c+'. Tippe help.','er');
+}
+$('#termForm').addEventListener('submit',function(e){e.preventDefault();var v=$('#termIn').value;if(v.trim()){hist.push(v);hi=hist.length}$('#termIn').value='';runCmd(v)});
+$('#termIn').addEventListener('keydown',function(e){
+  if(e.key==='ArrowUp'&&hist.length){hi=Math.max(0,hi-1);this.value=hist[hi];e.preventDefault()}
+  if(e.key==='ArrowDown'&&hist.length){hi=Math.min(hist.length,hi+1);this.value=hist[hi]||'';e.preventDefault()}
+});
+$('#term').addEventListener('click',function(e){if(!window.getSelection().toString())$('#termIn').focus()});
+say('SCHATTEN-OS 4.3 · Sitzung gestartet','ok');say('Tippe help für alle Befehle.');
+
+/* ---------- Palette ---------- */
+function acts(){
+  var a=[
+   {l:'Dashboard',k:'Ansicht',f:function(){go('dashboard')}},{l:'Personenregister',k:'Ansicht',f:function(){go('register')}},
+   {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Schattenkarte',k:'Ansicht',f:function(){go('karte')}},
+   {l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Terminal',k:'Ansicht',f:function(){go('terminal')}},
+   {l:'UMBRA auslösen',k:'Aktion',f:function(){setPhase(2)}},{l:'UMBRA beenden',k:'Aktion',f:function(){setPhase(0)}}];
+  if(S.canWrite)a.push({l:'Person hinzufügen',k:'Aktion',f:function(){go('register');$('#addP').click()}});
+  if(S.canMap)a.push({l:'Karte bearbeiten',k:'Aktion',f:function(){go('karte');enterEdit()}});
+  return a;
+}
+var palSel=0,palItems=[];
+function renderPal(){
+  var q=$('#palIn').value.toLowerCase();palItems=acts().filter(function(a){return a.l.toLowerCase().indexOf(q)>-1});palSel=Math.min(palSel,Math.max(palItems.length-1,0));
+  $('#palList').innerHTML=palItems.map(function(a,i){return '<li><button class="'+(i===palSel?'on':'')+'" data-i="'+i+'"><span>'+a.l+'</span><span class="mono muted" style="font-size:10px">'+a.k+'</span></button></li>'}).join('')||'<li class="muted" style="padding:10px 12px">Nichts gefunden.</li>';
+}
+function openPal(){$('#pal').hidden=false;$('#palIn').value='';palSel=0;renderPal();$('#palIn').focus()}
+function closePal(){$('#pal').hidden=true}
+function runPal(i){var a=palItems[i];if(a){closePal();a.f()}}
+$('#palIn').addEventListener('input',function(){palSel=0;renderPal()});
+$('#palIn').addEventListener('keydown',function(e){
+  if(e.key==='ArrowDown'){palSel=Math.min(palItems.length-1,palSel+1);renderPal();e.preventDefault()}
+  if(e.key==='ArrowUp'){palSel=Math.max(0,palSel-1);renderPal();e.preventDefault()}
+  if(e.key==='Enter')runPal(palSel);
+});
+$('#palList').addEventListener('click',function(e){var b=e.target.closest('[data-i]');if(b)runPal(+b.dataset.i)});
+$('#pal').addEventListener('click',function(e){if(e.target===this)closePal()});
+addEventListener('keydown',function(e){
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#pal').hidden?openPal():closePal()}
+  if(e.key==='Escape')closePal();
+});
+
+/* ---------- Navigation ---------- */
+function go(v){
+  if(!VIEWS[v])v='dashboard';S.view=v;
+  $$('.view').forEach(function(s){s.hidden=s.id!=='v-'+v});
+  $$('#nav button').forEach(function(b){b.setAttribute('aria-current',b.dataset.nav===v?'page':'false')});
+  if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();
+  if(v==='dashboard'){renderDash();renderCards()}
+  if(v==='terminal')setTimeout(function(){$('#termIn').focus({preventScroll:true})},0);
+  if(location.hash!=='#'+v){try{location.hash=v}catch(e){}}
+  window.scrollTo(0,0);
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-nav],[data-go]');if(b)go(b.dataset.nav||b.dataset.go);
+});
+addEventListener('hashchange',function(){var v=location.hash.replace('#','');if(v&&v!==S.view)go(v)});
+
+/* ---------- Uhr, Ticker ---------- */
+function tickClock(){var d=new Date();$('#clock').textContent=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())}
+tickClock();setInterval(tickClock,1000);
+$('#tick').innerHTML=ticks.concat(ticks).map(function(t){return '<span>'+t+'</span>'}).join('');
+
+/* ---------- Zugriff und gemeinsame Daten ---------- */
+async function initAccess(){
+  var c=window.claude;if(!c||!c.use){initHosted();return}
+  var user=null,db=null;
+  try{user=await c.use('user')}catch(e){}
+  try{db=await c.use('db')}catch(e){}
+  S.db=db;
+  var owner=false,edit=false,dw=null,me=null;
+  if(user){
+    try{owner=await user.isOwner();edit=await user.canEdit();dw=await user.can('data.write');me=await user.me()}catch(e){}
+  }
+  S.who=(me&&me.name)||'Nyx Varen';
+  if(!db){S.role='Nur Lesen';S.canWrite=false;S.canMap=false}
+  else{
+    S.canMap=!!edit;
+    S.canWrite=!!edit||dw===true||(dw===null&&!!user);
+    S.role=owner?'Owner':(edit?'Editor':(dw===true?'Contributor':(dw===false?'Viewer':'Gast')));
+  }
+  applyRights();
+  if(!db)return;
+  db.collection('persons').onSnapshot(function(snap){
+    S.persons=snap.docs.map(function(d){var o=Object.assign({},d.data());o.id=d.id;return o});S.loaded=true;
+    if(S.selP&&!find(S.selP))S.selP=null;
+    renderRegister();renderCards();
+  },function(){toast('Das Personenregister konnte nicht live geladen werden.','red')});
+  db.doc('map/layout').onSnapshot(function(snap){
+    if(snap.exists){var d=snap.data();S.map={nodes:clone(d.nodes||[]),edges:clone(d.edges||[])}}
+    else S.map=clone(DEF_MAP);
+    if(!S.editing){if(S.selN&&!nodeByKey(S.selN))S.selN=null;if(S.view==='karte')renderNode()}
+    renderLocs();renderCards();
+  },function(){toast('Die Karte konnte nicht live geladen werden.','red')});
+}
+
+/* ---------- Eigenes Hosting: Anmeldung über den Server ---------- */
+var H={user:null,rev:0,timer:null};
+function api(method,url,body){
+  var o={method:method,credentials:'same-origin',headers:{'X-Requested-With':'shadow-net'}};
+  if(body!==undefined||method!=='GET'){o.headers['Content-Type']='application/json';o.body=JSON.stringify(body===undefined?{}:body)}
+  return fetch(url,o).then(function(r){
+    return r.text().then(function(t){
+      var j=null;try{j=JSON.parse(t)}catch(e){}
+      if(j===null)throw {code:'no_api',status:r.status};
+      if(!r.ok){
+        if(r.status===401&&H.user){H.user=null;showLogin()}
+        throw {status:r.status,code:r.status===403?'invalid_argument':'error',message:j.error||''};
+      }
+      return j;
+    });
+  });
+}
+function loadData(force){
+  return api('GET','/api/data?since='+(force?0:H.rev)).then(function(j){
+    if(j.same)return;
+    H.rev=j.rev;S.persons=j.persons||[];S.loaded=true;
+    if(S.selP&&!find(S.selP))S.selP=null;
+    if(j.map)S.map={nodes:clone(j.map.nodes||[]),edges:clone(j.map.edges||[])};
+    if(!S.editing){if(S.selN&&!nodeByKey(S.selN))S.selN=null;if(S.view==='karte')renderNode()}
+    renderLocs();renderRegister();renderCards();
+  }).catch(function(){});
+}
+var hostedDb={
+  collection:function(){return {
+    add:function(d){return api('POST','/api/persons',d).then(function(j){return loadData(true).then(function(){return {id:j.id}})})},
+    doc:function(id){var u='/api/persons/'+encodeURIComponent(id);return {
+      update:function(d){return api('PATCH',u,d).then(function(){return loadData(true)})},
+      delete:function(){return api('DELETE',u).then(function(){return loadData(true)})}}}
+  }},
+  doc:function(){return {set:function(d){return api('PUT','/api/map',d).then(function(){return loadData(true)})}}}
+};
+function startHosted(u){
+  H.user=u;S.hosted=true;S.db=hostedDb;S.who=u.name;
+  var lv={viewer:1,agent:2,editor:3,owner:4}[u.role]||1;
+  S.canWrite=lv>=2;S.canMap=lv>=3;
+  S.role={owner:'Owner',editor:'Editor',agent:'Contributor',viewer:'Viewer'}[u.role]||'Viewer';
+  $('#login').hidden=true;$('#logoutBtn').hidden=false;$('#navKonto').hidden=false;
+  applyRights();loadData(true);
+  clearInterval(H.timer);H.timer=setInterval(function(){if(!document.hidden)loadData(false)},5000);
+}
+function showLogin(){
+  clearInterval(H.timer);
+  S.canWrite=false;S.canMap=false;S.role='Nur Lesen';S.persons=[];S.selP=null;H.rev=0;
+  if(S.editing)leaveEdit();
+  $('#login').hidden=false;$('#logoutBtn').hidden=true;$('#navKonto').hidden=true;
+  if(S.view==='konto')go('dashboard');
+  applyRights();
+}
+function initHosted(){
+  api('GET','/api/session').then(function(j){if(j.user)startHosted(j.user);else showLogin()})
+    .catch(function(){/* Kein Server erreichbar (z. B. GitHub Pages): Gastansicht mit Standarddaten */});
+}
+$('#loginForm').addEventListener('submit',function(e){
+  e.preventDefault();var b=$('button',this);b.disabled=true;$('#lErr').textContent='';
+  api('POST','/api/login',{username:$('#lUser').value.trim(),password:$('#lPass').value}).then(function(j){
+    $('#lPass').value='';startHosted(j.user);
+  }).catch(function(err){
+    $('#lErr').textContent=err&&err.status===429?'Zu viele Versuche. Bitte warte 15 Minuten.':(err&&err.status?'Benutzername oder Passwort stimmt nicht.':'Der Server ist nicht erreichbar.');
+  }).then(function(){b.disabled=false});
+});
+$('#logoutBtn').addEventListener('click',function(){
+  api('POST','/api/logout').catch(function(){}).then(function(){H.user=null;showLogin()});
+});
+function apiErr(err){toast(err&&err.message?err.message:'Das hat nicht geklappt. Bitte versuche es erneut.','red')}
+var ROLE_NAMES={viewer:'Viewer',agent:'Contributor',editor:'Editor',owner:'Owner'};
+function renderKonto(){
+  if(!H.user)return;
+  var own=H.user.role==='owner';
+  $('#ktLead').textContent='Angemeldet als '+H.user.name+' mit der Rolle '+S.role+'.';
+  $('#usersPanel').hidden=!own;
+  if(!own)return;
+  api('GET','/api/users').then(function(j){
+    $('#uBody').innerHTML=j.users.map(function(u){
+      if(u.role==='owner')return '<tr><td><b>'+esc(u.name)+'</b></td><td><span class="chip vio">Owner</span></td><td class="muted">über „Passwort ändern“</td><td class="muted">nicht änderbar</td></tr>';
+      var opts=['viewer','agent','editor'].map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+ROLE_NAMES[r]+'</option>'}).join('');
+      return '<tr data-u="'+esc(u.name)+'"><td><b>'+esc(u.name)+'</b></td>'+
+       '<td><select class="urole" aria-label="Rolle von '+esc(u.name)+'">'+opts+'</select></td>'+
+       '<td><input type="password" class="upw" autocomplete="new-password" placeholder="mind. 10 Zeichen" aria-label="Neues Passwort für '+esc(u.name)+'"></td>'+
+       '<td><div class="acts"><button class="btn sm" data-uact="pw">Passwort setzen</button><button class="btn sm danger" data-uact="del">Löschen</button></div></td></tr>';
+    }).join('');
+  }).catch(apiErr);
+}
+$('#uBody').addEventListener('change',function(e){
+  var sel=e.target.closest('.urole');if(!sel)return;var tr=sel.closest('tr');
+  api('PATCH','/api/users/'+encodeURIComponent(tr.dataset.u),{role:sel.value}).then(function(){toast('Rolle von '+tr.dataset.u+' geändert.','cyan')}).catch(function(err){apiErr(err);renderKonto()});
+});
+$('#uBody').addEventListener('click',function(e){
+  var b=e.target.closest('[data-uact]');if(!b)return;var tr=b.closest('tr'),name=tr.dataset.u,a=b.dataset.uact;
+  if(a==='pw'){
+    var inp=$('.upw',tr);
+    api('PATCH','/api/users/'+encodeURIComponent(name),{password:inp.value}).then(function(){inp.value='';toast('Neues Passwort für '+name+' gesetzt.','cyan')}).catch(apiErr);
+  }
+  if(a==='del'){
+    if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich löschen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Löschen'}},4000);return}
+    api('DELETE','/api/users/'+encodeURIComponent(name)).then(function(){toast('Konto '+name+' gelöscht.','red');renderKonto()}).catch(apiErr);
+  }
+});
+$('#newUserForm').addEventListener('submit',function(e){
+  e.preventDefault();var f=this;
+  api('POST','/api/users',{username:$('#nuName').value,role:$('#nuRole').value,password:$('#nuPass').value}).then(function(){
+    toast('Konto '+$('#nuName').value.toLowerCase()+' angelegt.','cyan');f.reset();renderKonto();
+  }).catch(apiErr);
+});
+$('#pwForm').addEventListener('submit',function(e){
+  e.preventDefault();var f=this;
+  if($('#pwNew').value!==$('#pwNew2').value){toast('Die neuen Passwörter stimmen nicht überein.','red');return}
+  api('POST','/api/password',{current:$('#pwCur').value,next:$('#pwNew').value}).then(function(){f.reset();toast('Passwort geändert.','cyan')}).catch(apiErr);
+});
+
+/* ---------- Start ---------- */
+renderGauges();renderCards();renderDash();renderRegister();renderReports();renderNode();renderOps();renderLocs();syncMap();
+var start=location.hash.replace('#','');go(VIEWS[start]?start:'dashboard');
+initAccess();
+})();
+</script>
+
+</body>
+</html>
