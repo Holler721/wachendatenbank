@@ -1,4 +1,4 @@
-# Jedi Shadow Network
+# Jedi Schatten
 
 Node.js, keine Abhängigkeiten. Start: `node server.js` (Port aus `PORT`).
 
@@ -30,14 +30,10 @@ Berichte, Orders und Dokumente schreibt man selbst (ab Phantom). Geheimhaltung: 
 Eigene Berichte bearbeiten/löschen; fremde nur Spektral Rat und Schatten Leitung.
 
 ## Operationen
-Starten ab Phantom (Name und Zelle frei wählbar). Umbenennen, vorantreiben, abbrechen, archivieren: ab Spektral Rat.
+Starten ab Phantom (Name und Einsatzgebiet frei wählbar). Umbenennen, vorantreiben, abbrechen, archivieren: ab Spektral Rat.
 
-## Personenregister
-Jede Akte hat zwei Werte von 0 bis 100: **Gefahrenlevel** und **Dunkle Machtpräsenz**. Status: **Republik**, **KUS**, **Neutral**.
-Akten bearbeiten (Knopf "Bearbeiten" in der Akte): ab Phantom.
+## Anpassung (ab Spektral Rat)
+Unter "Konto" lassen sich Ränge, Labels (Status: Republik, KUS, Neutral, Dunkle Machtpräsenz, mit Farbe und "Bedrohung"-Markierung) und Berichtsarten ändern. Umbenennen zieht alle bestehenden Einträge mit. Entfernen geht nur, wenn nichts mehr damit verknüpft ist.
 
-## Begriffe und Farben
-Unter "Konto" -> "Begriffe und Farben" (nur Schatten Leitung und Haupt-Owner) lassen sich die Feldnamen (Gefahrenlevel, Dunkle Machtpräsenz) sowie Name und Farbe der drei Status direkt auf der Seite ändern. Gilt sofort für alle.
-
-## Umstellung von älteren Versionen
-Beim ersten Start werden alte Status automatisch umgestellt (Verbündet -> Republik, Dunkel -> KUS, Unklar -> Neutral) und die früher vorgenerierten Beispiel-Personen, -Systeme und -Operationen einmalig entfernt. Selbst angelegte Einträge bleiben erhalten.
+## Notfall (UMBRA)
+Spektral Rat und Schatten Leitung können das Notfallprotokoll auslösen und beenden. Solange es aktiv ist, sind alle Konten unterhalb des Spektral Rats gesperrt (Sperrbildschirm, der Server liefert keine Daten). Die Seite öffnet sich bei Ende von selbst wieder.
