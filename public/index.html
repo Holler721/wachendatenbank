@@ -155,6 +155,13 @@ button.item:hover,.item.sel{background:rgba(200,200,200,.1);border-color:var(--l
 .tag.order{color:var(--amber);background:rgba(150,150,150,.12)}
 .tag.dokument{color:#a6a6a6;background:rgba(166,166,166,.1)}
 .tag.funk{color:var(--cyan);background:rgba(230,230,230,.1)}
+.tag.offen{color:#a6a6a6;background:rgba(166,166,166,.1)}
+.tag.intern{color:#d0d0d0;background:rgba(208,208,208,.12)}
+.tag.vertraulich{color:var(--amber);background:rgba(150,150,150,.18)}
+.tag.geheim{color:var(--red);background:rgba(251,77,109,.18)}
+.rtools{display:flex;gap:8px;flex-wrap:wrap}
+.rform{display:flex;flex-direction:column;gap:12px}
+.rform textarea{min-height:200px}
 .tag.notfall{color:var(--red);background:rgba(251,77,109,.18)}
 .dt{font-family:var(--mono);font-size:10px;color:var(--dim)}
 .sig{display:inline-flex;align-items:flex-end;gap:2px;height:12px}
@@ -399,7 +406,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
 
     <!-- BERICHTE -->
     <section class="view" id="v-berichte" hidden>
-      <header class="head"><div class="t"><div class="eyebrow">SR-BE-02 · REPORTS · ORDERS · DOKUMENTE</div><h1 class="sm" data-t="Berichte">Berichte</h1><p class="lead">Eingänge der letzten Wochen. Geschwärzte Stellen lassen sich mit Freigabe deklassifizieren.</p></div></header>
+      <header class="head"><div class="t"><div class="eyebrow">SR-BE-02 · REPORTS · ORDERS · DOKUMENTE</div><h1 class="sm" data-t="Berichte">Berichte</h1><p class="lead">Berichte, Orders und Dokumente schreibst du selbst und stufst sie nach Geheimhaltung ein. Die Stufe bestimmt, wer sie lesen darf.</p></div><button class="btn" id="rNew" hidden>+ Neuer Bericht</button></header>
       <div class="split">
         <div class="a panel">
           <div class="tabs" id="rTabs"></div>
@@ -541,14 +548,7 @@ var DEF_NODES=[
 var DEF_EDGES=[['n0','n1'],['n0','n2'],['n1','n3'],['n2','n3'],['n2','n4'],['n4','n5'],['n5','n6'],['n3','n8'],['n8','n6'],['n1','n7'],['n4','n9'],['n5','n8']];
 var DEF_MAP={nodes:DEF_NODES,edges:DEF_EDGES};
 
-var reports=[
- {t:'Report',ti:'Einsatz vom 16.10. im System Kel Varos',by:'S-07 · Mira Tallon',d:'17.10.2026',b:['Die Zelle erreichte das Zielgebiet um 03:40 Ortszeit. Der Kontakt erschien wie vereinbart, brach das Gespräch jedoch nach vier Minuten ab.','Auf dem Rückweg wurde die Gruppe von [[einem unbekannten Schiff der Dunklen Zirkel]] verfolgt. Der Kontakt [[Dax Holloran]] wurde nicht angesprochen.','Empfehlung: Treffpunkt wechseln und Funkkennung erneuern.']},
- {t:'Report',ti:'Sicherung des Archivs von Corvane',by:'Ilen Maro',d:'17.10.2026',b:['Das Archiv wurde um 22:10 versiegelt. 14 Datenträger wurden in die Zelle Drei überführt.','Zwei Regale waren bereits [[von Unbefugten durchsucht]]. Spuren wurden gesichert.','Weitere Maßnahmen liegen bei der Leitung.']},
- {t:'Report',ti:'Datenbeschaffung (Übertrag aus dem Zirkel-System)',by:'Ilen Maro',d:'16.10.2026',b:['Der Übertrag umfasst 312 Datensätze, davon 41 mit Bezug zu Personen im Register.','Die Quelle nannte als Gegenleistung [[Zugang zum Kanal der Zelle Fünf]]. Das wurde abgelehnt.','Die Daten liegen im Register zur Prüfung.']},
- {t:'Order',ti:'Abgefangener Funkverkehr: Erhöhte Bedrohungslage',by:'Torvan Ashe',d:'05.10.2026',b:['Ab sofort gilt für alle Zellen erhöhte Bereitschaft. Funkdisziplin ist einzuhalten, Klartext nur im Notfall.','Anlass sind abgefangene Sprüche, die auf [[einen Angriff auf Station Dren]] hindeuten.','Rückmeldung der Zellenleiter bis 20:00 Uhr.']},
- {t:'Dokument',ti:'Gutachten zur Machtsensitivität, Rhea Calder',by:'Sorin Valk',d:'04.10.2026',b:['Die Untersuchung ergab eine ungewöhnlich starke Resonanz bei Reizen unter der Wahrnehmungsschwelle.','Die Probandin zeigt keine Anzeichen von Beeinflussung, jedoch [[Träume, die Ereignisse vorwegnehmen]].','Eine Ausbildung im Orden wird empfohlen, sofern die Probandin zustimmt.']},
- {t:'Order',ti:'Aufhebung der Anordnung 0-1-SR-ka9tz2',by:'Torvan Ashe',d:'30.09.2026',b:['Die Anordnung ist mit Wirkung zum heutigen Tag aufgehoben. Alle zugehörigen Sperren in Archiv und Funk werden entfernt.','Betroffene Zellen erhalten [[neue Zugangscodes]] über den üblichen Weg.']}
-];
+var CLASSES=['Offen','Intern','Vertraulich','Geheim'],RTYPES=['Report','Order','Dokument'];
 var ops=[
  {n:'Operation Nachtfalter',c:'Zelle Drei',loc:'Tarnsektor 7',p:68,ph:3,risk:'mittel'},
  {n:'Operation Stille Kluft',c:'Zelle Eins',loc:'Halden Reach',p:31,ph:2,risk:'hoch'},
@@ -557,7 +557,7 @@ var ops=[
 var ticks=['LAGE: ERHÖHTE BEREITSCHAFT IN ALLEN ZELLEN','ZELLE DREI MELDET KONTAKT IN KEL VAROS','ARCHIV CORVANE VERSIEGELT','FUNKDISZIPLIN EINHALTEN, KLARTEXT NUR IM NOTFALL','SIGNATUR MIT DUNKLER PRÄSENZ IM SEKTOR 7','ZIRKEL-ÜBERTRAG: 312 DATENSÄTZE ZUR PRÜFUNG'];
 
 /* ---------- State ---------- */
-var S={alarm:false,phase:0,view:'dashboard',selP:null,selN:null,rep:0,tab:'Alle',
+var S={reports:[],repEdit:null,confirmRep:null,alarm:false,phase:0,view:'dashboard',selP:null,selN:null,rep:null,tab:'Alle',
   persons:DEF_PERSONS.map(function(p,i){var o=clone(p);o.id='d'+i;return o}),
   map:clone(DEF_MAP),draft:null,editing:false,tool:'select',dirty:false,linkFrom:null,hovN:null,
   add:false,db:null,canWrite:false,canMap:false,role:'Nur Lesen',who:'Agent',confirmDel:null,confirmNode:false,confirmDisc:false,loaded:false};
@@ -572,6 +572,8 @@ function toast(msg,kind){
 function writeErr(e){
   if(e&&(e.code==='invalid_argument'||e.code==='revoked')){S.canWrite=false;S.canMap=false;if(S.editing)leaveEdit();applyRights();toast('Dir fehlen die Rechte für diese Änderung. Nichts wurde gespeichert.','red')}
   else if(e&&e.code==='quota_exceeded')toast('Speicherlimit erreicht. Entferne zuerst Einträge.','red');
+  else if(e&&e.message)toast(e.message,'red');
+  else if(e&&e.code==='no_api')toast('Der Server kennt diese Funktion nicht. Lade die neueste server.js ins Repo hoch und warte auf das Deployment.','red');
   else toast('Speichern fehlgeschlagen. Bitte versuche es erneut.','red');
 }
 
@@ -675,8 +677,8 @@ requestAnimationFrame(loop);
 function applyRights(){
   $('#whoPill').textContent=S.hosted?S.who:'Agent '+S.who;
   $('#rolePill').textContent='Zugriff: '+S.role;
-  $('#addP').hidden=!S.canWrite;
-  syncMap();renderCards();renderRegister();
+  $('#addP').hidden=!S.canWrite;$('#rNew').hidden=!S.canWrite;
+  syncMap();renderCards();renderRegister();renderReports();renderDash();
 }
 
 /* ---------- Dashboard ---------- */
@@ -692,7 +694,7 @@ function renderCards(){
   var active=ops.filter(function(o){return o.p<100}).length;
   var cs=[
    {t:'PERSONENREGISTER',c:'SR-PR-01',n:[[String(S.persons.length),'Akten im Register']],d:'Personen- und Machtsensitiven-Datenbank',g:'Register öffnen',v:'register'},
-   {t:'BERICHTE',c:'SR-BE-02',n:[['134','Reports'],['21','Orders'],['11','Dokumente']],d:'Reports · Orders · Dokumente',g:'Berichte lesen',v:'berichte'},
+   {t:'BERICHTE',c:'SR-BE-02',n:[[String(S.reports.filter(function(r){return r.t==='Report'}).length),'Reports'],[String(S.reports.filter(function(r){return r.t==='Order'}).length),'Orders'],[String(S.reports.filter(function(r){return r.t==='Dokument'}).length),'Dokumente']],d:'Reports · Orders · Dokumente',g:'Berichte lesen',v:'berichte'},
    {t:'OPERATIONEN',c:'SR-OP-03',n:[[String(active),'aktive Operationen']],d:'Laufende und archivierte Operationen',g:'Operationen verwalten',v:'ops'},
    {t:'SCHATTENKARTE',c:'SR-KA-04',n:[[String(S.map.nodes.length),'Systeme im Blick']],d:'Sektor 7 und Umgebung',g:'Karte öffnen',v:'karte'},
    {t:'SCHATTEN-OS',c:'SR-OS-05',n:[['44','aktive Agenten']],d:'Kommandoebene und Befehle',g:'Terminal starten',v:'terminal'},
@@ -703,9 +705,8 @@ function renderCards(){
       c.n.map(function(n){return '<div><div class="n">'+esc(n[0])+'</div><div class="muted" style="font-size:12px">'+n[1]+'</div></div>'}).join('')+
       '</div><div class="d">'+c.d+'</div><div class="go"><span>'+c.g+'</span><span>'+(c.v?'›':'')+'</span></div></'+tag+'>'}).join('');
 }
-function docItem(d,i){return '<button class="item" data-doc="'+i+'"><div class="r1"><span class="tag '+d.t.toLowerCase()+'">'+d.t+'</span><span class="dt">'+d.d+'</span></div><div class="ti">'+d.ti+'</div><div class="by">'+d.by+'</div></button>'}
 function renderDash(){
-  $('#dashDocs').innerHTML=reports.slice(0,5).map(docItem).join('');
+  $('#dashDocs').innerHTML=S.reports.length?S.reports.slice(0,5).map(function(d){return docItem(d,d.id)}).join(''):'<p class="muted" style="padding:14px">Noch keine Berichte vorhanden.</p>';
   renderOpsMini();
 }
 function renderOpsMini(){
@@ -789,20 +790,65 @@ function seedDefaults(){
 }
 
 /* ---------- Berichte ---------- */
-function rx(s){return s.replace(/\[\[(.+?)\]\]/g,'<span class="rx">$1</span>')}
+function rx(s){return esc(s).replace(/\[\[(.+?)\]\]/g,'<span class="rx">$1</span>')}
+function clsTag(c){return '<span class="tag '+String(c).toLowerCase()+'">'+esc(c)+'</span>'}
+function docItem(d,i){return '<button class="item" data-doc="'+i+'"><div class="r1"><span><span class="tag '+d.t.toLowerCase()+'">'+esc(d.t)+'</span> '+clsTag(d.cls)+'</span><span class="dt">'+esc(d.d)+'</span></div><div class="ti">'+esc(d.ti)+'</div><div class="by">'+esc(d.by)+'</div></button>'}
+function repById(id){for(var i=0;i<S.reports.length;i++)if(S.reports[i].id===id)return S.reports[i];return null}
+function canEditRep(d){return S.canWrite&&(d.by===S.who||S.canMap)}
+var CLSLV={'Offen':1,'Intern':2,'Vertraulich':3,'Geheim':4};
+function myLevel(){return S.hosted&&H.user?({viewer:1,agent:2,editor:3,owner:4}[H.user.role]||1):1}
 function renderReports(){
-  var tabs=['Alle','Report','Order','Dokument'];
+  var tabs=['Alle'].concat(RTYPES);
   $('#rTabs').innerHTML=tabs.map(function(t){return '<button data-tab="'+t+'" aria-pressed="'+(S.tab===t)+'">'+t+'</button>'}).join('');
-  $('#rList').innerHTML=reports.map(function(d,i){return {d:d,i:i}}).filter(function(x){return S.tab==='Alle'||x.d.t===S.tab}).map(function(x){
-    return docItem(x.d,x.i).replace('class="item"','class="item'+(S.rep===x.i?' sel':'')+'"').replace('data-doc','data-rep')}).join('');
-  var d=reports[S.rep],open=$('#reader').classList.contains('open');
-  $('#reader').innerHTML='<div class="ph"><span class="tag '+d.t.toLowerCase()+'">'+d.t+'</span><span class="dt">'+d.d+'</span></div><h3>'+d.ti+'</h3><div class="by muted">'+d.by+'</div>'+d.b.map(function(p){return '<p>'+rx(p)+'</p>'}).join('')+
-    '<div><button class="btn sm" data-act="declass">'+(open?'Wieder schwärzen':'Deklassifizieren')+'</button></div>';
+  var list=S.reports.filter(function(d){return S.tab==='Alle'||d.t===S.tab});
+  $('#rList').innerHTML=list.length?list.map(function(d){
+    return docItem(d,d.id).replace('class="item"','class="item'+(S.rep===d.id?' sel':'')+'"').replace('data-doc','data-rep')}).join('')
+    :'<p class="muted" style="padding:18px">Noch keine Berichte'+(S.tab==='Alle'?'':' dieser Art')+'.'+(S.canWrite?' Mit „Neuer Bericht“ legst du den ersten an.':'')+'</p>';
+  var rd=$('#reader');
+  if(S.repEdit){
+    var e=S.repEdit,d=e.id?repById(e.id):null,lv=myLevel();
+    rd.innerHTML='<form class="rform" id="rForm"><h3>'+(d?'Bericht bearbeiten':'Neuer Bericht')+'</h3>'+
+     '<div class="field"><label for="rTi">TITEL</label><input id="rTi" type="text" maxlength="120" required value="'+esc(d?d.ti:'')+'"></div>'+
+     '<div class="field"><label for="rT">ART</label><select id="rT">'+RTYPES.map(function(t){return '<option'+(d&&d.t===t?' selected':'')+'>'+t+'</option>'}).join('')+'</select></div>'+
+     '<div class="field"><label for="rC">GEHEIMHALTUNGSSTUFE</label><select id="rC">'+CLASSES.filter(function(c){return CLSLV[c]<=lv}).map(function(c){return '<option'+((d?d.cls:'Intern')===c?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+
+       '<span class="muted" style="font-size:12px">Offen: alle · Intern: ab Contributor · Vertraulich: ab Editor · Geheim: nur Owner</span></div>'+
+     '<div class="field"><label for="rB">TEXT</label><textarea id="rB" maxlength="8000" required>'+esc(d?d.body:'')+'</textarea>'+
+       '<span class="muted" style="font-size:12px">Leerzeile = neuer Absatz. Stellen in [[doppelten Klammern]] werden geschwärzt.</span></div>'+
+     '<div class="rtools"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" data-act="rCancel">Abbrechen</button></div></form>';
+    return;
+  }
+  var d2=S.rep?repById(S.rep):null;
+  if(!d2){rd.innerHTML='<p class="muted">'+(S.reports.length?'Wähle links einen Bericht.':'Hier erscheint der Bericht, den du auswählst.')+'</p>';return}
+  var open=rd.classList.contains('open'),tools='';
+  if(d2.body.indexOf('[[')>=0&&S.canMap)tools+='<button class="btn sm" data-act="declass">'+(open?'Wieder schwärzen':'Deklassifizieren')+'</button>';
+  if(canEditRep(d2))tools+='<button class="btn sm" data-act="rEdit">Bearbeiten</button><button class="btn sm danger" data-act="rDel">'+(S.confirmRep===d2.id?'Wirklich löschen?':'Löschen')+'</button>';
+  rd.innerHTML='<div class="ph"><span><span class="tag '+d2.t.toLowerCase()+'">'+esc(d2.t)+'</span> '+clsTag(d2.cls)+'</span><span class="dt">'+esc(d2.d)+'</span></div><h3>'+esc(d2.ti)+'</h3><div class="by muted">'+esc(d2.by)+(d2.edited?' · bearbeitet '+esc(d2.edited):'')+'</div>'+
+    d2.body.split(/\n{2,}/).map(function(p){return '<p>'+rx(p).replace(/\n/g,'<br>')+'</p>'}).join('')+(tools?'<div class="rtools">'+tools+'</div>':'');
 }
 $('#rTabs').addEventListener('click',function(e){var b=e.target.closest('[data-tab]');if(b){S.tab=b.dataset.tab;renderReports()}});
-$('#rList').addEventListener('click',function(e){var b=e.target.closest('[data-rep]');if(b){S.rep=+b.dataset.rep;$('#reader').classList.remove('open');renderReports()}});
-$('#reader').addEventListener('click',function(e){if(e.target.closest('[data-act=declass]')){var r=$('#reader');r.classList.toggle('open');toast(r.classList.contains('open')?'Freigabe erteilt: Schwärzungen aufgehoben.':'Schwärzungen wiederhergestellt.',r.classList.contains('open')?'cyan':'');renderReports()}});
-$('#dashDocs').addEventListener('click',function(e){var b=e.target.closest('[data-doc]');if(b){S.rep=+b.dataset.doc;$('#reader').classList.remove('open');go('berichte')}});
+$('#rList').addEventListener('click',function(e){var b=e.target.closest('[data-rep]');if(b){S.rep=b.dataset.rep;S.repEdit=null;S.confirmRep=null;$('#reader').classList.remove('open');renderReports()}});
+$('#rNew').addEventListener('click',function(){if(!S.canWrite)return;S.repEdit={id:null};renderReports();var t=$('#rTi');if(t)t.focus()});
+$('#reader').addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act,d=S.rep?repById(S.rep):null;
+  if(a==='declass'){var r=$('#reader');r.classList.toggle('open');toast(r.classList.contains('open')?'Freigabe erteilt: Schwärzungen aufgehoben.':'Schwärzungen wiederhergestellt.',r.classList.contains('open')?'cyan':'');renderReports();return}
+  if(a==='rCancel'){S.repEdit=null;renderReports();return}
+  if(!d)return;
+  if(a==='rEdit'){S.repEdit={id:d.id};renderReports();return}
+  if(a==='rDel'){
+    if(S.confirmRep!==d.id){S.confirmRep=d.id;renderReports();return}
+    S.confirmRep=null;
+    S.db.collection('reports').doc(d.id).delete().then(function(){S.rep=null;toast('Bericht gelöscht.','');renderReports();renderDash()}).catch(writeErr);
+  }
+});
+$('#reader').addEventListener('submit',function(e){
+  if(e.target.id!=='rForm')return;e.preventDefault();if(!S.db||!S.canWrite)return;
+  var data={ti:$('#rTi').value.trim(),t:$('#rT').value,cls:$('#rC').value,body:$('#rB').value.trim()};
+  if(!data.ti||!data.body)return;
+  var id=S.repEdit&&S.repEdit.id,col=S.db.collection('reports');
+  var p=id?col.doc(id).update(data).then(function(){return {id:id}}):col.add(data);
+  p.then(function(ref){S.rep=ref.id;S.repEdit=null;toast(id?'Bericht gespeichert.':'Bericht angelegt.','cyan');renderReports();renderDash()}).catch(writeErr);
+});
+$('#dashDocs').addEventListener('click',function(e){var b=e.target.closest('[data-doc]');if(b){S.rep=b.dataset.doc;S.repEdit=null;$('#reader').classList.remove('open');go('berichte')}});
 
 /* ---------- Karte: Anzeige ---------- */
 function nodeAt(e){var r=mapO.el.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,best=null,bd=22;
@@ -1101,17 +1147,18 @@ function api(method,url,body){
 function loadData(force){
   return api('GET','/api/data?since='+(force?0:H.rev)).then(function(j){
     if(j.same)return;
-    H.rev=j.rev;S.persons=j.persons||[];S.loaded=true;
+    H.rev=j.rev;S.persons=j.persons||[];S.reports=j.reports||[];S.loaded=true;
+    if(S.rep&&!repById(S.rep))S.rep=null;
     if(S.selP&&!find(S.selP))S.selP=null;
     if(j.map)S.map={nodes:clone(j.map.nodes||[]),edges:clone(j.map.edges||[])};
     if(!S.editing){if(S.selN&&!nodeByKey(S.selN))S.selN=null;if(S.view==='karte')renderNode()}
-    renderLocs();renderRegister();renderCards();
+    renderLocs();renderRegister();renderCards();renderDash();if(!S.repEdit)renderReports();
   }).catch(function(){});
 }
 var hostedDb={
-  collection:function(){return {
-    add:function(d){return api('POST','/api/persons',d).then(function(j){return loadData(true).then(function(){return {id:j.id}})})},
-    doc:function(id){var u='/api/persons/'+encodeURIComponent(id);return {
+  collection:function(name){var base='/api/'+(name==='reports'?'reports':'persons');return {
+    add:function(d){return api('POST',base,d).then(function(j){return loadData(true).then(function(){return {id:j.id}})})},
+    doc:function(id){var u=base+'/'+encodeURIComponent(id);return {
       update:function(d){return api('PATCH',u,d).then(function(){return loadData(true)})},
       delete:function(){return api('DELETE',u).then(function(){return loadData(true)})}}}
   }},
@@ -1128,7 +1175,7 @@ function startHosted(u){
 }
 function showLogin(){
   clearInterval(H.timer);
-  S.canWrite=false;S.canMap=false;S.role='Nur Lesen';S.persons=[];S.selP=null;H.rev=0;
+  S.canWrite=false;S.canMap=false;S.role='Nur Lesen';S.persons=[];S.reports=[];S.rep=null;S.repEdit=null;S.selP=null;H.rev=0;
   if(S.editing)leaveEdit();
   $('#login').hidden=false;$('#logoutBtn').hidden=true;$('#navKonto').hidden=true;
   if(S.view==='konto')go('dashboard');
@@ -1158,6 +1205,8 @@ function renderKonto(){
   $('#usersPanel').hidden=!own;
   if(!own)return;
   api('GET','/api/users').then(function(j){
+    var st=j.storage==='remote'?'Speicher: dauerhaft (Änderungen bleiben nach Neustarts erhalten).':j.storage==='remote-error'?'Speicher: Dauerspeicher antwortet gerade nicht, Änderungen werden nachgeholt.':'Speicher: FLÜCHTIG. Bei jedem Neustart gehen Konten, Personen und Berichte verloren (siehe README, Dauerspeicher).';
+    $('#ktLead').textContent='Angemeldet als '+H.user.name+' mit der Rolle '+S.role+'. '+st;
     $('#uBody').innerHTML=j.users.map(function(u){
       if(u.role==='owner')return '<tr><td><b>'+esc(u.name)+'</b></td><td><span class="chip vio">Owner</span></td><td class="muted">über „Passwort ändern“</td><td class="muted">nicht änderbar</td></tr>';
       var opts=['viewer','agent','editor'].map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+ROLE_NAMES[r]+'</option>'}).join('');
