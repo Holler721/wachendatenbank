@@ -19,7 +19,7 @@ const SESSION_MS = 12 * 60 * 60 * 1000;
 const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
-const STATES = ['Republik', 'KUS', 'Unklar'];
+const STATES = ['Verbündet', 'Dunkel', 'Unklar'];
 const RTYPES = ['Bericht', 'Anmerkung', 'Dokument'];
 const CLASSES = ['Offen', 'Intern', 'Vertraulich', 'Geheim']; // Stufe = Mindestrolle zum Lesen (1..4)
 const RANKS = ['Schatten-Meister', 'Schatten', 'Jedi', 'Informant', 'Zielperson'];
