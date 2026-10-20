@@ -975,7 +975,11 @@ mapO.el.addEventListener('click',function(e){if(S.editing)return;S.selN=nodeAt(e
 var cells=['Zelle Eins','Zelle Zwei','Zelle Drei','Zelle Vier','Zelle Fünf'],opNames=['Falkenauge','Aschenwind','Schwarzglas','Morgenrot','Stummer Ruf','Nebelpfad'];
 function newOp(n){
   if(ops.some(function(o){return o.loc===n.id&&o.p<100})){toast('In '+n.id+' läuft bereits eine Operation.','red');return}
-  ops.push({n:'Operation '+pick(opNames),c:pick(cells),loc:n.id,p:5,ph:1,risk:n.s==='Dunkel'?'hoch':'mittel'});
+  var o={n:'Operation '+pick(opNames),c:pick(cells),loc:n.id,p:5,ph:1,risk:n.s==='Dunkel'?'hoch':'mittel'};
+  if(S.hosted){
+    if(!S.canMap){toast('Operationen starten nur Editor und Owner.','red');return}
+    api('POST','/api/ops',o).then(function(){return loadData(true)}).then(function(){toast('Zelle nach '+n.id+' entsandt. Operation gestartet.','cyan')}).catch(writeErr);return}
+  ops.push(o);
   toast('Zelle nach '+n.id+' entsandt. Operation gestartet.','cyan');renderOps();renderOpsMini();renderCards();
 }
 function renderOps(){
@@ -984,10 +988,17 @@ function renderOps(){
     return '<div class="op"><div class="ph"><span class="nm">'+esc(o.n)+'</span><span class="chip '+(done?'cyan':(o.risk==='hoch'?'red':'vio'))+'">'+(done?'Abgeschlossen':'Risiko '+o.risk)+'</span></div>'+
      '<div class="meta">'+esc(o.c)+' · '+esc(o.loc)+'</div><div class="phases" aria-hidden="true">'+[1,2,3,4].map(function(k){return '<i class="'+(k<=o.ph?'on':'')+'"></i>'}).join('')+'</div>'+
      '<div class="gauge"><div class="l"><span>Fortschritt · Phase '+Math.min(o.ph,4)+' von 4</span><b style="color:'+col+'">'+Math.min(o.p,100)+'%</b></div><div class="bar"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
-     '<div class="acts">'+(done?'<button class="btn sm ghost" data-op="'+i+'" data-a="archive">Archivieren</button>':'<button class="btn sm" data-op="'+i+'" data-a="adv">Phase vorantreiben</button><button class="btn sm danger" data-op="'+i+'" data-a="abort">Abbrechen</button>')+'</div></div>'}).join('')||'<div class="panel muted">Keine Operationen aktiv. Wähle auf der Schattenkarte ein System.</div>';
+     '<div class="acts">'+((S.hosted&&!S.canMap)?'':done?'<button class="btn sm ghost" data-op="'+i+'" data-a="archive">Archivieren</button>':'<button class="btn sm" data-op="'+i+'" data-a="adv">Phase vorantreiben</button><button class="btn sm danger" data-op="'+i+'" data-a="abort">Abbrechen</button>')+'</div></div>'}).join('')||'<div class="panel muted">Keine Operationen aktiv. Wähle auf der Schattenkarte ein System.</div>';
 }
 $('#opsGrid').addEventListener('click',function(e){
   var b=e.target.closest('[data-op]');if(!b)return;var i=+b.dataset.op,o=ops[i];
+  if(S.hosted){
+    if(!S.canMap||!o)return;var a=b.dataset.a,u='/api/ops/'+encodeURIComponent(o.id),pr;
+    if(a==='adv'){var np=Math.min(100,o.p+Math.round(rnd(9,19)));pr=api('PATCH',u,{p:np,ph:Math.min(4,Math.max(o.ph,Math.ceil(np/25)))}).then(function(){if(np>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')})}
+    else if(a==='abort')pr=api('DELETE',u).then(function(){toast(o.n+' abgebrochen. Zelle zurückbeordert.','red')});
+    else if(a==='archive')pr=api('DELETE',u).then(function(){toast(o.n+' archiviert.')});
+    else return;
+    pr.then(function(){return loadData(true)}).catch(writeErr);return}
   if(b.dataset.a==='adv'){o.p=Math.min(100,o.p+Math.round(rnd(9,19)));o.ph=Math.min(4,Math.max(o.ph,Math.ceil(o.p/25)));if(o.p>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')}
   else if(b.dataset.a==='abort'){ops.splice(i,1);toast(o.n+' abgebrochen. Zelle zurückbeordert.','red')}
   else if(b.dataset.a==='archive'){ops.splice(i,1);toast(o.n+' archiviert.')}
@@ -1147,16 +1158,16 @@ function api(method,url,body){
 function loadData(force){
   return api('GET','/api/data?since='+(force?0:H.rev)).then(function(j){
     if(j.same)return;
-    H.rev=j.rev;S.persons=j.persons||[];S.reports=j.reports||[];S.loaded=true;
+    H.rev=j.rev;S.persons=j.persons||[];S.reports=j.reports||[];if(j.ops)ops=j.ops;S.loaded=true;
     if(S.rep&&!repById(S.rep))S.rep=null;
     if(S.selP&&!find(S.selP))S.selP=null;
     if(j.map)S.map={nodes:clone(j.map.nodes||[]),edges:clone(j.map.edges||[])};
     if(!S.editing){if(S.selN&&!nodeByKey(S.selN))S.selN=null;if(S.view==='karte')renderNode()}
-    renderLocs();renderRegister();renderCards();renderDash();if(!S.repEdit)renderReports();
+    renderLocs();renderRegister();renderCards();renderDash();if(!S.repEdit)renderReports();renderOps();
   }).catch(function(){});
 }
 var hostedDb={
-  collection:function(name){var base='/api/'+(name==='reports'?'reports':'persons');return {
+  collection:function(name){var base='/api/'+(name==='reports'?'reports':name==='ops'?'ops':'persons');return {
     add:function(d){return api('POST',base,d).then(function(j){return loadData(true).then(function(){return {id:j.id}})})},
     doc:function(id){var u=base+'/'+encodeURIComponent(id);return {
       update:function(d){return api('PATCH',u,d).then(function(){return loadData(true)})},
@@ -1175,7 +1186,7 @@ function startHosted(u){
 }
 function showLogin(){
   clearInterval(H.timer);
-  S.canWrite=false;S.canMap=false;S.role='Nur Lesen';S.persons=[];S.reports=[];S.rep=null;S.repEdit=null;S.selP=null;H.rev=0;
+  S.canWrite=false;S.canMap=false;S.role='Nur Lesen';S.persons=[];S.reports=[];ops=[];S.rep=null;S.repEdit=null;S.selP=null;H.rev=0;
   if(S.editing)leaveEdit();
   $('#login').hidden=false;$('#logoutBtn').hidden=true;$('#navKonto').hidden=true;
   if(S.view==='konto')go('dashboard');
