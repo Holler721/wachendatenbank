@@ -10,9 +10,21 @@ Node.js, keine Abhängigkeiten. Start: `node server.js` (Port aus `PORT`).
 4. Optional unter Environment: `OWNER_PASSWORD` = dein eigenes Passwort (überschreibt das Standardpasswort).
 
 ## Login
-Benutzer: `owner`. Passwort ändern unter "Konto".
-Rollen: Betrachter < Agent (Personen) < Editor (Karte) < Owner (Konten).
+Haupt-Owner: Benutzer `owner`. Passwort ändern unter "Konto".
+Rollen: Schatten (nur lesen) < Phantom (Personen, Berichte, Operationen starten) < Spektral Rat (alle Inhalte inkl. Karte, Operationen verwalten) < Schatten Leitung (zusätzlich Konten verwalten).
+Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an und verwaltet sie auch allein.
 
-## Wichtig
-Render Free hat ein flüchtiges Dateisystem: angelegte Konten, Personen und Karten-Änderungen gehen bei Neustart/Deploy verloren.
-Der Owner bleibt bestehen. Für Dauerhaftigkeit: Persistent Disk und `DATA_DIR` darauf setzen.
+## Dauerhafter Speicher (wichtig)
+Render Free hat ein flüchtiges Dateisystem und schläft nach ca. 15 Minuten ohne Besuch ein. Beim nächsten Start sind alle Änderungen weg.
+Kostenlose Lösung: Upstash Redis (upstash.com, Konto ohne Kreditkarte).
+1. Upstash -> Create Database (Redis), Region EU -> Reiter "REST API".
+2. Die Werte "UPSTASH_REDIS_REST_URL" und "UPSTASH_REDIS_REST_TOKEN" in Render unter Environment eintragen.
+3. Speichern, Render startet neu. Im Log steht "Dauerspeicher aktiv", unter Konto "Speicher: dauerhaft".
+Alternative: bezahlte Persistent Disk und `DATA_DIR` auf deren Pfad setzen.
+
+## Berichte
+Berichte, Orders und Dokumente schreibt man selbst (ab Phantom). Geheimhaltung: Offen = alle, Intern = ab Phantom, Vertraulich und Geheim = ab Spektral Rat.
+Eigene Berichte bearbeiten/löschen; fremde nur Spektral Rat und Schatten Leitung.
+
+## Operationen
+Starten ab Phantom (Name und Zelle frei wählbar). Umbenennen, vorantreiben, abbrechen, archivieren: ab Spektral Rat.
