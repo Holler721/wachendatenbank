@@ -239,8 +239,10 @@ textarea{width:100%;background:#000000;border:1px solid var(--line2);border-radi
 input[type=range]{accent-color:var(--acc);width:100%;min-height:32px}
 .btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
 input[type=password]{min-height:42px;background:#000;border:1px solid var(--line2);border-radius:8px;padding:0 14px;color:#fff;width:100%;outline-offset:2px}
-#login{position:fixed;inset:0;z-index:110;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
-#login[hidden]{display:none}
+#login,#force{position:fixed;inset:0;z-index:110;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+#login[hidden],#force[hidden]{display:none}
+.cred{display:flex;flex-direction:column;gap:8px}
+.cred code{font-family:var(--mono);font-size:18px;letter-spacing:.06em;color:var(--fg);background:#000;border:1px solid var(--line2);border-radius:8px;padding:10px 14px;user-select:all;overflow-wrap:anywhere}
 .loginbox{width:min(400px,100%);display:flex;flex-direction:column;gap:14px;border:1px solid var(--line2);border-radius:14px;background:rgba(8,8,8,.95);padding:28px 24px}
 .loginbox .lgo{width:64px;height:64px;color:var(--acc)}
 .loginbox .hintline{min-height:18px;color:var(--red)}
@@ -446,22 +448,22 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
         <h2 id="pwH">Passwort ändern</h2>
         <form id="pwForm" class="ugrid">
           <div class="field"><label for="pwCur">AKTUELL</label><input id="pwCur" type="password" autocomplete="current-password" required></div>
-          <div class="field"><label for="pwNew">NEU (MIN. 10 ZEICHEN)</label><input id="pwNew" type="password" autocomplete="new-password" minlength="10" required></div>
-          <div class="field"><label for="pwNew2">NEU WIEDERHOLEN</label><input id="pwNew2" type="password" autocomplete="new-password" minlength="10" required></div>
+          <div class="field"><label for="pwNew">NEU (MIN. 5 ZEICHEN, BUCHSTABEN UND ZAHLEN)</label><input id="pwNew" type="password" autocomplete="new-password" minlength="5" required></div>
+          <div class="field"><label for="pwNew2">NEU WIEDERHOLEN</label><input id="pwNew2" type="password" autocomplete="new-password" minlength="5" required></div>
           <div><button class="btn" type="submit">Passwort speichern</button></div>
         </form>
       </section>
       <section class="panel" id="usersPanel" aria-labelledby="usH" hidden>
         <h2 id="usH">Konten verwalten</h2>
         <p class="muted" style="margin:0">Schatten lesen nur. Phantome pflegen das Personenregister, schreiben Berichte und starten Operationen. Der Spektral Rat darf alle Inhalte bearbeiten. Die Schatten Leitung verwaltet zusätzlich Konten. Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.</p>
-        <div class="tbl"><table class="utbl"><thead><tr><th>Benutzer</th><th>Rolle</th><th>Neues Passwort</th><th>Aktion</th></tr></thead><tbody id="uBody"></tbody></table></div>
+        <div class="tbl"><table class="utbl"><thead><tr><th>Benutzer</th><th>Rolle</th><th>Passwort</th><th>Aktion</th></tr></thead><tbody id="uBody"></tbody></table></div>
         <h2 style="margin-top:6px">Neues Konto</h2>
         <form id="newUserForm" class="ugrid">
           <div class="field"><label for="nuName">BENUTZERNAME</label><input id="nuName" type="text" autocomplete="off" required maxlength="24"></div>
           <div class="field"><label for="nuRole">ROLLE</label><select id="nuRole"></select></div>
-          <div class="field"><label for="nuPass">PASSWORT (MIN. 10 ZEICHEN)</label><input id="nuPass" type="password" autocomplete="new-password" minlength="10" required></div>
-          <div><button class="btn" type="submit">Konto anlegen</button></div>
+          <div><button class="btn" type="submit">Konto anlegen und Passwort erzeugen</button></div>
         </form>
+        <div class="panel cred" id="credBox" hidden aria-live="polite"></div>
       </section>
     </section>
 
@@ -489,6 +491,19 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
     <div class="field"><label for="lPass">PASSWORT</label><input id="lPass" type="password" autocomplete="current-password" required></div>
     <div class="hintline" id="lErr" role="alert"></div>
     <button class="btn" type="submit">Anmelden</button>
+  </form>
+</div>
+<div id="force" hidden>
+  <form id="forceForm" class="loginbox">
+    <svg class="lgo" role="img" aria-label="Emblem der Jedi-Schatten"><use href="#emb"/></svg>
+    <div><div class="eyebrow">ERSTE ANMELDUNG · NEUES PASSWORT ERFORDERLICH</div><h2>Eigenes Passwort wählen</h2></div>
+    <p class="muted" style="margin:0">Dein Zugang wurde mit einem erzeugten Passwort angelegt. Wähle jetzt ein eigenes: mindestens 5 Zeichen mit Buchstaben und Zahlen.</p>
+    <div class="field"><label for="fCur">ERZEUGTES PASSWORT</label><input id="fCur" type="password" autocomplete="current-password" required></div>
+    <div class="field"><label for="fNew">NEUES PASSWORT</label><input id="fNew" type="password" autocomplete="new-password" minlength="5" required></div>
+    <div class="field"><label for="fNew2">NEUES PASSWORT WIEDERHOLEN</label><input id="fNew2" type="password" autocomplete="new-password" minlength="5" required></div>
+    <div class="hintline" id="fErr" role="alert"></div>
+    <button class="btn" type="submit">Passwort speichern</button>
+    <button class="btn ghost" type="button" id="forceOut">Abmelden</button>
   </form>
 </div>
 <datalist id="locs"></datalist>
@@ -1180,8 +1195,9 @@ function api(method,url,body){
       var j=null;try{j=JSON.parse(t)}catch(e){}
       if(j===null)throw {code:'no_api',status:r.status};
       if(!r.ok){
+        if(j.code==='must_change'){showForce()}
         if(r.status===401&&H.user){H.user=null;showLogin()}
-        throw {status:r.status,code:r.status===403?'invalid_argument':'error',message:j.error||''};
+        throw {status:r.status,code:j.code==='must_change'?'must_change':(r.status===403?'invalid_argument':'error'),message:j.error||''};
       }
       return j;
     });
@@ -1207,7 +1223,23 @@ var hostedDb={
   }},
   doc:function(){return {set:function(d){return api('PUT','/api/map',d).then(function(){return loadData(true)})}}}
 };
+function pwPolicy(p){return p.length>=5&&/[A-Za-zÄÖÜäöüß]/.test(p)&&/[0-9]/.test(p)}
+function showForce(){
+  H.user=null;clearInterval(H.timer);$('#login').hidden=true;$('#force').hidden=false;$('#fErr').textContent='';
+  if(H.tmpPw){$('#fCur').value=H.tmpPw;H.tmpPw='';$('#fNew').focus()}else $('#fCur').focus();
+}
+$('#forceForm').addEventListener('submit',function(e){
+  e.preventDefault();var b=$('button[type=submit]',this),n=$('#fNew').value;
+  if(n!==$('#fNew2').value){$('#fErr').textContent='Die neuen Passwörter stimmen nicht überein.';return}
+  if(!pwPolicy(n)){$('#fErr').textContent='Mindestens 5 Zeichen mit Buchstaben und Zahlen.';return}
+  b.disabled=true;$('#fErr').textContent='';
+  api('POST','/api/password',{current:$('#fCur').value,next:n}).then(function(j){
+    $('#forceForm').reset();$('#force').hidden=true;startHosted(j.user);toast('Passwort gespeichert. Willkommen.','cyan');
+  }).catch(function(err){$('#fErr').textContent=(err&&err.message)||'Das hat nicht geklappt.'}).then(function(){b.disabled=false});
+});
+$('#forceOut').addEventListener('click',function(){api('POST','/api/logout').catch(function(){}).then(function(){$('#force').hidden=true;$('#forceForm').reset();H.user=null;showLogin()})});
 function startHosted(u){
+  if(u.mustChange){showForce();return}
   H.user=u;S.hosted=true;S.db=hostedDb;S.who=u.name;
   var lv={viewer:1,agent:2,editor:3,owner:4}[u.role]||1;
   S.canWrite=lv>=2;S.canMap=lv>=3;
@@ -1231,7 +1263,7 @@ function initHosted(){
 $('#loginForm').addEventListener('submit',function(e){
   e.preventDefault();var b=$('button',this);b.disabled=true;$('#lErr').textContent='';
   api('POST','/api/login',{username:$('#lUser').value.trim(),password:$('#lPass').value}).then(function(j){
-    $('#lPass').value='';startHosted(j.user);
+    H.tmpPw=j.user.mustChange?$('#lPass').value:'';$('#lPass').value='';startHosted(j.user);
   }).catch(function(err){
     $('#lErr').textContent=err&&err.status===429?'Zu viele Versuche. Bitte warte 15 Minuten.':(err&&err.status?'Benutzername oder Passwort stimmt nicht.':'Der Server ist nicht erreichbar.');
   }).then(function(){b.disabled=false});
@@ -1259,8 +1291,8 @@ function renderKonto(){
       var opts=roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+ROLE_NAMES[r]+'</option>'}).join('');
       return '<tr data-u="'+esc(u.name)+'"><td><b>'+esc(u.name)+'</b></td>'+
        '<td><select class="urole" aria-label="Rolle von '+esc(u.name)+'">'+opts+'</select></td>'+
-       '<td><input type="password" class="upw" autocomplete="new-password" placeholder="mind. 10 Zeichen" aria-label="Neues Passwort für '+esc(u.name)+'"></td>'+
-       '<td><div class="acts"><button class="btn sm" data-uact="pw">Passwort setzen</button><button class="btn sm danger" data-uact="del">Löschen</button></div></td></tr>';
+       '<td class="muted">'+(u.mustChange?'wartet auf erste Anmeldung':'selbst gewählt')+'</td>'+
+       '<td><div class="acts"><button class="btn sm" data-uact="pw">Neues Passwort erzeugen</button><button class="btn sm danger" data-uact="del">Löschen</button></div></td></tr>';
     }).join('');
   }).catch(apiErr);
 }
@@ -1271,18 +1303,30 @@ $('#uBody').addEventListener('change',function(e){
 $('#uBody').addEventListener('click',function(e){
   var b=e.target.closest('[data-uact]');if(!b)return;var tr=b.closest('tr'),name=tr.dataset.u,a=b.dataset.uact;
   if(a==='pw'){
-    var inp=$('.upw',tr);
-    api('PATCH','/api/users/'+encodeURIComponent(name),{password:inp.value}).then(function(){inp.value='';toast('Neues Passwort für '+name+' gesetzt.','cyan')}).catch(apiErr);
+    api('PATCH','/api/users/'+encodeURIComponent(name),{reset:true}).then(function(j){showCred(j.username,j.password,'Neues Passwort erzeugt');renderKonto()}).catch(apiErr);
   }
   if(a==='del'){
     if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich löschen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Löschen'}},4000);return}
     api('DELETE','/api/users/'+encodeURIComponent(name)).then(function(){toast('Konto '+name+' gelöscht.','red');renderKonto()}).catch(apiErr);
   }
 });
+function showCred(user,pw,title){
+  var box=$('#credBox');box.textContent='';
+  var h=document.createElement('h2');h.textContent=title;box.appendChild(h);
+  var p=document.createElement('p');p.className='muted';p.style.margin='0';p.textContent='Gib diese Zugangsdaten sicher weiter. Das Passwort ist nur jetzt sichtbar. Bei der ersten Anmeldung muss '+user+' ein eigenes Passwort wählen.';box.appendChild(p);
+  var u=document.createElement('div');u.className='muted';u.textContent='Benutzername';box.appendChild(u);
+  var cu=document.createElement('code');cu.textContent=user;box.appendChild(cu);
+  var l=document.createElement('div');l.className='muted';l.textContent='Erzeugtes Passwort';box.appendChild(l);
+  var c=document.createElement('code');c.textContent=pw;box.appendChild(c);
+  var bt=document.createElement('button');bt.className='btn sm';bt.type='button';bt.textContent='Zugangsdaten kopieren';
+  bt.addEventListener('click',function(){var t='Benutzername: '+user+'\nPasswort: '+pw;
+    (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){toast('Zugangsdaten kopiert.','cyan')}).catch(function(){var r=document.createRange();r.selectNodeContents(c);var sl=getSelection();sl.removeAllRanges();sl.addRange(r);toast('Passwort markiert. Mit Strg+C kopieren.','')})});
+  box.appendChild(bt);box.hidden=false;
+}
 $('#newUserForm').addEventListener('submit',function(e){
   e.preventDefault();var f=this;
-  api('POST','/api/users',{username:$('#nuName').value,role:$('#nuRole').value,password:$('#nuPass').value}).then(function(){
-    toast('Konto '+$('#nuName').value.toLowerCase()+' angelegt.','cyan');f.reset();renderKonto();
+  api('POST','/api/users',{username:$('#nuName').value,role:$('#nuRole').value}).then(function(j){
+    f.reset();showCred(j.username,j.password,'Konto angelegt');renderKonto();
   }).catch(apiErr);
 });
 $('#pwForm').addEventListener('submit',function(e){
