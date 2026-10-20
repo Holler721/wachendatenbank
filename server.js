@@ -47,7 +47,37 @@ if (process.argv[2] === '--hash') {
 
 /* ---------- Datenhaltung (eine JSON-Datei) ---------- */
 let db;
+/* ---------- Dauerhafter Speicher (optional): Upstash Redis per REST ---------- */
+const REMOTE_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/+$/, '');
+const REMOTE_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const REMOTE = !!(REMOTE_URL && REMOTE_TOKEN);
+const REMOTE_KEY = 'shadow:db';
+let remoteBusy = false, remoteDirty = false, remoteOk = true;
+async function remoteCmd(cmd) {
+  const r = await fetch(REMOTE_URL, { method: 'POST', headers: { Authorization: 'Bearer ' + REMOTE_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) });
+  const j = await r.json();
+  if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+  return j.result;
+}
+async function remoteFlush() {
+  if (!REMOTE) return;
+  if (remoteBusy) { remoteDirty = true; return; }
+  remoteBusy = true;
+  try {
+    do { remoteDirty = false; await remoteCmd(['SET', REMOTE_KEY, JSON.stringify(db)]); remoteOk = true; } while (remoteDirty);
+  } catch (e) { remoteOk = false; console.error('Dauerspeicher fehlgeschlagen:', e.message); setTimeout(remoteFlush, 5000); }
+  remoteBusy = false;
+}
+async function remotePull() {
+  if (!REMOTE) return;
+  try {
+    const val = await remoteCmd(['GET', REMOTE_KEY]);
+    if (val) { fs.mkdirSync(DATA_DIR, { recursive: true }); fs.writeFileSync(DB_FILE, val, { mode: 0o600 }); console.log('Daten aus dem Dauerspeicher geladen.'); }
+    else console.log('Dauerspeicher ist leer, starte mit Beispieldaten.');
+  } catch (e) { console.error('Dauerspeicher nicht erreichbar:', e.message); }
+}
 function save() {
+  remoteFlush();
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     const tmp = DB_FILE + '.tmp';
@@ -341,7 +371,7 @@ async function api(req, res, url) {
   }
   if (p === '/api/users' && method === 'GET') {
     need(req, 'owner');
-    return send(res, 200, { users: Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, role: u.role, created: u.created }; }) });
+    return send(res, 200, { storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, role: u.role, created: u.created }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     need(req, 'owner');
@@ -397,7 +427,9 @@ const server = http.createServer(function (req, res) {
   res.end('Nicht gefunden');
 });
 
-load();
-server.listen(PORT, '0.0.0.0', function () {
-  console.log('Jedi Shadow Network läuft auf Port ' + PORT + ' (Daten: ' + DATA_DIR + ')');
+remotePull().then(function () {
+  load();
+  server.listen(PORT, '0.0.0.0', function () {
+    console.log('Jedi Shadow Network läuft auf Port ' + PORT + ' (Daten: ' + DATA_DIR + (REMOTE ? ', Dauerspeicher aktiv' : ', FLÜCHTIG: ohne Dauerspeicher gehen Änderungen beim Neustart verloren') + ')');
+  });
 });
