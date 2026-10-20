@@ -1,6 +1,6 @@
 'use strict';
 /*
- * Jedi Shadow Network: Server
+ * Jedi Schatten: Server
  * Keine externen Pakete. Läuft mit Node.js 18 oder neuer.
  *   node server.js                 startet den Server
  *   node server.js --hash "pw"     erzeugt einen Passwort-Hash für owner.json
@@ -19,25 +19,20 @@ const SESSION_MS = 12 * 60 * 60 * 1000;
 const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
-const STATES = ['republik', 'kus', 'neutral']; // feste Schlüssel; Anzeigename und Farbe sind in db.config änderbar
-const OLD_STATES = { 'Verbündet': 'republik', 'Dunkel': 'kus', 'Unklar': 'neutral' };
+const COLORS = ['cyan', 'red', 'amber', 'vio'];
 const DEFAULT_CONFIG = {
-  labels: { power: 'Gefahrenlevel', dark: 'Dunkle Machtpräsenz' },
-  states: {
-    republik: { name: 'Republik', color: '#e6e6e6' },
-    kus: { name: 'KUS', color: '#fb4d6d' },
-    neutral: { name: 'Neutral', color: '#8f8f8f' }
-  }
+  ranks: ['Schatten-Meister', 'Schatten', 'Adjutant', 'Informant', 'Zielperson'],
+  states: [
+    { name: 'Republik', color: 'cyan', threat: false },
+    { name: 'KUS', color: 'red', threat: true },
+    { name: 'Neutral', color: 'amber', threat: false },
+    { name: 'Dunkle Machtpräsenz', color: 'vio', threat: true }
+  ],
+  rtypes: ['Report', 'Order', 'Dokument']
 };
-// Vorgenerierte Einträge früherer Versionen (werden einmalig aus bestehenden Daten entfernt)
-const OLD_SEED = {
-  persons: ['Kael Orren', 'Mira Tallon', 'Ilen Maro', 'Torvan Ashe', 'Sorin Valk', 'Rhea Calder', 'Dr. Lyra Senn', 'Dax Holloran', 'Vesper Quill', 'Oren Thale', 'Ysolde Karn', 'Bram Odessa', 'Taryn Vol', 'Juno Prax', 'Edric Sol', 'Neve Arlen', 'Harrow Bright', 'Cade Ilvane', 'Sable Renn', 'Quill Morrow', 'Anya Drev', 'Marcus Pell'],
-  ops: ['Operation Nachtfalter', 'Operation Stille Kluft', 'Operation Dämmerwache'],
-  nodes: ['Kel Varos', 'Corvane', 'Halden Reach', 'Tarsis Minor', 'Umbra Gate', 'Myrrh', 'Ossuary', 'Dren Station', 'Vell', 'Cinder']
-};
-const RTYPES = ['Report', 'Order', 'Dokument'];
+const OLD_STATES = { 'Verbündet': 'Republik', 'Dunkel': 'KUS', 'Unklar': 'Neutral' };
+function stateNames() { return db.config.states.map(function (s) { return s.name; }); }
 const CLASSES = ['Offen', 'Intern', 'Vertraulich', 'Geheim']; // Stufe = Mindestrolle zum Lesen (1..4)
-const RANKS = ['Schatten-Meister', 'Schatten', 'Adjutant', 'Informant', 'Zielperson'];
 
 /* ---------- Passwörter ---------- */
 const SCRYPT = { N: 16384, r: 8, p: 1 };
@@ -120,72 +115,30 @@ function ensureOwner() {
     }
   }
 }
-function cleanConfig(b) {
-  const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
-  if (!b || typeof b !== 'object' || !b.labels || !b.states) bad('Ungültige Einstellungen.');
-  const out = { labels: {}, states: {} };
-  ['power', 'dark'].forEach(function (k) {
-    const v = str(b.labels[k], 40);
-    if (!v) bad('Die Feldbezeichnungen dürfen nicht leer sein.');
-    out.labels[k] = v;
-  });
-  const used = {};
-  STATES.forEach(function (k) {
-    const st = b.states[k] || {};
-    const name = str(st.name, 24);
-    if (!name) bad('Jeder Status braucht einen Namen.');
-    if (used[name.toLowerCase()]) bad('Die Statusnamen müssen sich unterscheiden.');
-    used[name.toLowerCase()] = 1;
-    if (typeof st.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(st.color)) bad('Ungültige Farbe.');
-    out.states[k] = { name: name, color: st.color.toLowerCase() };
-  });
-  return out;
-}
-function migrate() {
-  // Status früherer Versionen (Verbündet/Dunkel/Unklar) auf die festen Schlüssel umstellen
-  Object.keys(db.persons).forEach(function (id) {
-    const p = db.persons[id];
-    if (OLD_STATES[p.s]) p.s = OLD_STATES[p.s];
-    if (STATES.indexOf(p.s) < 0) p.s = 'neutral';
-  });
-  if (db.map && Array.isArray(db.map.nodes)) {
-    db.map.nodes.forEach(function (n) {
-      if (OLD_STATES[n.s]) n.s = OLD_STATES[n.s];
-      if (STATES.indexOf(n.s) < 0) n.s = 'neutral';
-    });
-  }
-  // Einmalig: vorgenerierte Beispieleinträge entfernen (nur solche, die noch Namen und ID der Vorlage tragen)
-  if (!db.seedPurged) {
-    Object.keys(db.persons).forEach(function (id) { if (/^p\d{2}$/.test(id) && OLD_SEED.persons.indexOf(db.persons[id].n) > -1) delete db.persons[id]; });
-    Object.keys(db.ops || {}).forEach(function (id) { if (/^o[123]$/.test(id) && OLD_SEED.ops.indexOf(db.ops[id].n) > -1) delete db.ops[id]; });
-    if (db.map && Array.isArray(db.map.nodes)) {
-      const gone = {};
-      db.map.nodes = db.map.nodes.filter(function (n) {
-        if (/^n[0-9]$/.test(n.k) && OLD_SEED.nodes.indexOf(n.id) > -1) { gone[n.k] = 1; return false; }
-        return true;
-      });
-      db.map.edges = (db.map.edges || []).filter(function (e) { return !gone[e[0]] && !gone[e[1]]; });
-    }
-    db.seedPurged = true;
-  }
-  let cfg;
-  try { cfg = cleanConfig(db.config); } catch (e) { cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); }
-  db.config = cfg;
-}
 function load() {
   try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (e) { db = null; }
   if (!db) {
     const seed = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed.json'), 'utf8'));
-    db = { rev: 1, persons: {}, map: seed.map, users: {}, seedPurged: true, secret: crypto.randomBytes(32).toString('hex') };
+    db = { rev: 1, persons: {}, map: seed.map, users: {}, secret: crypto.randomBytes(32).toString('hex') };
     seed.persons.forEach(function (p, i) {
       db.persons['p' + String(i + 1).padStart(2, '0')] = Object.assign({}, p, { watch: false, ts: i + 1 });
     });
   }
   db.users = db.users || {};
   db.reports = db.reports || {};
-  if (!db.ops) { db.ops = {}; OP_SEED.forEach(function (o, i) { db.ops['o' + (i + 1)] = Object.assign({}, o, { ts: i + 1 }); }); }
-  db.map = db.map || { nodes: [], edges: [] };
-  migrate();
+  if (!db.ops) db.ops = {};
+  if (!db.config) db.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  if (!db.lockdown) db.lockdown = { active: false };
+  if (!db.cfgV) { // einmalig: alte Statusnamen auf die neuen Labels umstellen
+    Object.keys(db.persons).forEach(function (k) { const p = db.persons[k]; if (OLD_STATES[p.s]) p.s = OLD_STATES[p.s]; });
+    if (db.map && Array.isArray(db.map.nodes)) db.map.nodes.forEach(function (n) { if (OLD_STATES[n.s]) n.s = OLD_STATES[n.s]; });
+    db.cfgV = 1;
+  }
+  if (!db.purgedSeed) { // einmalig: frühere Beispieldaten (Akten p01.., Operationen o1..) entfernen
+    Object.keys(db.persons).forEach(function (k) { if (/^p\d{2}$/.test(k)) delete db.persons[k]; });
+    Object.keys(db.ops).forEach(function (k) { if (/^o\d$/.test(k)) delete db.ops[k]; });
+    db.purgedSeed = true;
+  }
   if (process.env.SESSION_SECRET) db.secret = process.env.SESSION_SECRET;
   if (!db.secret) db.secret = crypto.randomBytes(32).toString('hex');
   ensureOwner();
@@ -252,10 +205,9 @@ function cleanPerson(b, partial) {
   const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
   if (!b || typeof b !== 'object') bad('Ungültige Daten.');
   if ('n' in b || !partial) { o.n = str(b.n, 60); if (!o.n) bad('Name fehlt.'); }
-  if ('r' in b || !partial) { if (RANKS.indexOf(b.r) < 0) bad('Ungültiger Rang.'); o.r = b.r; }
-  if ('s' in b || !partial) { if (STATES.indexOf(b.s) < 0) bad('Ungültiger Status.'); o.s = b.s; }
+  if ('r' in b || !partial) { if (db.config.ranks.indexOf(b.r) < 0) bad('Ungültiger Rang.'); o.r = b.r; }
+  if ('s' in b || !partial) { if (stateNames().indexOf(b.s) < 0) bad('Ungültiger Status.'); o.s = b.s; }
   if ('p' in b || !partial) { const p = Number(b.p); if (!isFinite(p)) bad('Ungültiges Gefahrenlevel.'); o.p = Math.max(0, Math.min(100, Math.round(p))); }
-  if ('dp' in b || !partial) { const d = Number(b.dp === undefined ? 0 : b.dp); if (!isFinite(d)) bad('Ungültige Dunkle Machtpräsenz.'); o.dp = Math.max(0, Math.min(100, Math.round(d))); }
   if ('l' in b || !partial) { o.l = str(b.l, 40) || 'Unbekannt'; }
   if ('note' in b || !partial) { o.note = str(b.note, 300) || 'Keine Notiz.'; }
   if ('seen' in b || !partial) { o.seen = /^\d{2}\.\d{2}\.$/.test(b.seen) ? b.seen : today(); }
@@ -268,7 +220,7 @@ function cleanReport(b, partial) {
   const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
   if (!b || typeof b !== 'object') bad('Ungültige Daten.');
   if ('ti' in b || !partial) { o.ti = str(b.ti, 120); if (!o.ti) bad('Der Titel fehlt.'); }
-  if ('t' in b || !partial) { if (RTYPES.indexOf(b.t) < 0) bad('Ungültige Art.'); o.t = b.t; }
+  if ('t' in b || !partial) { if (db.config.rtypes.indexOf(b.t) < 0) bad('Ungültige Art.'); o.t = b.t; }
   if ('cls' in b || !partial) { if (CLASSES.indexOf(b.cls) < 0) bad('Ungültige Geheimhaltungsstufe.'); o.cls = b.cls; }
   if ('body' in b || !partial) { o.body = str(b.body, 8000); if (!o.body) bad('Der Berichtstext fehlt.'); }
   return o;
@@ -281,12 +233,59 @@ function cleanOp(b, partial) {
   const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
   if (!b || typeof b !== 'object') bad('Ungültige Daten.');
   if ('n' in b || !partial) { o.n = str(b.n, 60); if (!o.n) bad('Der Name fehlt.'); }
-  if ('c' in b || !partial) { o.c = str(b.c, 40); if (!o.c) bad('Die Zelle fehlt.'); }
+  if ('c' in b || !partial) { o.c = str(b.c, 40); if (!o.c) bad('Das Einsatzgebiet fehlt.'); }
   if ('loc' in b || !partial) { o.loc = str(b.loc, 40); if (!o.loc) bad('Der Ort fehlt.'); }
   if ('risk' in b || !partial) { if (RISKS.indexOf(b.risk) < 0) bad('Ungültiges Risiko.'); o.risk = b.risk; }
   if ('p' in b || !partial) { const p = Number(b.p); if (!isFinite(p)) bad('Ungültiger Fortschritt.'); o.p = Math.max(0, Math.min(100, Math.round(p))); }
   if ('ph' in b || !partial) { const p = Number(b.ph); if (!isFinite(p)) bad('Ungültige Phase.'); o.ph = Math.max(1, Math.min(4, Math.round(p))); }
   return o;
+}
+function cleanConfig(b) {
+  const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
+  if (!b || typeof b !== 'object') bad('Ungültige Daten.');
+  const cur = db.config;
+  const prep = function (arr, curNames, label, max, withState) {
+    if (!Array.isArray(arr) || arr.length < 1 || arr.length > max) bad(label + ': 1 bis ' + max + ' Einträge.');
+    const names = {}, origs = {};
+    return arr.map(function (it) {
+      if (!it || typeof it !== 'object') bad('Ungültiger Eintrag.');
+      const n = str(it.n, 30);
+      if (!n) bad(label + ': Ein Name fehlt.');
+      if (names[n.toLowerCase()]) bad(label + ': „' + n + '“ gibt es doppelt.');
+      names[n.toLowerCase()] = 1;
+      let o = null;
+      if (typeof it.o === 'string' && it.o) {
+        if (curNames.indexOf(it.o) < 0 || origs[it.o]) bad(label + ': Ungültiger Bezug.');
+        origs[it.o] = 1; o = it.o;
+      }
+      const r = { o: o, n: n };
+      if (withState) {
+        if (COLORS.indexOf(it.color) < 0) bad('Ungültige Farbe.');
+        r.color = it.color; r.threat = !!it.threat;
+      }
+      return r;
+    });
+  };
+  const ranks = prep(b.ranks, cur.ranks, 'Ränge', 30, false);
+  const states = prep(b.states, stateNames(), 'Labels', 12, true);
+  const rtypes = prep(b.rtypes, cur.rtypes, 'Berichtsarten', 8, false);
+  // Entfernte Einträge dürfen nirgends mehr verwendet werden
+  const gone = function (list, curNames, count, label) {
+    const kept = {}; list.forEach(function (x) { if (x.o) kept[x.o] = 1; });
+    curNames.forEach(function (nm) {
+      if (kept[nm]) return;
+      const c = count(nm);
+      if (c > 0) bad(label + ' „' + nm + '“ wird noch von ' + c + ' Einträgen verwendet. Weise zuerst etwas anderes zu oder benenne ihn um.');
+    });
+  };
+  const nodes = (db.map && db.map.nodes) || [];
+  gone(ranks, cur.ranks, function (nm) { return Object.keys(db.persons).filter(function (k) { return db.persons[k].r === nm; }).length; }, 'Rang');
+  gone(states, stateNames(), function (nm) {
+    return Object.keys(db.persons).filter(function (k) { return db.persons[k].s === nm; }).length + nodes.filter(function (n) { return n.s === nm; }).length;
+  }, 'Label');
+  gone(rtypes, cur.rtypes, function (nm) { return Object.keys(db.reports).filter(function (k) { return db.reports[k].t === nm; }).length; }, 'Berichtsart');
+  const map = function (list) { const m = {}; list.forEach(function (x) { if (x.o && x.o !== x.n) m[x.o] = x.n; }); return m; };
+  return { ranks: ranks, states: states, rtypes: rtypes, rr: map(ranks), rs: map(states), rt: map(rtypes) };
 }
 function cleanMap(b) {
   const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
@@ -301,7 +300,7 @@ function cleanMap(b) {
     if (!isFinite(x) || !isFinite(y)) bad('Ungültige Position.');
     const id = str(n.id, 40);
     if (!id) bad('Jedes System braucht einen Namen.');
-    if (STATES.indexOf(n.s) < 0) bad('Ungültiger Status.');
+    if (stateNames().indexOf(n.s) < 0) bad('Ungültiger Status.');
     return { k: n.k, id: id, x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)), s: n.s, i: str(n.i, 300) };
   });
   const seen = {}, edges = [];
@@ -375,13 +374,17 @@ async function api(req, res, url) {
       return send(res, 400, { error: 'Ungültige Anfrage.' });
     }
   }
+  if (db.lockdown.active && ['/api/session', '/api/login', '/api/logout'].indexOf(p) < 0) {
+    const lu = sessionUser(req);
+    if (lu && ROLES[lu.role] < ROLES.editor) return send(res, 403, { error: 'Notfall: Die Seite ist für dein Konto gesperrt.', code: 'lockdown' });
+  }
   if (['/api/session', '/api/login', '/api/logout', '/api/password'].indexOf(p) < 0) {
     const cu = sessionUser(req);
     if (cu && cu.mustChange) return send(res, 403, { error: 'Bitte vergib zuerst ein eigenes Passwort.', code: 'must_change' });
   }
   if (p === '/api/session' && method === 'GET') {
     const u = sessionUser(req);
-    return send(res, 200, { user: u ? publicUser(u) : null });
+    return send(res, 200, { user: u ? publicUser(u) : null, lockdown: !!db.lockdown.active });
   }
   if (p === '/api/login' && method === 'POST') {
     const b = await readBody(req);
@@ -392,7 +395,7 @@ async function api(req, res, url) {
     if (!ok) { fail('ip:' + ip); fail('u:' + name); return send(res, 401, { error: 'Benutzername oder Passwort stimmt nicht.' }); }
     fails.delete('ip:' + ip); fails.delete('u:' + name);
     setCookie(res, req, makeToken(u.name), Math.floor(SESSION_MS / 1000));
-    return send(res, 200, { user: publicUser(u) });
+    return send(res, 200, { user: publicUser(u), lockdown: !!db.lockdown.active });
   }
   if (p === '/api/logout' && method === 'POST') {
     setCookie(res, req, '', 0);
@@ -408,7 +411,7 @@ async function api(req, res, url) {
     const reports = Object.keys(db.reports).map(function (id) { return Object.assign({ id: id }, db.reports[id]); })
       .filter(function (r) { return clsLevel(r.cls) <= lvl; })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
-    return send(res, 200, { rev: db.rev, config: db.config, persons: persons, map: db.map, reports: reports,
+    return send(res, 200, { rev: db.rev, persons: persons, map: db.map, reports: reports, config: db.config, lockdown: !!db.lockdown.active,
       ops: Object.keys(db.ops).map(function (id) { return Object.assign({ id: id }, db.ops[id]); }).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); }) });
   }
   if (p === '/api/persons' && method === 'POST') {
@@ -474,9 +477,25 @@ async function api(req, res, url) {
     if (method === 'DELETE') { delete db.ops[om[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/config' && method === 'PUT') {
-    need(req, 'owner');
-    db.config = cleanConfig(await readBody(req)); bump();
+    need(req, 'editor');
+    const c = cleanConfig(await readBody(req));
+    Object.keys(db.persons).forEach(function (k) { const x = db.persons[k]; if (c.rr[x.r]) x.r = c.rr[x.r]; if (c.rs[x.s]) x.s = c.rs[x.s]; });
+    Object.keys(db.reports).forEach(function (k) { const x = db.reports[k]; if (c.rt[x.t]) x.t = c.rt[x.t]; });
+    if (db.map && db.map.nodes) db.map.nodes.forEach(function (n) { if (c.rs[n.s]) n.s = c.rs[n.s]; });
+    db.config = {
+      ranks: c.ranks.map(function (x) { return x.n; }),
+      states: c.states.map(function (x) { return { name: x.n, color: x.color, threat: x.threat }; }),
+      rtypes: c.rtypes.map(function (x) { return x.n; })
+    };
+    bump();
     return send(res, 200, { ok: true });
+  }
+  if (p === '/api/lockdown' && method === 'POST') {
+    const me = need(req, 'editor');
+    const b = await readBody(req);
+    db.lockdown = b.active === true ? { active: true, by: me.name, ts: Date.now() } : { active: false };
+    bump();
+    return send(res, 200, { ok: true, lockdown: db.lockdown.active });
   }
   if (p === '/api/map' && method === 'PUT') {
     need(req, 'editor');
@@ -561,6 +580,6 @@ const server = http.createServer(function (req, res) {
 remotePull().then(function () {
   load();
   server.listen(PORT, '0.0.0.0', function () {
-    console.log('Jedi Shadow Network läuft auf Port ' + PORT + ' (Daten: ' + DATA_DIR + (REMOTE ? ', Dauerspeicher aktiv' : ', FLÜCHTIG: ohne Dauerspeicher gehen Änderungen beim Neustart verloren') + ')');
+    console.log('Jedi Schatten läuft auf Port ' + PORT + ' (Daten: ' + DATA_DIR + (REMOTE ? ', Dauerspeicher aktiv' : ', FLÜCHTIG: ohne Dauerspeicher gehen Änderungen beim Neustart verloren') + ')');
   });
 });
