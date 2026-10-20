@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}.fl{border:1px solid var(--line);border-radius:10px;padding:0;margin:0 0 8px}.fl summary{cursor:pointer;padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;font-size:13px}.fl .fb{padding:0 12px 12px;display:grid;gap:8px}.fl pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:13px}.rtbl td,.rtbl th{padding:6px 8px;text-align:center}.rtbl td:first-child,.rtbl th:first-child{text-align:left}
+</style>
 <title>Jedi Schatten</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -463,6 +464,12 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
         <div id="cfgBody" class="ugrid" style="align-items:flex-start"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="cfgSave">Änderungen speichern</button><button class="btn ghost" type="button" id="cfgReset">Verwerfen</button></div>
       </section>
+      <section class="panel" id="rolesPanel" aria-labelledby="rlH" hidden>
+        <h2 id="rlH">Gruppen und Rechte</h2>
+        <p class="muted" style="margin:0">Lege fest, was jede Gruppe darf, und erstelle eigene Gruppen. „Schreiben“: Personen, Akten, Berichte, Operationen starten. „Verwalten“: Karte, Operationen steuern, Anpassung, Notfall, fremde Inhalte ändern. Die Schatten Leitung hat immer alle Rechte.</p>
+        <div class="tbl"><table class="rtbl"><thead><tr><th>Gruppe</th><th>Schreiben</th><th>Verwalten</th><th>Intern lesen</th><th>Vertraulich lesen</th><th></th></tr></thead><tbody id="rBody"></tbody></table></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" type="button" id="rAdd">+ Neue Gruppe</button><button class="btn" type="button" id="rSave">Rechte speichern</button><button class="btn ghost" type="button" id="rReset">Verwerfen</button></div>
+      </section>
       <section class="panel" id="usersPanel" aria-labelledby="usH" hidden>
         <h2 id="usH">Konten verwalten</h2>
         <p class="muted" style="margin:0">Schatten lesen nur. Phantome pflegen das Personenregister, schreiben Berichte und starten Operationen. Der Spektral Rat darf alle Inhalte bearbeiten. Die Schatten Leitung verwaltet zusätzlich Konten. Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.</p>
@@ -765,6 +772,23 @@ function renderRegister(){
   $('#regLead').textContent=S.canWrite?'Du kannst Akten hinzufügen, ändern und entfernen. Änderungen sehen alle sofort.':'Du hast Lesezugriff. Akten ändern dürfen nur Phantome, Spektral Rat und Schatten Leitung.';
   renderDetail();
 }
+function fDate(t){return new Date(t).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+function filesHtml(p){
+  if(!S.hosted)return '';
+  var fl=(p.files||[]).slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)});
+  var form=function(f){return '<div class="fl" style="padding:12px;display:grid;gap:8px"><div class="field"><label for="fTi">TITEL</label><input id="fTi" type="text" maxlength="120" value="'+esc(f?f.title:'')+'"></div><div class="field"><label for="fTx">AKTE (FREI SCHREIBBAR)</label><textarea id="fTx" rows="6" maxlength="8000">'+esc(f?f.text:'')+'</textarea></div><div style="display:flex;gap:8px"><button class="btn sm" type="button" data-act="fsave">Speichern</button><button class="btn sm ghost" type="button" data-act="fcancel">Abbrechen</button></div></div>'};
+  return '<div style="display:grid;gap:8px"><div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0;font-size:14px">Akten ('+fl.length+')</h3>'+(S.canWrite&&S.fileEdit!=='new'?'<button class="btn sm" type="button" data-act="fnew">Neue Akte</button>':'')+'</div>'+
+   (S.fileEdit==='new'?form(null):'')+
+   (fl.length?fl.map(function(f){
+     if(S.fileEdit===f.id)return form(f);
+     return '<details class="fl"><summary><span><b>'+esc(f.title)+'</b></span><span class="muted">'+esc(fDate(f.ts))+' · '+esc(f.by||'')+'</span></summary><div class="fb"><pre>'+esc(f.text)+'</pre>'+(f.edited?'<span class="muted" style="font-size:11px">Bearbeitet am '+esc(fDate(f.edited))+'</span>':'')+(S.canWrite&&(f.by===S.who||S.canMap)?'<div style="display:flex;gap:8px"><button class="btn sm ghost" type="button" data-act="fedit" data-f="'+esc(f.id)+'">Bearbeiten</button><button class="btn sm danger" type="button" data-act="fdel" data-f="'+esc(f.id)+'">Löschen</button></div>':'')+'</div></details>'}).join(''):'<p class="muted" style="margin:0;font-size:12px">Noch keine Akten.</p>')+'</div>'}
+function fileAct(a,b){
+  var p=find(S.selP);if(!p)return;var base='/api/persons/'+encodeURIComponent(p.id)+'/files';
+  if(a==='fnew'){S.fileEdit='new'}else if(a==='fedit'){S.fileEdit=b.dataset.f}else if(a==='fcancel'){S.fileEdit=null}
+  else if(a==='fsave'){var d={title:$('#fTi').value.trim(),text:$('#fTx').value.trim()};if(!d.text){toast('Der Text der Akte fehlt.','red');return}
+    api(S.fileEdit==='new'?'POST':'PATCH',S.fileEdit==='new'?base:base+'/'+encodeURIComponent(S.fileEdit),d).then(function(){S.fileEdit=null;return loadData(true)}).then(function(){renderRegister();toast('Akte gespeichert.','cyan')}).catch(apiErr);return}
+  else if(a==='fdel'){if(!confirm('Diese Akte wirklich löschen?'))return;api('DELETE',base+'/'+encodeURIComponent(b.dataset.f)).then(function(){return loadData(true)}).then(function(){renderRegister();toast('Akte gelöscht.','red')}).catch(apiErr);return}
+  renderRegister();var t=$('#fTi');if(t)t.focus()}
 function renderDetail(){
   var el=$('#pDetail');
   if((S.add||S.editP)&&S.canWrite){
@@ -791,10 +815,10 @@ function renderDetail(){
    '<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd><dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
    '<div class="gauge"><div class="l"><span>Gefahrenlevel</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
    (S.canWrite?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="edit">Bearbeiten</button><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm ghost" data-act="contact">Kontakt aufnehmen</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
-   '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Zum Ändern brauchst du mindestens die Rolle Phantom.</p>');
+   '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Dir fehlt das Recht „Schreiben“.</p>')+filesHtml(p);
 }
 ['q','fs','so'].forEach(function(id){$('#'+id).addEventListener('input',renderRegister)});
-$('#pBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;S.editP=null;S.confirmDel=null;renderRegister()}});
+$('#pBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.fileEdit=null;S.add=false;S.editP=null;S.confirmDel=null;renderRegister()}});
 $('#pBody').addEventListener('keydown',function(e){if(e.key==='Enter'){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;S.editP=null;renderRegister()}}});
 $('#addP').addEventListener('click',function(){S.add=true;S.editP=null;renderRegister();var n=$('#nName');if(n)n.focus()});
 function today(){var d=new Date();return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'}
@@ -809,6 +833,7 @@ $('#pDetail').addEventListener('submit',function(e){
 });
 $('#pDetail').addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act;
+  if(/^f(new|edit|cancel|save|del)$/.test(a)){fileAct(a,b);return}
   if(a==='cancelAdd'){S.add=false;S.editP=null;renderRegister();return}
   if(a==='edit'){S.editP=S.selP;S.add=false;renderRegister();var nn=$('#nName');if(nn)nn.focus();return}
   if(a==='seed'){seedDefaults();return}
@@ -833,7 +858,7 @@ function docItem(d,i){return '<button class="item" data-doc="'+i+'"><div class="
 function repById(id){for(var i=0;i<S.reports.length;i++)if(S.reports[i].id===id)return S.reports[i];return null}
 function canEditRep(d){return S.canWrite&&(d.by===S.who||S.canMap)}
 var CLSLV={'Offen':1,'Intern':2,'Vertraulich':3,'Geheim':4};
-function myLevel(){return S.hosted&&H.user?({viewer:1,agent:2,editor:3,owner:4}[H.user.role]||1):1}
+function myLevel(){var q=S.hosted&&H.user&&H.user.perms||{};return q.secret?4:q.intern?2:1}
 function renderReports(){
   var tabs=['Alle'].concat(CFG.rtypes);
   $('#rTabs').innerHTML=tabs.map(function(t){return '<button data-tab="'+t+'" aria-pressed="'+(S.tab===t)+'">'+t+'</button>'}).join('');
@@ -1212,6 +1237,21 @@ async function initAccess(){
 }
 
 var ROLE_NAMES={viewer:'Schatten',agent:'Phantom',editor:'Spektral Rat',owner:'Schatten Leitung'};
+function RN(k){var r=(H.roles||[]).filter(function(x){return x.key===k})[0];return r?r.label:(ROLE_NAMES[k]||k)}
+function applyUser(u){S.canWrite=!!(u.perms&&u.perms.write);S.canMap=!!(u.perms&&u.perms.manage);S.role=u.label||RN(u.role)}
+var PL=[['write','Schreiben'],['manage','Verwalten'],['intern','Intern lesen'],['secret','Vertraulich lesen']];
+function renderRoles(){
+  var pan=$('#rolesPanel');pan.hidden=!(H.user&&H.user.role==='owner');if(pan.hidden)return;
+  if(!H.rdraft)H.rdraft=clone(H.roles||[]);
+  $('#rBody').innerHTML=H.rdraft.map(function(r,i){var o=r.key==='owner';
+    return '<tr data-i="'+i+'"><td><input type="text" class="rl" maxlength="30" value="'+esc(r.label)+'" aria-label="Gruppenname"></td>'+PL.map(function(x){return '<td><input type="checkbox" class="rp" data-p="'+x[0]+'"'+((o||r.perms[x[0]])?' checked':'')+(o?' disabled':'')+' aria-label="'+x[1]+'"></td>'}).join('')+'<td>'+(r.builtin?'<span class="muted">Grundgruppe</span>':'<button type="button" class="btn sm danger rdel">Entfernen</button>')+'</td></tr>'}).join('')}
+$('#rBody').addEventListener('input',function(e){var tr=e.target.closest('tr');if(!tr||!H.rdraft)return;var r=H.rdraft[+tr.dataset.i];if(e.target.classList.contains('rl'))r.label=e.target.value});
+$('#rBody').addEventListener('change',function(e){var tr=e.target.closest('tr');if(!tr||!H.rdraft||!e.target.classList.contains('rp'))return;H.rdraft[+tr.dataset.i].perms[e.target.dataset.p]=e.target.checked});
+$('#rBody').addEventListener('click',function(e){var b=e.target.closest('.rdel');if(!b)return;H.rdraft.splice(+b.closest('tr').dataset.i,1);renderRoles()});
+$('#rAdd').addEventListener('click',function(){if(!H.rdraft)return;H.rdraft.push({key:null,label:'',builtin:false,perms:{}});renderRoles();var i=$$('#rBody .rl');if(i.length)i[i.length-1].focus()});
+$('#rReset').addEventListener('click',function(){H.rdraft=null;renderRoles()});
+$('#rSave').addEventListener('click',function(){if(!H.rdraft)return;
+  api('PUT','/api/roles',{roles:H.rdraft.map(function(r){return {key:r.key,label:r.label.trim(),perms:r.perms}})}).then(function(j){H.roles=j.roles;H.rdraft=null;renderRoles();renderKonto();toast('Gruppen und Rechte gespeichert.','cyan')}).catch(apiErr)});
 /* ---------- Eigenes Hosting: Anmeldung über den Server ---------- */
 var H={user:null,rev:0,timer:null};
 function api(method,url,body){
@@ -1234,6 +1274,7 @@ function api(method,url,body){
 function loadData(force){
   return api('GET','/api/data?since='+(force?0:H.rev)).then(function(j){
     if(j.same)return;
+    if(j.me&&H.user){H.user=j.me;applyUser(j.me);applyRights()}
     H.rev=j.rev;applyConfig(j.config);if(typeof j.lockdown==='boolean')syncAlarm(j.lockdown);S.persons=j.persons||[];S.reports=j.reports||[];if(j.ops)ops=j.ops;S.loaded=true;
     if(S.rep&&!repById(S.rep))S.rep=null;
     if(S.selP&&!find(S.selP))S.selP=null;
@@ -1279,9 +1320,7 @@ $('#lockOut').addEventListener('click',function(){api('POST','/api/logout').catc
 function startHosted(u){
   if(u.mustChange){showForce();return}
   H.user=u;S.hosted=true;S.db=hostedDb;S.who=u.name;
-  var lv={viewer:1,agent:2,editor:3,owner:4}[u.role]||1;
-  S.canWrite=lv>=2;S.canMap=lv>=3;
-  S.role=ROLE_NAMES[u.role]||'Schatten';
+  applyUser(u);
   $('#login').hidden=true;$('#logoutBtn').hidden=false;$('#navKonto').hidden=false;
   applyRights();loadData(true);
   clearInterval(H.timer);H.timer=setInterval(function(){
@@ -1350,18 +1389,18 @@ function renderKonto(){
   renderCfg();
   var own=H.user.role==='owner';
   $('#ktLead').textContent='Angemeldet als '+H.user.name+' mit der Rolle '+S.role+'.';
-  $('#usersPanel').hidden=!own;
+  renderRoles();$('#usersPanel').hidden=!own;
   if(!own)return;
   api('GET','/api/users').then(function(j){
     var st=j.storage==='remote'?'Speicher: dauerhaft (Änderungen bleiben nach Neustarts erhalten).':j.storage==='remote-error'?'Speicher: Dauerspeicher antwortet gerade nicht, Änderungen werden nachgeholt.':'Speicher: FLÜCHTIG. Bei jedem Neustart gehen Konten, Personen und Berichte verloren (siehe README, Dauerspeicher).';
     $('#ktLead').textContent='Angemeldet als '+H.user.name+' mit der Rolle '+S.role+'. '+st;
-    var isMain=!!H.user.main,roles=isMain?['viewer','agent','editor','owner']:['viewer','agent','editor'];
+    var isMain=!!H.user.main,roles=(H.roles=j.roles||[],renderRoles(),H.roles).map(function(x){return x.key}).filter(function(k){return isMain||k!=='owner'});
     var cur=$('#nuRole').value||'agent';
-    $('#nuRole').innerHTML=roles.map(function(r){return '<option value="'+r+'"'+(r===cur?' selected':'')+'>'+ROLE_NAMES[r]+'</option>'}).join('');
+    $('#nuRole').innerHTML=roles.map(function(r){return '<option value="'+r+'"'+(r===cur?' selected':'')+'>'+RN(r)+'</option>'}).join('');
     $('#uBody').innerHTML=j.users.map(function(u){
       if(u.main)return '<tr><td><b>'+esc(u.name)+'</b></td><td><span class="chip vio">Haupt-Owner</span></td><td class="muted">über „Passwort ändern“</td><td class="muted">nicht änderbar</td></tr>';
-      if(u.role==='owner'&&!isMain)return '<tr><td><b>'+esc(u.name)+'</b></td><td><span class="chip vio">'+ROLE_NAMES.owner+'</span></td><td class="muted">nur Haupt-Owner</td><td class="muted">nur Haupt-Owner</td></tr>';
-      var opts=roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+ROLE_NAMES[r]+'</option>'}).join('');
+      if(u.role==='owner'&&!isMain)return '<tr><td><b>'+esc(u.name)+'</b></td><td><span class="chip vio">'+RN('owner')+'</span></td><td class="muted">nur Haupt-Owner</td><td class="muted">nur Haupt-Owner</td></tr>';
+      var opts=roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+RN(r)+'</option>'}).join('');
       return '<tr data-u="'+esc(u.name)+'"><td><b>'+esc(u.name)+'</b></td>'+
        '<td><select class="urole" aria-label="Rolle von '+esc(u.name)+'">'+opts+'</select></td>'+
        '<td class="muted">'+(u.mustChange?'wartet auf erste Anmeldung':'selbst gewählt')+'</td>'+
