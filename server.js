@@ -286,10 +286,20 @@ function need(req, role) {
   return u;
 }
 let MAIN = '';
-function publicUser(u) { return { name: u.name, role: u.role, main: u.name === MAIN }; }
+function publicUser(u) { return { name: u.name, role: u.role, main: u.name === MAIN, mustChange: !!u.mustChange }; }
 function newId() { return crypto.randomBytes(6).toString('hex'); }
 function validPassword(p) {
-  if (typeof p !== 'string' || p.length < 10 || p.length > 200) { const e = new Error('Das Passwort braucht mindestens 10 Zeichen.'); e.status = 400; throw e; }
+  if (typeof p !== 'string' || p.length < 5 || p.length > 200 || !/\p{L}/u.test(p) || !/[0-9]/.test(p)) {
+    const e = new Error('Das Passwort braucht mindestens 5 Zeichen mit Buchstaben und Zahlen.'); e.status = 400; throw e;
+  }
+}
+function genPassword() {
+  const L = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz', D = '23456789', ALL = L + D;
+  for (;;) {
+    let s = '';
+    for (let i = 0; i < 12; i++) s += ALL[crypto.randomInt(ALL.length)];
+    if (/[A-Za-z]/.test(s) && /[0-9]/.test(s)) return s.replace(/(.{4})(?=.)/g, '$1-');
+  }
 }
 
 async function api(req, res, url) {
@@ -298,6 +308,10 @@ async function api(req, res, url) {
     if (req.headers['x-requested-with'] !== 'shadow-net' || !/^application\/json/.test(req.headers['content-type'] || (method === 'DELETE' ? 'application/json' : ''))) {
       return send(res, 400, { error: 'Ungültige Anfrage.' });
     }
+  }
+  if (['/api/session', '/api/login', '/api/logout', '/api/password'].indexOf(p) < 0) {
+    const cu = sessionUser(req);
+    if (cu && cu.mustChange) return send(res, 403, { error: 'Bitte vergib zuerst ein eigenes Passwort.', code: 'must_change' });
   }
   if (p === '/api/session' && method === 'GET') {
     const u = sessionUser(req);
@@ -403,13 +417,14 @@ async function api(req, res, url) {
     const b = await readBody(req);
     if (!checkPw(String(b.current || ''), u.hash)) return send(res, 400, { error: 'Das aktuelle Passwort stimmt nicht.' });
     validPassword(b.next);
-    u.hash = hashPw(b.next); u.since = Date.now(); save();
+    if (checkPw(String(b.next), u.hash)) return send(res, 400, { error: 'Das neue Passwort muss sich vom bisherigen unterscheiden.' });
+    u.hash = hashPw(b.next); u.since = Date.now(); u.mustChange = false; save();
     setCookie(res, req, makeToken(u.name), Math.floor(SESSION_MS / 1000));
-    return send(res, 200, { ok: true });
+    return send(res, 200, { ok: true, user: publicUser(u) });
   }
   if (p === '/api/users' && method === 'GET') {
     need(req, 'owner');
-    return send(res, 200, { storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, role: u.role, created: u.created, main: u.name === MAIN }; }) });
+    return send(res, 200, { storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, role: u.role, created: u.created, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'owner');
@@ -419,10 +434,10 @@ async function api(req, res, url) {
     if (db.users[name]) return send(res, 400, { error: 'Diesen Benutzernamen gibt es schon.' });
     if (['viewer', 'agent', 'editor', 'owner'].indexOf(b.role) < 0) return send(res, 400, { error: 'Ungültige Rolle.' });
     if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
-    validPassword(b.password);
-    db.users[name] = { name: name, role: b.role, hash: hashPw(b.password), created: new Date().toISOString(), since: Date.now() };
+    const pw = genPassword();
+    db.users[name] = { name: name, role: b.role, hash: hashPw(pw), created: new Date().toISOString(), since: Date.now(), mustChange: true };
     save();
-    return send(res, 200, { ok: true });
+    return send(res, 200, { ok: true, username: name, password: pw });
   }
   m = /^\/api\/users\/([a-z0-9._-]{3,24})$/.exec(p);
   if (m) {
@@ -438,9 +453,10 @@ async function api(req, res, url) {
         if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
         u.role = b.role;
       }
-      if ('password' in b) { validPassword(b.password); u.hash = hashPw(b.password); u.since = Date.now(); }
+      let pw = null;
+      if (b.reset === true) { pw = genPassword(); u.hash = hashPw(pw); u.since = Date.now(); u.mustChange = true; }
       save();
-      return send(res, 200, { ok: true });
+      return send(res, 200, { ok: true, username: u.name, password: pw });
     }
     if (method === 'DELETE') { delete db.users[m[1]]; save(); return send(res, 200, { ok: true }); }
   }
