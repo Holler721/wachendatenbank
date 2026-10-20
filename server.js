@@ -90,6 +90,7 @@ function save() {
 function ensureOwner() {
   const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'owner.json'), 'utf8'));
   const name = String(process.env.OWNER_USER || cfg.username).toLowerCase();
+  MAIN = name;
   const u = db.users[name];
   if (!u) {
     db.users[name] = {
@@ -103,7 +104,6 @@ function ensureOwner() {
       u.since = Date.now();
     }
   }
-  Object.keys(db.users).forEach(function (k) { if (k !== name && db.users[k].role === 'owner') db.users[k].role = 'editor'; });
 }
 function load() {
   try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (e) { db = null; }
@@ -203,7 +203,7 @@ function cleanReport(b, partial) {
   if ('body' in b || !partial) { o.body = str(b.body, 8000); if (!o.body) bad('Der Berichtstext fehlt.'); }
   return o;
 }
-function clsLevel(c) { const i = CLASSES.indexOf(c); return i < 0 ? 4 : i + 1; }
+function clsLevel(c) { const i = CLASSES.indexOf(c); return i < 0 ? 4 : [1, 2, 3, 3][i]; } // Spektral Rat (editor) liest alles
 const OP_SEED = [
   { n: 'Operation Nachtfalter', c: 'Zelle Drei', loc: 'Tarnsektor 7', p: 68, ph: 3, risk: 'mittel' },
   { n: 'Operation Stille Kluft', c: 'Zelle Eins', loc: 'Halden Reach', p: 31, ph: 2, risk: 'hoch' },
@@ -285,7 +285,8 @@ function need(req, role) {
   if (ROLES[u.role] < ROLES[role]) { const e = new Error('Dafür fehlen dir die Rechte.'); e.status = 403; throw e; }
   return u;
 }
-function publicUser(u) { return { name: u.name, role: u.role }; }
+let MAIN = '';
+function publicUser(u) { return { name: u.name, role: u.role, main: u.name === MAIN }; }
 function newId() { return crypto.randomBytes(6).toString('hex'); }
 function validPassword(p) {
   if (typeof p !== 'string' || p.length < 10 || p.length > 200) { const e = new Error('Das Passwort braucht mindestens 10 Zeichen.'); e.status = 400; throw e; }
@@ -366,7 +367,7 @@ async function api(req, res, url) {
     const u = need(req, 'agent');
     const cur = db.reports[rm[1]];
     if (!cur || clsLevel(cur.cls) > ROLES[u.role]) return send(res, 404, { error: 'Bericht nicht gefunden.' });
-    if (cur.by !== u.name && ROLES[u.role] < ROLES.editor) return send(res, 403, { error: 'Fremde Berichte bearbeiten nur Editor und Owner.' });
+    if (cur.by !== u.name && ROLES[u.role] < ROLES.editor) return send(res, 403, { error: 'Fremde Berichte bearbeiten nur Spektral Rat und Schatten Leitung.' });
     if (method === 'PATCH') {
       const o = cleanReport(await readBody(req), true);
       if (o.cls && clsLevel(o.cls) > ROLES[u.role]) return send(res, 403, { error: 'Diese Geheimhaltungsstufe darfst du nicht vergeben.' });
@@ -376,7 +377,7 @@ async function api(req, res, url) {
     if (method === 'DELETE') { delete db.reports[rm[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/ops' && method === 'POST') {
-    need(req, 'editor');
+    need(req, 'agent');
     if (Object.keys(db.ops).length >= 200) return send(res, 400, { error: 'Zu viele Operationen.' });
     const o = cleanOp(Object.assign({ p: 5, ph: 1 }, await readBody(req)), false);
     o.ts = Date.now();
@@ -408,15 +409,16 @@ async function api(req, res, url) {
   }
   if (p === '/api/users' && method === 'GET') {
     need(req, 'owner');
-    return send(res, 200, { storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, role: u.role, created: u.created }; }) });
+    return send(res, 200, { storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, role: u.role, created: u.created, main: u.name === MAIN }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
-    need(req, 'owner');
+    const me = need(req, 'owner');
     const b = await readBody(req);
     const name = str(b.username, 24).toLowerCase();
     if (!/^[a-z0-9._-]{3,24}$/.test(name)) return send(res, 400, { error: 'Benutzername: 3 bis 24 Zeichen aus a-z, 0-9, Punkt, Strich.' });
     if (db.users[name]) return send(res, 400, { error: 'Diesen Benutzernamen gibt es schon.' });
-    if (['viewer', 'agent', 'editor'].indexOf(b.role) < 0) return send(res, 400, { error: 'Ungültige Rolle.' });
+    if (['viewer', 'agent', 'editor', 'owner'].indexOf(b.role) < 0) return send(res, 400, { error: 'Ungültige Rolle.' });
+    if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
     validPassword(b.password);
     db.users[name] = { name: name, role: b.role, hash: hashPw(b.password), created: new Date().toISOString(), since: Date.now() };
     save();
@@ -424,13 +426,18 @@ async function api(req, res, url) {
   }
   m = /^\/api\/users\/([a-z0-9._-]{3,24})$/.exec(p);
   if (m) {
-    need(req, 'owner');
+    const me = need(req, 'owner');
     const u = db.users[m[1]];
     if (!u) return send(res, 404, { error: 'Konto nicht gefunden.' });
-    if (u.role === 'owner') return send(res, 400, { error: 'Das Owner-Konto kann hier nicht geändert werden.' });
+    if (u.name === MAIN) return send(res, 400, { error: 'Das Haupt-Owner-Konto kann hier nicht geändert werden.' });
+    if (u.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten verwaltet nur das Haupt-Owner-Konto.' });
     if (method === 'PATCH') {
       const b = await readBody(req);
-      if ('role' in b) { if (['viewer', 'agent', 'editor'].indexOf(b.role) < 0) return send(res, 400, { error: 'Ungültige Rolle.' }); u.role = b.role; }
+      if ('role' in b) {
+        if (['viewer', 'agent', 'editor', 'owner'].indexOf(b.role) < 0) return send(res, 400, { error: 'Ungültige Rolle.' });
+        if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
+        u.role = b.role;
+      }
       if ('password' in b) { validPassword(b.password); u.hash = hashPw(b.password); u.since = Date.now(); }
       save();
       return send(res, 200, { ok: true });
