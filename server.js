@@ -116,6 +116,7 @@ function load() {
   }
   db.users = db.users || {};
   db.reports = db.reports || {};
+  if (!db.ops) { db.ops = {}; OP_SEED.forEach(function (o, i) { db.ops['o' + (i + 1)] = Object.assign({}, o, { ts: i + 1 }); }); }
   if (process.env.SESSION_SECRET) db.secret = process.env.SESSION_SECRET;
   if (!db.secret) db.secret = crypto.randomBytes(32).toString('hex');
   ensureOwner();
@@ -203,6 +204,24 @@ function cleanReport(b, partial) {
   return o;
 }
 function clsLevel(c) { const i = CLASSES.indexOf(c); return i < 0 ? 4 : i + 1; }
+const OP_SEED = [
+  { n: 'Operation Nachtfalter', c: 'Zelle Drei', loc: 'Tarnsektor 7', p: 68, ph: 3, risk: 'mittel' },
+  { n: 'Operation Stille Kluft', c: 'Zelle Eins', loc: 'Halden Reach', p: 31, ph: 2, risk: 'hoch' },
+  { n: 'Operation Dämmerwache', c: 'Zelle Fünf', loc: 'Cinder', p: 92, ph: 4, risk: 'niedrig' }
+];
+const RISKS = ['niedrig', 'mittel', 'hoch'];
+function cleanOp(b, partial) {
+  const o = {};
+  const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
+  if (!b || typeof b !== 'object') bad('Ungültige Daten.');
+  if ('n' in b || !partial) { o.n = str(b.n, 60); if (!o.n) bad('Der Name fehlt.'); }
+  if ('c' in b || !partial) { o.c = str(b.c, 40); if (!o.c) bad('Die Zelle fehlt.'); }
+  if ('loc' in b || !partial) { o.loc = str(b.loc, 40); if (!o.loc) bad('Der Ort fehlt.'); }
+  if ('risk' in b || !partial) { if (RISKS.indexOf(b.risk) < 0) bad('Ungültiges Risiko.'); o.risk = b.risk; }
+  if ('p' in b || !partial) { const p = Number(b.p); if (!isFinite(p)) bad('Ungültiger Fortschritt.'); o.p = Math.max(0, Math.min(100, Math.round(p))); }
+  if ('ph' in b || !partial) { const p = Number(b.ph); if (!isFinite(p)) bad('Ungültige Phase.'); o.ph = Math.max(1, Math.min(4, Math.round(p))); }
+  return o;
+}
 function cleanMap(b) {
   const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
   if (!b || !Array.isArray(b.nodes) || !Array.isArray(b.edges)) bad('Ungültige Karte.');
@@ -308,7 +327,8 @@ async function api(req, res, url) {
     const reports = Object.keys(db.reports).map(function (id) { return Object.assign({ id: id }, db.reports[id]); })
       .filter(function (r) { return clsLevel(r.cls) <= lvl; })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
-    return send(res, 200, { rev: db.rev, persons: persons, map: db.map, reports: reports });
+    return send(res, 200, { rev: db.rev, persons: persons, map: db.map, reports: reports,
+      ops: Object.keys(db.ops).map(function (id) { return Object.assign({ id: id }, db.ops[id]); }).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); }) });
   }
   if (p === '/api/persons' && method === 'POST') {
     need(req, 'agent');
@@ -354,6 +374,23 @@ async function api(req, res, url) {
       return send(res, 200, { ok: true });
     }
     if (method === 'DELETE') { delete db.reports[rm[1]]; bump(); return send(res, 200, { ok: true }); }
+  }
+  if (p === '/api/ops' && method === 'POST') {
+    need(req, 'editor');
+    if (Object.keys(db.ops).length >= 200) return send(res, 400, { error: 'Zu viele Operationen.' });
+    const o = cleanOp(Object.assign({ p: 5, ph: 1 }, await readBody(req)), false);
+    o.ts = Date.now();
+    const id = newId();
+    db.ops[id] = o; bump();
+    return send(res, 200, { id: id });
+  }
+  const om = /^\/api\/ops\/([A-Za-z0-9_-]{1,40})$/.exec(p);
+  if (om) {
+    need(req, 'editor');
+    const cur = db.ops[om[1]];
+    if (!cur) return send(res, 404, { error: 'Operation nicht gefunden.' });
+    if (method === 'PATCH') { Object.assign(cur, cleanOp(await readBody(req), true)); bump(); return send(res, 200, { ok: true }); }
+    if (method === 'DELETE') { delete db.ops[om[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/map' && method === 'PUT') {
     need(req, 'editor');
