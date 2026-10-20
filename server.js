@@ -115,6 +115,53 @@ function ensureOwner() {
     }
   }
 }
+
+/* ---------- Gespeicherte Daten auf das aktuelle Format bringen ---------- */
+function isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); }
+function toMap(v, prefix) { // Objekt von Einträgen erzwingen (alte Stände konnten Listen sein), kaputte Einträge verwerfen
+  const out = {};
+  if (Array.isArray(v)) v.forEach(function (it, i) { if (isObj(it)) out[String(it.id || prefix + i).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40)] = it; });
+  else if (isObj(v)) Object.keys(v).forEach(function (k) { if (isObj(v[k])) out[k] = v[k]; });
+  return out;
+}
+function cleanNames(arr, fallback) {
+  const seen = {}, out = [];
+  (Array.isArray(arr) ? arr : []).forEach(function (x) {
+    const n = str(isObj(x) ? x.name || x.n : x, 30);
+    if (n && !seen[n.toLowerCase()]) { seen[n.toLowerCase()] = 1; out.push(n); }
+  });
+  return out.length ? out : fallback.slice();
+}
+function normalizeDb() {
+  db.users = isObj(db.users) ? db.users : {};
+  db.persons = toMap(db.persons, 'p');
+  db.reports = toMap(db.reports, 'r');
+  db.ops = toMap(db.ops, 'o');
+  if (typeof db.rev !== 'number' || !isFinite(db.rev)) db.rev = 1;
+  const c = isObj(db.config) ? db.config : {};
+  const seenS = {}, states = [];
+  (Array.isArray(c.states) ? c.states : []).forEach(function (x) {
+    const n = str(isObj(x) ? x.name || x.n : x, 30);
+    if (!n || seenS[n.toLowerCase()]) return;
+    seenS[n.toLowerCase()] = 1;
+    states.push({ name: n, color: COLORS.indexOf(isObj(x) && x.color) >= 0 ? x.color : 'amber', threat: !!(isObj(x) && x.threat) });
+  });
+  db.config = {
+    ranks: cleanNames(c.ranks, DEFAULT_CONFIG.ranks),
+    states: states.length ? states : JSON.parse(JSON.stringify(DEFAULT_CONFIG.states)),
+    rtypes: cleanNames(c.rtypes, DEFAULT_CONFIG.rtypes)
+  };
+  if (!isObj(db.lockdown)) db.lockdown = { active: false };
+  if (!isObj(db.map)) db.map = { nodes: [], edges: [], rev: 1 };
+  const keys = {};
+  db.map.nodes = (Array.isArray(db.map.nodes) ? db.map.nodes : []).filter(function (n) {
+    if (!isObj(n) || typeof n.k !== 'string' || keys[n.k]) return false;
+    keys[n.k] = 1; return true;
+  }).map(function (n) {
+    return { k: n.k, id: str(n.id, 40) || n.k, x: isFinite(Number(n.x)) ? Math.max(0, Math.min(1, Number(n.x))) : 0.5, y: isFinite(Number(n.y)) ? Math.max(0, Math.min(1, Number(n.y))) : 0.5, s: n.s, i: str(n.i, 300) };
+  });
+  db.map.edges = (Array.isArray(db.map.edges) ? db.map.edges : []).filter(function (e) { return Array.isArray(e) && e.length === 2 && keys[e[0]] && keys[e[1]] && e[0] !== e[1]; });
+}
 function load() {
   try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (e) { db = null; }
   if (!db) {
@@ -124,11 +171,7 @@ function load() {
       db.persons['p' + String(i + 1).padStart(2, '0')] = Object.assign({}, p, { watch: false, ts: i + 1 });
     });
   }
-  db.users = db.users || {};
-  db.reports = db.reports || {};
-  if (!db.ops) db.ops = {};
-  if (!db.config) db.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-  if (!db.lockdown) db.lockdown = { active: false };
+  normalizeDb();
   if (!db.cfgV) { // einmalig: alte Statusnamen auf die neuen Labels umstellen
     Object.keys(db.persons).forEach(function (k) { const p = db.persons[k]; if (OLD_STATES[p.s]) p.s = OLD_STATES[p.s]; });
     if (db.map && Array.isArray(db.map.nodes)) db.map.nodes.forEach(function (n) { if (OLD_STATES[n.s]) n.s = OLD_STATES[n.s]; });
@@ -558,8 +601,8 @@ const server = http.createServer(function (req, res) {
   const url = new URL(req.url, 'http://x');
   if (url.pathname.indexOf('/api/') === 0) {
     api(req, res, url).catch(function (e) {
-      if (!e.status) console.error(e);
-      if (!res.headersSent) send(res, e.status || 500, { error: e.status ? e.message : 'Serverfehler.' });
+      if (!e.status) console.error('API-Fehler bei ' + req.method + ' ' + url.pathname + ':', e && e.stack || e);
+      if (!res.headersSent) send(res, e.status || 500, { error: e.status ? e.message : 'Serverfehler (' + String(e && e.message || e).slice(0, 160) + ').' });
     });
     return;
   }
