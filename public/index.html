@@ -310,7 +310,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       <button data-nav="dashboard"><span>Dashboard</span><small>SR-00</small></button>
       <button data-nav="register"><span>Personenregister</span><small>SR-01</small></button>
       <button data-nav="berichte"><span>Berichte</span><small>SR-02</small></button>
-      <button data-nav="karte"><span>Schattenkarte</span><small>SR-04</small></button>
+      <button data-nav="karte"><span>Galaxis Karte</span><small>SR-04</small></button>
       <button data-nav="ops"><span>Operationen</span><small>SR-03</small></button>
       <button data-nav="terminal"><span>Terminal</span><small>SR-OS</small></button>
       <button data-nav="konto" id="navKonto" hidden><span>Konto</span><small>SR-KT</small></button>
@@ -359,13 +359,13 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
 
       <div class="row">
         <section class="panel" aria-labelledby="radH">
-          <h2 id="radH">Schattenkarte · Sektor 7</h2>
+          <h2 id="radH">Galaxis Karte · Sektor 7</h2>
           <div class="lagebild">
             <div class="radar"><canvas id="radar" aria-label="Radar mit fünf Signaturen im Sektor"></canvas></div>
             <div class="txt">
               <p class="muted" style="margin:0;font-size:13px" id="radTxt">Radar im Normalbetrieb. Aktualisierung alle 4,5 Sekunden.</p>
               <div class="legend" id="legend"></div>
-              <button class="btn sm" data-go="karte" style="align-self:flex-start">Zur Schattenkarte</button>
+              <button class="btn sm" data-go="karte" style="align-self:flex-start">Zur Galaxis Karte</button>
             </div>
           </div>
         </section>
@@ -424,7 +424,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
 
     <!-- KARTE -->
     <section class="view" id="v-karte" hidden>
-      <header class="head"><div class="t"><div class="eyebrow">SR-KA-04 · TARNSEKTOR 7 UND UMGEBUNG</div><h1 class="sm" data-t="Schattenkarte">Schattenkarte</h1><p class="lead" id="mapLead">Wähle ein System, um Lage und Einsatzoptionen zu sehen.</p></div>
+      <header class="head"><div class="t"><div class="eyebrow">SR-KA-04 · TARNSEKTOR 7 UND UMGEBUNG</div><h1 class="sm" data-t="Galaxis Karte">Galaxis Karte</h1><p class="lead" id="mapLead">Wähle ein System, um Lage und Einsatzoptionen zu sehen.</p></div>
         <button class="btn" id="mEdit" hidden>Karte bearbeiten</button></header>
       <div class="panel mbar" id="mapBar" hidden>
         <button class="btn sm" id="mAdd" aria-pressed="false">+ System setzen</button>
@@ -441,7 +441,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
 
     <!-- OPS -->
     <section class="view" id="v-ops" hidden>
-      <header class="head"><div class="t"><div class="eyebrow">SR-OP-03 · LAUFENDE UND ARCHIVIERTE OPERATIONEN</div><h1 class="sm" data-t="Operationen">Operationen</h1><p class="lead">Treibe Phasen voran oder brich Einsätze ab. Neue Operationen startest du über die Schattenkarte.</p></div></header>
+      <header class="head"><div class="t"><div class="eyebrow">SR-OP-03 · LAUFENDE UND ARCHIVIERTE OPERATIONEN</div><h1 class="sm" data-t="Operationen">Operationen</h1><p class="lead">Treibe Phasen voran oder brich Einsätze ab. Neue Operationen startest du über die Galaxis Karte.</p></div></header>
       <div class="ops" id="opsGrid"></div>
     </section>
 
@@ -1039,7 +1039,7 @@ function renderOps(){
     return '<div class="op"><div class="ph"><span class="nm">'+(S.opEdit===opKey(o,i)?'<input id="opRen" type="text" maxlength="60" value="'+esc(o.n)+'" aria-label="Neuer Name der Operation">':esc(o.n))+'</span><span class="chip '+(done?'cyan':(o.risk==='hoch'?'red':'vio'))+'">'+(done?'Abgeschlossen':'Risiko '+o.risk)+'</span></div>'+
      '<div class="meta">'+esc(o.c)+' · '+esc(o.loc)+'</div><div class="phases" aria-hidden="true">'+[1,2,3,4].map(function(k){return '<i class="'+(k<=o.ph?'on':'')+'"></i>'}).join('')+'</div>'+
      '<div class="gauge"><div class="l"><span>Fortschritt · Phase '+Math.min(o.ph,4)+' von 4</span><b style="color:'+col+'">'+Math.min(o.p,100)+'%</b></div><div class="bar"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
-     '<div class="acts">'+((S.hosted&&!S.canMap)?'':S.opEdit===opKey(o,i)?'<button class="btn sm" data-op="'+i+'" data-a="rensave">Name speichern</button><button class="btn sm ghost" data-op="'+i+'" data-a="rencancel">Abbrechen</button>':'<button class="btn sm ghost" data-op="'+i+'" data-a="ren">Umbenennen</button>'+(done?'<button class="btn sm ghost" data-op="'+i+'" data-a="archive">Archivieren</button>':'<button class="btn sm" data-op="'+i+'" data-a="adv">Phase vorantreiben</button><button class="btn sm danger" data-op="'+i+'" data-a="abort">Abbrechen</button>'))+'</div></div>'}).join('')||'<div class="panel muted">Keine Operationen aktiv. Wähle auf der Schattenkarte ein System.</div>';
+     '<div class="acts">'+((S.hosted&&!S.canMap)?'':S.opEdit===opKey(o,i)?'<button class="btn sm" data-op="'+i+'" data-a="rensave">Name speichern</button><button class="btn sm ghost" data-op="'+i+'" data-a="rencancel">Abbrechen</button>':'<button class="btn sm ghost" data-op="'+i+'" data-a="ren">Umbenennen</button>'+(done?'<button class="btn sm ghost" data-op="'+i+'" data-a="archive">Archivieren</button>':'<button class="btn sm" data-op="'+i+'" data-a="adv">Phase vorantreiben</button><button class="btn sm danger" data-op="'+i+'" data-a="abort">Abbrechen</button>'))+'</div></div>'}).join('')||'<div class="panel muted">Keine Operationen aktiv. Wähle auf der Galaxis Karte ein System.</div>';
 }
 function saveRen(o){
   var f=$('#opRen'),nm=f?f.value.trim():'';if(!nm)return;
@@ -1124,7 +1124,7 @@ say('SCHATTEN-OS 4.3 · Sitzung gestartet','ok');say('Tippe help für alle Befeh
 function acts(){
   var a=[
    {l:'Dashboard',k:'Ansicht',f:function(){go('dashboard')}},{l:'Personenregister',k:'Ansicht',f:function(){go('register')}},
-   {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Schattenkarte',k:'Ansicht',f:function(){go('karte')}},
+   {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Galaxis Karte',k:'Ansicht',f:function(){go('karte')}},
    {l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Terminal',k:'Ansicht',f:function(){go('terminal')}},
    {l:'UMBRA auslösen',k:'Aktion',f:function(){umbraTo(2)}},{l:'UMBRA beenden',k:'Aktion',f:function(){umbraTo(0)}}];
   if(S.canWrite)a.push({l:'Person hinzufügen',k:'Aktion',f:function(){go('register');$('#addP').click()}});
