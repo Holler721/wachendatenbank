@@ -453,12 +453,12 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       </section>
       <section class="panel" id="usersPanel" aria-labelledby="usH" hidden>
         <h2 id="usH">Konten verwalten</h2>
-        <p class="muted" style="margin:0">Viewer lesen nur. Contributor pflegen das Personenregister. Editor bearbeiten zusätzlich die Karte.</p>
+        <p class="muted" style="margin:0">Schatten lesen nur. Phantome pflegen das Personenregister, schreiben Berichte und starten Operationen. Der Spektral Rat darf alle Inhalte bearbeiten. Die Schatten Leitung verwaltet zusätzlich Konten. Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.</p>
         <div class="tbl"><table class="utbl"><thead><tr><th>Benutzer</th><th>Rolle</th><th>Neues Passwort</th><th>Aktion</th></tr></thead><tbody id="uBody"></tbody></table></div>
         <h2 style="margin-top:6px">Neues Konto</h2>
         <form id="newUserForm" class="ugrid">
           <div class="field"><label for="nuName">BENUTZERNAME</label><input id="nuName" type="text" autocomplete="off" required maxlength="24"></div>
-          <div class="field"><label for="nuRole">ROLLE</label><select id="nuRole"><option value="viewer">Viewer</option><option value="agent" selected>Contributor</option><option value="editor">Editor</option></select></div>
+          <div class="field"><label for="nuRole">ROLLE</label><select id="nuRole"></select></div>
           <div class="field"><label for="nuPass">PASSWORT (MIN. 10 ZEICHEN)</label><input id="nuPass" type="password" autocomplete="new-password" minlength="10" required></div>
           <div><button class="btn" type="submit">Konto anlegen</button></div>
         </form>
@@ -557,7 +557,7 @@ var ops=[
 var ticks=['LAGE: ERHÖHTE BEREITSCHAFT IN ALLEN ZELLEN','ZELLE DREI MELDET KONTAKT IN KEL VAROS','ARCHIV CORVANE VERSIEGELT','FUNKDISZIPLIN EINHALTEN, KLARTEXT NUR IM NOTFALL','SIGNATUR MIT DUNKLER PRÄSENZ IM SEKTOR 7','ZIRKEL-ÜBERTRAG: 312 DATENSÄTZE ZUR PRÜFUNG'];
 
 /* ---------- State ---------- */
-var S={reports:[],repEdit:null,confirmRep:null,alarm:false,phase:0,view:'dashboard',selP:null,selN:null,rep:null,tab:'Alle',
+var S={opDraft:null,opEdit:null,reports:[],repEdit:null,confirmRep:null,alarm:false,phase:0,view:'dashboard',selP:null,selN:null,rep:null,tab:'Alle',
   persons:DEF_PERSONS.map(function(p,i){var o=clone(p);o.id='d'+i;return o}),
   map:clone(DEF_MAP),draft:null,editing:false,tool:'select',dirty:false,linkFrom:null,hovN:null,
   add:false,db:null,canWrite:false,canMap:false,role:'Nur Lesen',who:'Agent',confirmDel:null,confirmNode:false,confirmDisc:false,loaded:false};
@@ -698,7 +698,7 @@ function renderCards(){
    {t:'OPERATIONEN',c:'SR-OP-03',n:[[String(active),'aktive Operationen']],d:'Laufende und archivierte Operationen',g:'Operationen verwalten',v:'ops'},
    {t:'SCHATTENKARTE',c:'SR-KA-04',n:[[String(S.map.nodes.length),'Systeme im Blick']],d:'Sektor 7 und Umgebung',g:'Karte öffnen',v:'karte'},
    {t:'SCHATTEN-OS',c:'SR-OS-05',n:[['44','aktive Agenten']],d:'Kommandoebene und Befehle',g:'Terminal starten',v:'terminal'},
-   {t:'ZUGRIFF',c:'SR-ZG-06',n:[[S.role,'deine Rolle']],d:'Personen: '+(S.canWrite?'bearbeiten':'nur lesen')+' · Karte: '+(S.canMap?'bearbeiten':'nur lesen'),g:S.hosted?'Rechte vergibt der Owner unter Konto':'Rechte vergibt der Owner über Teilen',v:null}];
+   {t:'ZUGRIFF',c:'SR-ZG-06',n:[[S.role,'deine Rolle']],d:'Personen: '+(S.canWrite?'bearbeiten':'nur lesen')+' · Karte: '+(S.canMap?'bearbeiten':'nur lesen'),g:S.hosted?'Rechte vergibt die Schatten Leitung unter Konto':'Rechte vergibt der Owner über Teilen',v:null}];
   $('#cards').innerHTML=cs.map(function(c){
     var tag=c.v?'button':'div',attr=c.v?' data-go="'+c.v+'"':'',cls=c.v?'card':'card static';
     return '<'+tag+' class="'+cls+'"'+attr+'><div class="top"><b>'+c.t+'</b><span>'+c.c+'</span></div><div style="display:flex;flex-wrap:wrap;gap:4px 22px">'+
@@ -730,7 +730,7 @@ function renderRegister(){
   $('#pBody').innerHTML=l.map(function(p){var c=COL[p.s]||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
     return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b></td><td>'+esc(p.r)+'</td><td><span class="chip '+(CHIP[p.s]||'amber')+'">'+esc(p.s)+'</span></td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Akten gefunden.</td></tr>';
   $('#pCount').textContent=l.length+' von '+S.persons.length+' Akten';
-  $('#regLead').textContent=S.canWrite?'Du kannst Akten hinzufügen, ändern und entfernen. Änderungen sehen alle sofort.':'Du hast Lesezugriff. Akten ändern dürfen nur Personen mit Contributor- oder Editor-Rechten.';
+  $('#regLead').textContent=S.canWrite?'Du kannst Akten hinzufügen, ändern und entfernen. Änderungen sehen alle sofort.':'Du hast Lesezugriff. Akten ändern dürfen nur Phantome, Spektral Rat und Schatten Leitung.';
   renderDetail();
 }
 function renderDetail(){
@@ -757,7 +757,7 @@ function renderDetail(){
    '<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd><dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
    '<div class="gauge"><div class="l"><span>Machtlevel</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
    (S.canWrite?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm ghost" data-act="contact">Kontakt aufnehmen</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
-   '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Zum Ändern brauchst du Contributor- oder Editor-Rechte.</p>');
+   '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Zum Ändern brauchst du mindestens die Rolle Phantom.</p>');
 }
 ['q','fs','so'].forEach(function(id){$('#'+id).addEventListener('input',renderRegister)});
 $('#pBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;S.confirmDel=null;renderRegister()}});
@@ -811,7 +811,7 @@ function renderReports(){
      '<div class="field"><label for="rTi">TITEL</label><input id="rTi" type="text" maxlength="120" required value="'+esc(d?d.ti:'')+'"></div>'+
      '<div class="field"><label for="rT">ART</label><select id="rT">'+RTYPES.map(function(t){return '<option'+(d&&d.t===t?' selected':'')+'>'+t+'</option>'}).join('')+'</select></div>'+
      '<div class="field"><label for="rC">GEHEIMHALTUNGSSTUFE</label><select id="rC">'+CLASSES.filter(function(c){return CLSLV[c]<=lv}).map(function(c){return '<option'+((d?d.cls:'Intern')===c?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+
-       '<span class="muted" style="font-size:12px">Offen: alle · Intern: ab Contributor · Vertraulich: ab Editor · Geheim: nur Owner</span></div>'+
+       '<span class="muted" style="font-size:12px">Offen: alle · Intern: ab Phantom · Vertraulich und Geheim: ab Spektral Rat</span></div>'+
      '<div class="field"><label for="rB">TEXT</label><textarea id="rB" maxlength="8000" required>'+esc(d?d.body:'')+'</textarea>'+
        '<span class="muted" style="font-size:12px">Leerzeile = neuer Absatz. Stellen in [[doppelten Klammern]] werden geschwärzt.</span></div>'+
      '<div class="rtools"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" data-act="rCancel">Abbrechen</button></div></form>';
@@ -868,7 +868,7 @@ function renderNode(){
   }
   if(!n){el.innerHTML='<h2>Kein System gewählt</h2><p class="muted" style="margin:0">Klicke auf einen Punkt der Karte. Verbindungen des Systems leuchten auf.</p>';return}
   var links=m.edges.filter(function(e){return e[0]===n.k||e[1]===n.k}).map(function(e){var o=nodeByKey(e[0]===n.k?e[1]:e[0]);return o?esc(o.id):''}).filter(Boolean);
-  el.innerHTML='<div class="ph"><h2 style="overflow-wrap:anywhere">'+esc(n.id)+'</h2><span class="chip '+(CHIP[n.s]||'amber')+'">'+esc(n.s)+'</span></div><p style="margin:0;color:#e0e0e0;overflow-wrap:anywhere">'+esc(n.i)+'</p><dl class="kv"><dt>Routen</dt><dd>'+(links.join(', ')||'keine')+'</dd></dl><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-act="send">Zelle entsenden</button><button class="btn sm ghost" data-act="scan">Scannen</button></div>';
+  el.innerHTML='<div class="ph"><h2 style="overflow-wrap:anywhere">'+esc(n.id)+'</h2><span class="chip '+(CHIP[n.s]||'amber')+'">'+esc(n.s)+'</span></div><p style="margin:0;color:#e0e0e0;overflow-wrap:anywhere">'+esc(n.i)+'</p><dl class="kv"><dt>Routen</dt><dd>'+(links.join(', ')||'keine')+'</dd></dl>'+nodeActs(n);
 }
 $('#nodeInfo').addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act,n=S.selN?nodeByKey(S.selN):null;if(!n)return;
@@ -878,8 +878,14 @@ $('#nodeInfo').addEventListener('click',function(e){
     S.draft.edges=S.draft.edges.filter(function(x){return x[0]!==n.k&&x[1]!==n.k});
     S.selN=null;S.confirmNode=false;markDirty();renderNode();return;
   }
-  if(a==='send')newOp(n);
+  if(a==='send'){S.opDraft=n.k;renderNode();var f=$('#opName');if(f)f.focus();return}
+  if(a==='opCancel'){S.opDraft=null;renderNode();return}
   if(a==='scan')toast('Scan von '+n.id+': '+(n.s==='Dunkel'?'dunkle Präsenz bestätigt.':(n.s==='Unklar'?'Signaturen uneindeutig.':'keine Auffälligkeiten.')),n.s==='Dunkel'?'red':'cyan');
+});
+$('#nodeInfo').addEventListener('submit',function(e){
+  if(e.target.id!=='opForm')return;e.preventDefault();
+  var n=S.selN?nodeByKey(S.selN):null,nm=$('#opName').value.trim(),c=$('#opCell').value.trim();
+  if(!n||!nm||!c)return;newOp(n,nm,c);
 });
 $('#nodeInfo').addEventListener('input',function(e){
   if(!S.editing)return;var n=nodeByKey(S.selN);if(!n)return;
@@ -900,7 +906,7 @@ function syncMap(){
   $('#mSave').disabled=!S.dirty;
   $('#mDiscard').textContent=S.confirmDisc?'Wirklich verwerfen?':(S.dirty?'Verwerfen':'Abbrechen');
   $('#mHint').textContent=S.tool==='add'?'Klicke auf die Karte, um ein neues System zu setzen.':(S.tool==='link'?(S.linkFrom?'Wähle das zweite System. Besteht die Route schon, wird sie entfernt.':'Wähle das erste System der Route.'):'Ziehe Systeme an eine neue Position oder wähle eines zum Bearbeiten.');
-  $('#mapLead').textContent=S.canMap?'Wähle ein System. Mit „Karte bearbeiten“ passt du Systeme und Routen an.':'Wähle ein System, um Lage und Einsatzoptionen zu sehen. Bearbeiten dürfen nur Personen mit Editor-Rechten.';
+  $('#mapLead').textContent=S.canMap?'Wähle ein System. Mit „Karte bearbeiten“ passt du Systeme und Routen an.':'Wähle ein System, um Lage und Einsatzoptionen zu sehen. Bearbeiten dürfen nur Spektral Rat und Schatten Leitung.';
 }
 function markDirty(){S.dirty=true;S.confirmDisc=false;syncMap()}
 function enterEdit(){
@@ -973,25 +979,50 @@ mapO.el.addEventListener('click',function(e){if(S.editing)return;S.selN=nodeAt(e
 
 /* ---------- Operationen ---------- */
 var cells=['Zelle Eins','Zelle Zwei','Zelle Drei','Zelle Vier','Zelle Fünf'],opNames=['Falkenauge','Aschenwind','Schwarzglas','Morgenrot','Stummer Ruf','Nebelpfad'];
-function newOp(n){
+function newOp(n,name,cell){
   if(ops.some(function(o){return o.loc===n.id&&o.p<100})){toast('In '+n.id+' läuft bereits eine Operation.','red');return}
-  var o={n:'Operation '+pick(opNames),c:pick(cells),loc:n.id,p:5,ph:1,risk:n.s==='Dunkel'?'hoch':'mittel'};
+  var o={n:name,c:cell||cells[0],loc:n.id,p:5,ph:1,risk:n.s==='Dunkel'?'hoch':'mittel'};
+  var done=function(){S.opDraft=null;renderNode();toast('„'+name+'“ gestartet. Zelle nach '+n.id+' entsandt.','cyan')};
   if(S.hosted){
-    if(!S.canMap){toast('Operationen starten nur Editor und Owner.','red');return}
-    api('POST','/api/ops',o).then(function(){return loadData(true)}).then(function(){toast('Zelle nach '+n.id+' entsandt. Operation gestartet.','cyan')}).catch(writeErr);return}
-  ops.push(o);
-  toast('Zelle nach '+n.id+' entsandt. Operation gestartet.','cyan');renderOps();renderOpsMini();renderCards();
+    if(!S.canWrite){toast('Operationen starten nur Phantome, Spektral Rat und Schatten Leitung.','red');return}
+    api('POST','/api/ops',o).then(function(){return loadData(true)}).then(done).catch(writeErr);return}
+  ops.push(o);done();renderOps();renderOpsMini();renderCards();
 }
+function nodeActs(n){
+  if(S.opDraft===n.k)return '<form id="opForm" class="rform"><div class="field"><label for="opName">NAME DER OPERATION</label><input id="opName" type="text" maxlength="60" required placeholder="z. B. Operation Nachtfalter"></div>'+
+    '<div class="field"><label for="opCell">ZELLE</label><input id="opCell" type="text" maxlength="40" list="cellList" value="'+esc(cells[0])+'" required><datalist id="cellList">'+cells.map(function(c){return '<option value="'+esc(c)+'">'}).join('')+'</datalist></div>'+
+    '<div class="rtools"><button class="btn sm" type="submit">Operation starten</button><button class="btn sm ghost" type="button" data-act="opCancel">Abbrechen</button></div></form>';
+  return '<div style="display:flex;gap:8px;flex-wrap:wrap">'+((!S.hosted||S.canWrite)?'<button class="btn sm" data-act="send">Operation starten</button>':'')+'<button class="btn sm ghost" data-act="scan">Scannen</button></div>';
+}
+function opKey(o,i){return o.id!==undefined?o.id:i}
 function renderOps(){
+  if(S.opEdit!==null&&document.activeElement&&document.activeElement.id==='opRen')return;
   $('#opsGrid').innerHTML=ops.map(function(o,i){
     var done=o.p>=100,col=done?'#a4a4a4':(o.risk==='hoch'?'#fb4d6d':'#c2c2c2');
-    return '<div class="op"><div class="ph"><span class="nm">'+esc(o.n)+'</span><span class="chip '+(done?'cyan':(o.risk==='hoch'?'red':'vio'))+'">'+(done?'Abgeschlossen':'Risiko '+o.risk)+'</span></div>'+
+    return '<div class="op"><div class="ph"><span class="nm">'+(S.opEdit===opKey(o,i)?'<input id="opRen" type="text" maxlength="60" value="'+esc(o.n)+'" aria-label="Neuer Name der Operation">':esc(o.n))+'</span><span class="chip '+(done?'cyan':(o.risk==='hoch'?'red':'vio'))+'">'+(done?'Abgeschlossen':'Risiko '+o.risk)+'</span></div>'+
      '<div class="meta">'+esc(o.c)+' · '+esc(o.loc)+'</div><div class="phases" aria-hidden="true">'+[1,2,3,4].map(function(k){return '<i class="'+(k<=o.ph?'on':'')+'"></i>'}).join('')+'</div>'+
      '<div class="gauge"><div class="l"><span>Fortschritt · Phase '+Math.min(o.ph,4)+' von 4</span><b style="color:'+col+'">'+Math.min(o.p,100)+'%</b></div><div class="bar"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
-     '<div class="acts">'+((S.hosted&&!S.canMap)?'':done?'<button class="btn sm ghost" data-op="'+i+'" data-a="archive">Archivieren</button>':'<button class="btn sm" data-op="'+i+'" data-a="adv">Phase vorantreiben</button><button class="btn sm danger" data-op="'+i+'" data-a="abort">Abbrechen</button>')+'</div></div>'}).join('')||'<div class="panel muted">Keine Operationen aktiv. Wähle auf der Schattenkarte ein System.</div>';
+     '<div class="acts">'+((S.hosted&&!S.canMap)?'':S.opEdit===opKey(o,i)?'<button class="btn sm" data-op="'+i+'" data-a="rensave">Name speichern</button><button class="btn sm ghost" data-op="'+i+'" data-a="rencancel">Abbrechen</button>':'<button class="btn sm ghost" data-op="'+i+'" data-a="ren">Umbenennen</button>'+(done?'<button class="btn sm ghost" data-op="'+i+'" data-a="archive">Archivieren</button>':'<button class="btn sm" data-op="'+i+'" data-a="adv">Phase vorantreiben</button><button class="btn sm danger" data-op="'+i+'" data-a="abort">Abbrechen</button>'))+'</div></div>'}).join('')||'<div class="panel muted">Keine Operationen aktiv. Wähle auf der Schattenkarte ein System.</div>';
 }
+function saveRen(o){
+  var f=$('#opRen'),nm=f?f.value.trim():'';if(!nm)return;
+  S.opEdit=null;
+  if(S.hosted)api('PATCH','/api/ops/'+encodeURIComponent(o.id),{n:nm}).then(function(){return loadData(true)}).then(function(){toast('Operation umbenannt.','cyan')}).catch(writeErr);
+  else{o.n=nm;toast('Operation umbenannt.','cyan');renderOps();renderOpsMini();renderCards()}
+}
+$('#opsGrid').addEventListener('keydown',function(e){
+  if(e.target.id!=='opRen')return;
+  if(e.key==='Enter'){e.preventDefault();var o=null;ops.forEach(function(x,i){if(opKey(x,i)===S.opEdit)o=x});if(o)saveRen(o)}
+  if(e.key==='Escape'){S.opEdit=null;renderOps()}
+});
 $('#opsGrid').addEventListener('click',function(e){
   var b=e.target.closest('[data-op]');if(!b)return;var i=+b.dataset.op,o=ops[i];
+  if(o&&(!S.hosted||S.canMap)){
+    var ra=b.dataset.a;
+    if(ra==='ren'){S.opEdit=opKey(o,i);renderOps();var f=$('#opRen');if(f){f.focus();f.select()}return}
+    if(ra==='rencancel'){S.opEdit=null;renderOps();return}
+    if(ra==='rensave'){saveRen(o);return}
+  }
   if(S.hosted){
     if(!S.canMap||!o)return;var a=b.dataset.a,u='/api/ops/'+encodeURIComponent(o.id),pr;
     if(a==='adv'){var np=Math.min(100,o.p+Math.round(rnd(9,19)));pr=api('PATCH',u,{p:np,ph:Math.min(4,Math.max(o.ph,Math.ceil(np/25)))}).then(function(){if(np>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')})}
@@ -1138,6 +1169,7 @@ async function initAccess(){
   },function(){toast('Die Karte konnte nicht live geladen werden.','red')});
 }
 
+var ROLE_NAMES={viewer:'Schatten',agent:'Phantom',editor:'Spektral Rat',owner:'Schatten Leitung'};
 /* ---------- Eigenes Hosting: Anmeldung über den Server ---------- */
 var H={user:null,rev:0,timer:null};
 function api(method,url,body){
@@ -1179,7 +1211,7 @@ function startHosted(u){
   H.user=u;S.hosted=true;S.db=hostedDb;S.who=u.name;
   var lv={viewer:1,agent:2,editor:3,owner:4}[u.role]||1;
   S.canWrite=lv>=2;S.canMap=lv>=3;
-  S.role={owner:'Owner',editor:'Editor',agent:'Contributor',viewer:'Viewer'}[u.role]||'Viewer';
+  S.role=ROLE_NAMES[u.role]||'Schatten';
   $('#login').hidden=true;$('#logoutBtn').hidden=false;$('#navKonto').hidden=false;
   applyRights();loadData(true);
   clearInterval(H.timer);H.timer=setInterval(function(){if(!document.hidden)loadData(false)},5000);
@@ -1208,7 +1240,7 @@ $('#logoutBtn').addEventListener('click',function(){
   api('POST','/api/logout').catch(function(){}).then(function(){H.user=null;showLogin()});
 });
 function apiErr(err){toast(err&&err.message?err.message:'Das hat nicht geklappt. Bitte versuche es erneut.','red')}
-var ROLE_NAMES={viewer:'Viewer',agent:'Contributor',editor:'Editor',owner:'Owner'};
+
 function renderKonto(){
   if(!H.user)return;
   var own=H.user.role==='owner';
@@ -1218,9 +1250,13 @@ function renderKonto(){
   api('GET','/api/users').then(function(j){
     var st=j.storage==='remote'?'Speicher: dauerhaft (Änderungen bleiben nach Neustarts erhalten).':j.storage==='remote-error'?'Speicher: Dauerspeicher antwortet gerade nicht, Änderungen werden nachgeholt.':'Speicher: FLÜCHTIG. Bei jedem Neustart gehen Konten, Personen und Berichte verloren (siehe README, Dauerspeicher).';
     $('#ktLead').textContent='Angemeldet als '+H.user.name+' mit der Rolle '+S.role+'. '+st;
+    var isMain=!!H.user.main,roles=isMain?['viewer','agent','editor','owner']:['viewer','agent','editor'];
+    var cur=$('#nuRole').value||'agent';
+    $('#nuRole').innerHTML=roles.map(function(r){return '<option value="'+r+'"'+(r===cur?' selected':'')+'>'+ROLE_NAMES[r]+'</option>'}).join('');
     $('#uBody').innerHTML=j.users.map(function(u){
-      if(u.role==='owner')return '<tr><td><b>'+esc(u.name)+'</b></td><td><span class="chip vio">Owner</span></td><td class="muted">über „Passwort ändern“</td><td class="muted">nicht änderbar</td></tr>';
-      var opts=['viewer','agent','editor'].map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+ROLE_NAMES[r]+'</option>'}).join('');
+      if(u.main)return '<tr><td><b>'+esc(u.name)+'</b></td><td><span class="chip vio">Haupt-Owner</span></td><td class="muted">über „Passwort ändern“</td><td class="muted">nicht änderbar</td></tr>';
+      if(u.role==='owner'&&!isMain)return '<tr><td><b>'+esc(u.name)+'</b></td><td><span class="chip vio">'+ROLE_NAMES.owner+'</span></td><td class="muted">nur Haupt-Owner</td><td class="muted">nur Haupt-Owner</td></tr>';
+      var opts=roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+ROLE_NAMES[r]+'</option>'}).join('');
       return '<tr data-u="'+esc(u.name)+'"><td><b>'+esc(u.name)+'</b></td>'+
        '<td><select class="urole" aria-label="Rolle von '+esc(u.name)+'">'+opts+'</select></td>'+
        '<td><input type="password" class="upw" autocomplete="new-password" placeholder="mind. 10 Zeichen" aria-label="Neues Passwort für '+esc(u.name)+'"></td>'+
