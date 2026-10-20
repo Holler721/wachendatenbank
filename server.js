@@ -19,8 +19,23 @@ const SESSION_MS = 12 * 60 * 60 * 1000;
 const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
-const STATES = ['Verbündet', 'Dunkel', 'Unklar'];
-const RTYPES = ['Bericht', 'Anmerkung', 'Dokument'];
+const STATES = ['republik', 'kus', 'neutral']; // feste Schlüssel; Anzeigename und Farbe sind in db.config änderbar
+const OLD_STATES = { 'Verbündet': 'republik', 'Dunkel': 'kus', 'Unklar': 'neutral' };
+const DEFAULT_CONFIG = {
+  labels: { power: 'Gefahrenlevel', dark: 'Dunkle Machtpräsenz' },
+  states: {
+    republik: { name: 'Republik', color: '#e6e6e6' },
+    kus: { name: 'KUS', color: '#fb4d6d' },
+    neutral: { name: 'Neutral', color: '#8f8f8f' }
+  }
+};
+// Vorgenerierte Einträge früherer Versionen (werden einmalig aus bestehenden Daten entfernt)
+const OLD_SEED = {
+  persons: ['Kael Orren', 'Mira Tallon', 'Ilen Maro', 'Torvan Ashe', 'Sorin Valk', 'Rhea Calder', 'Dr. Lyra Senn', 'Dax Holloran', 'Vesper Quill', 'Oren Thale', 'Ysolde Karn', 'Bram Odessa', 'Taryn Vol', 'Juno Prax', 'Edric Sol', 'Neve Arlen', 'Harrow Bright', 'Cade Ilvane', 'Sable Renn', 'Quill Morrow', 'Anya Drev', 'Marcus Pell'],
+  ops: ['Operation Nachtfalter', 'Operation Stille Kluft', 'Operation Dämmerwache'],
+  nodes: ['Kel Varos', 'Corvane', 'Halden Reach', 'Tarsis Minor', 'Umbra Gate', 'Myrrh', 'Ossuary', 'Dren Station', 'Vell', 'Cinder']
+};
+const RTYPES = ['Report', 'Order', 'Dokument'];
 const CLASSES = ['Offen', 'Intern', 'Vertraulich', 'Geheim']; // Stufe = Mindestrolle zum Lesen (1..4)
 const RANKS = ['Schatten-Meister', 'Schatten', 'Adjutant', 'Informant', 'Zielperson'];
 
@@ -105,11 +120,63 @@ function ensureOwner() {
     }
   }
 }
+function cleanConfig(b) {
+  const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
+  if (!b || typeof b !== 'object' || !b.labels || !b.states) bad('Ungültige Einstellungen.');
+  const out = { labels: {}, states: {} };
+  ['power', 'dark'].forEach(function (k) {
+    const v = str(b.labels[k], 40);
+    if (!v) bad('Die Feldbezeichnungen dürfen nicht leer sein.');
+    out.labels[k] = v;
+  });
+  const used = {};
+  STATES.forEach(function (k) {
+    const st = b.states[k] || {};
+    const name = str(st.name, 24);
+    if (!name) bad('Jeder Status braucht einen Namen.');
+    if (used[name.toLowerCase()]) bad('Die Statusnamen müssen sich unterscheiden.');
+    used[name.toLowerCase()] = 1;
+    if (typeof st.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(st.color)) bad('Ungültige Farbe.');
+    out.states[k] = { name: name, color: st.color.toLowerCase() };
+  });
+  return out;
+}
+function migrate() {
+  // Status früherer Versionen (Verbündet/Dunkel/Unklar) auf die festen Schlüssel umstellen
+  Object.keys(db.persons).forEach(function (id) {
+    const p = db.persons[id];
+    if (OLD_STATES[p.s]) p.s = OLD_STATES[p.s];
+    if (STATES.indexOf(p.s) < 0) p.s = 'neutral';
+  });
+  if (db.map && Array.isArray(db.map.nodes)) {
+    db.map.nodes.forEach(function (n) {
+      if (OLD_STATES[n.s]) n.s = OLD_STATES[n.s];
+      if (STATES.indexOf(n.s) < 0) n.s = 'neutral';
+    });
+  }
+  // Einmalig: vorgenerierte Beispieleinträge entfernen (nur solche, die noch Namen und ID der Vorlage tragen)
+  if (!db.seedPurged) {
+    Object.keys(db.persons).forEach(function (id) { if (/^p\d{2}$/.test(id) && OLD_SEED.persons.indexOf(db.persons[id].n) > -1) delete db.persons[id]; });
+    Object.keys(db.ops || {}).forEach(function (id) { if (/^o[123]$/.test(id) && OLD_SEED.ops.indexOf(db.ops[id].n) > -1) delete db.ops[id]; });
+    if (db.map && Array.isArray(db.map.nodes)) {
+      const gone = {};
+      db.map.nodes = db.map.nodes.filter(function (n) {
+        if (/^n[0-9]$/.test(n.k) && OLD_SEED.nodes.indexOf(n.id) > -1) { gone[n.k] = 1; return false; }
+        return true;
+      });
+      db.map.edges = (db.map.edges || []).filter(function (e) { return !gone[e[0]] && !gone[e[1]]; });
+    }
+    db.seedPurged = true;
+  }
+  let cfg;
+  try { cfg = cleanConfig(db.config); } catch (e) { cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); }
+  db.config = cfg;
+}
 function load() {
   try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (e) { db = null; }
   if (!db) {
     const seed = JSON.parse(fs.readFileSync(path.join(__dirname, 'seed.json'), 'utf8'));
-    db = { rev: 1, persons: {}, map: seed.map, users: {}, secret: crypto.randomBytes(32).toString('hex') };
+    db = { rev: 1, persons: {}, map: seed.map, users: {}, seedPurged: true, secret: crypto.randomBytes(32).toString('hex') };
     seed.persons.forEach(function (p, i) {
       db.persons['p' + String(i + 1).padStart(2, '0')] = Object.assign({}, p, { watch: false, ts: i + 1 });
     });
@@ -117,6 +184,8 @@ function load() {
   db.users = db.users || {};
   db.reports = db.reports || {};
   if (!db.ops) { db.ops = {}; OP_SEED.forEach(function (o, i) { db.ops['o' + (i + 1)] = Object.assign({}, o, { ts: i + 1 }); }); }
+  db.map = db.map || { nodes: [], edges: [] };
+  migrate();
   if (process.env.SESSION_SECRET) db.secret = process.env.SESSION_SECRET;
   if (!db.secret) db.secret = crypto.randomBytes(32).toString('hex');
   ensureOwner();
@@ -185,7 +254,8 @@ function cleanPerson(b, partial) {
   if ('n' in b || !partial) { o.n = str(b.n, 60); if (!o.n) bad('Name fehlt.'); }
   if ('r' in b || !partial) { if (RANKS.indexOf(b.r) < 0) bad('Ungültiger Rang.'); o.r = b.r; }
   if ('s' in b || !partial) { if (STATES.indexOf(b.s) < 0) bad('Ungültiger Status.'); o.s = b.s; }
-  if ('p' in b || !partial) { const p = Number(b.p); if (!isFinite(p)) bad('Ungültiges Machtlevel.'); o.p = Math.max(0, Math.min(100, Math.round(p))); }
+  if ('p' in b || !partial) { const p = Number(b.p); if (!isFinite(p)) bad('Ungültiges Gefahrenlevel.'); o.p = Math.max(0, Math.min(100, Math.round(p))); }
+  if ('dp' in b || !partial) { const d = Number(b.dp === undefined ? 0 : b.dp); if (!isFinite(d)) bad('Ungültige Dunkle Machtpräsenz.'); o.dp = Math.max(0, Math.min(100, Math.round(d))); }
   if ('l' in b || !partial) { o.l = str(b.l, 40) || 'Unbekannt'; }
   if ('note' in b || !partial) { o.note = str(b.note, 300) || 'Keine Notiz.'; }
   if ('seen' in b || !partial) { o.seen = /^\d{2}\.\d{2}\.$/.test(b.seen) ? b.seen : today(); }
@@ -204,11 +274,7 @@ function cleanReport(b, partial) {
   return o;
 }
 function clsLevel(c) { const i = CLASSES.indexOf(c); return i < 0 ? 4 : [1, 2, 3, 3][i]; } // Spektral Rat (editor) liest alles
-const OP_SEED = [
-  { n: 'Operation Nachtfalter', c: 'Zelle Drei', loc: 'Tarnsektor 7', p: 68, ph: 3, risk: 'mittel' },
-  { n: 'Operation Stille Kluft', c: 'Zelle Eins', loc: 'Halden Reach', p: 31, ph: 2, risk: 'hoch' },
-  { n: 'Operation Dämmerwache', c: 'Zelle Fünf', loc: 'Cinder', p: 92, ph: 4, risk: 'niedrig' }
-];
+const OP_SEED = [];
 const RISKS = ['niedrig', 'mittel', 'hoch'];
 function cleanOp(b, partial) {
   const o = {};
@@ -342,7 +408,7 @@ async function api(req, res, url) {
     const reports = Object.keys(db.reports).map(function (id) { return Object.assign({ id: id }, db.reports[id]); })
       .filter(function (r) { return clsLevel(r.cls) <= lvl; })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
-    return send(res, 200, { rev: db.rev, persons: persons, map: db.map, reports: reports,
+    return send(res, 200, { rev: db.rev, config: db.config, persons: persons, map: db.map, reports: reports,
       ops: Object.keys(db.ops).map(function (id) { return Object.assign({ id: id }, db.ops[id]); }).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); }) });
   }
   if (p === '/api/persons' && method === 'POST') {
@@ -406,6 +472,11 @@ async function api(req, res, url) {
     if (!cur) return send(res, 404, { error: 'Operation nicht gefunden.' });
     if (method === 'PATCH') { Object.assign(cur, cleanOp(await readBody(req), true)); bump(); return send(res, 200, { ok: true }); }
     if (method === 'DELETE') { delete db.ops[om[1]]; bump(); return send(res, 200, { ok: true }); }
+  }
+  if (p === '/api/config' && method === 'PUT') {
+    need(req, 'owner');
+    db.config = cleanConfig(await readBody(req)); bump();
+    return send(res, 200, { ok: true });
   }
   if (p === '/api/map' && method === 'PUT') {
     need(req, 'editor');
