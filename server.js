@@ -20,6 +20,8 @@ const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
 const STATES = ['Verbündet', 'Dunkel', 'Unklar'];
+const RTYPES = ['Report', 'Order', 'Dokument'];
+const CLASSES = ['Offen', 'Intern', 'Vertraulich', 'Geheim']; // Stufe = Mindestrolle zum Lesen (1..4)
 const RANKS = ['Schatten-Meister', 'Schatten', 'Adjutant', 'Informant', 'Zielperson'];
 
 /* ---------- Passwörter ---------- */
@@ -83,6 +85,7 @@ function load() {
     });
   }
   db.users = db.users || {};
+  db.reports = db.reports || {};
   if (process.env.SESSION_SECRET) db.secret = process.env.SESSION_SECRET;
   if (!db.secret) db.secret = crypto.randomBytes(32).toString('hex');
   ensureOwner();
@@ -158,6 +161,18 @@ function cleanPerson(b, partial) {
   if ('watch' in b || !partial) { o.watch = !!b.watch; }
   return o;
 }
+function fullDate() { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear(); }
+function cleanReport(b, partial) {
+  const o = {};
+  const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
+  if (!b || typeof b !== 'object') bad('Ungültige Daten.');
+  if ('ti' in b || !partial) { o.ti = str(b.ti, 120); if (!o.ti) bad('Der Titel fehlt.'); }
+  if ('t' in b || !partial) { if (RTYPES.indexOf(b.t) < 0) bad('Ungültige Art.'); o.t = b.t; }
+  if ('cls' in b || !partial) { if (CLASSES.indexOf(b.cls) < 0) bad('Ungültige Geheimhaltungsstufe.'); o.cls = b.cls; }
+  if ('body' in b || !partial) { o.body = str(b.body, 8000); if (!o.body) bad('Der Berichtstext fehlt.'); }
+  return o;
+}
+function clsLevel(c) { const i = CLASSES.indexOf(c); return i < 0 ? 4 : i + 1; }
 function cleanMap(b) {
   const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
   if (!b || !Array.isArray(b.nodes) || !Array.isArray(b.edges)) bad('Ungültige Karte.');
@@ -259,7 +274,11 @@ async function api(req, res, url) {
     if (since === db.rev) return send(res, 200, { same: true, rev: db.rev });
     const persons = Object.keys(db.persons).map(function (id) { return Object.assign({ id: id }, db.persons[id]); })
       .sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-    return send(res, 200, { rev: db.rev, persons: persons, map: db.map });
+    const lvl = ROLES[sessionUser(req).role];
+    const reports = Object.keys(db.reports).map(function (id) { return Object.assign({ id: id }, db.reports[id]); })
+      .filter(function (r) { return clsLevel(r.cls) <= lvl; })
+      .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    return send(res, 200, { rev: db.rev, persons: persons, map: db.map, reports: reports });
   }
   if (p === '/api/persons' && method === 'POST') {
     need(req, 'agent');
@@ -281,6 +300,30 @@ async function api(req, res, url) {
       return send(res, 200, { ok: true });
     }
     if (method === 'DELETE') { delete db.persons[m[1]]; bump(); return send(res, 200, { ok: true }); }
+  }
+  if (p === '/api/reports' && method === 'POST') {
+    const u = need(req, 'agent');
+    if (Object.keys(db.reports).length >= 1000) return send(res, 400, { error: 'Das Berichtsarchiv ist voll.' });
+    const o = cleanReport(await readBody(req), false);
+    if (clsLevel(o.cls) > ROLES[u.role]) return send(res, 403, { error: 'Diese Geheimhaltungsstufe darfst du nicht vergeben.' });
+    o.by = u.name; o.d = fullDate(); o.ts = Date.now();
+    const id = newId();
+    db.reports[id] = o; bump();
+    return send(res, 200, { id: id });
+  }
+  const rm = /^\/api\/reports\/([A-Za-z0-9_-]{1,40})$/.exec(p);
+  if (rm) {
+    const u = need(req, 'agent');
+    const cur = db.reports[rm[1]];
+    if (!cur || clsLevel(cur.cls) > ROLES[u.role]) return send(res, 404, { error: 'Bericht nicht gefunden.' });
+    if (cur.by !== u.name && ROLES[u.role] < ROLES.editor) return send(res, 403, { error: 'Fremde Berichte bearbeiten nur Editor und Owner.' });
+    if (method === 'PATCH') {
+      const o = cleanReport(await readBody(req), true);
+      if (o.cls && clsLevel(o.cls) > ROLES[u.role]) return send(res, 403, { error: 'Diese Geheimhaltungsstufe darfst du nicht vergeben.' });
+      Object.assign(cur, o); cur.edited = fullDate(); bump();
+      return send(res, 200, { ok: true });
+    }
+    if (method === 'DELETE') { delete db.reports[rm[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/map' && method === 'PUT') {
     need(req, 'editor');
