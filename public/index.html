@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>
-<title>Jedi Shadow Network</title>
+<title>Jedi Schatten</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -237,11 +237,14 @@ footer{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--di
 
 textarea{width:100%;background:#000000;border:1px solid var(--line2);border-radius:8px;padding:10px 14px;color:#fff;font-family:inherit;resize:vertical;min-height:80px}
 input[type=range]{accent-color:var(--acc);width:100%;min-height:32px}
-input[type=color]{padding:2px;min-height:38px;width:100%;cursor:pointer}
 .btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
 input[type=password]{min-height:42px;background:#000;border:1px solid var(--line2);border-radius:8px;padding:0 14px;color:#fff;width:100%;outline-offset:2px}
-#login,#force{position:fixed;inset:0;z-index:110;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
-#login[hidden],#force[hidden]{display:none}
+#login,#force,#lock{position:fixed;inset:0;z-index:110;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+#login[hidden],#force[hidden],#lock[hidden]{display:none}
+.cfgrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.cfgrow input[type=text]{flex:1 1 160px;min-width:0}
+.cfgrow label.cft{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--mute)}
+.cfgcol{display:flex;flex-direction:column;gap:6px}
 .cred{display:flex;flex-direction:column;gap:8px}
 .cred code{font-family:var(--mono);font-size:18px;letter-spacing:.06em;color:var(--fg);background:#000;border:1px solid var(--line2);border-radius:8px;padding:10px 14px;user-select:all;overflow-wrap:anywhere}
 .loginbox{width:min(400px,100%);display:flex;flex-direction:column;gap:14px;border:1px solid var(--line2);border-radius:14px;background:rgba(8,8,8,.95);padding:28px 24px}
@@ -318,7 +321,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
   <div class="main">
     <div class="status" id="statusBar">
       <span class="ok"><i class="dot"></i><span id="stTxt">Einsatzbereit</span></span>
-      <span class="pill" id="whoPill">Agent</span>
+      <span class="pill" id="whoPill">Schatten</span>
       <span class="pill" id="rolePill">Zugriff: Nur Lesen</span>
       <span>Verschlüsselte Sitzung</span>
       <span class="sp"></span>
@@ -326,7 +329,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       <button class="btn sm ghost" id="logoutBtn" hidden>Abmelden</button>
       <span>Tarnsektor 7</span>
     </div>
-    <div class="alertbar" role="alert">▲ UMBRA AKTIV · ALLE ZELLEN ALARMIERT · ARCHIVE VERSIEGELT · ZUGÄNGE GESPERRT ▲</div>
+    <div class="alertbar" role="alert">▲ UMBRA AKTIV · KONTEN UNTERHALB DES SPEKTRAL RATS GESPERRT · ARCHIVE VERSIEGELT ▲</div>
     <div class="ticker" aria-hidden="true"><div id="tick"></div></div>
 
     <!-- DASHBOARD -->
@@ -335,7 +338,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
         <div class="emb" style="color:var(--acc)"><svg role="img" aria-label="Emblem"><use href="#emb"/></svg></div>
         <div class="t">
           <div class="eyebrow">KLASSIFIZIERT · ZUGRIFF WIRD PROTOKOLLIERT</div>
-          <h1 data-t="Jedi Shadow Network">Jedi Shadow <span class="g">Network</span></h1>
+          <h1 data-t="Jedi Schatten">Jedi <span class="g">Schatten</span></h1>
           <p class="lead">Operatives Terminal der Schatten: was ansteht, was zuletzt einging und wohin es von hier aus weitergeht.</p>
         </div>
         <div class="date" id="dateTxt">Samstag, 17.10.2026</div>
@@ -347,10 +350,10 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
           <span class="chip cyan" id="umChip"><i class="dot"></i><span>Bereit</span></span>
         </div>
         <div class="ctl">
-          <div class="field"><label for="agentId">AGENTENKENNUNG</label><input class="id" id="agentId" type="text" value="SD-NYX-0417" autocomplete="off"></div>
+          <div class="field"><label for="agentId">SCHATTENKENNUNG</label><input class="id" id="agentId" type="text" value="SD-NYX-0417" autocomplete="off"></div>
           <button class="btn danger" id="umBtn">→ Notfall vorbereiten</button>
           <button class="btn ghost" id="umCancel" hidden>Abbrechen</button>
-          <div class="hint" id="umHint">Löst die Evakuierung aller Schatten-Zellen aus und versiegelt die Archive.</div>
+          <div class="hint" id="umHint">Sperrt die Seite für alle Konten unterhalb des Spektral Rats und versiegelt die Archive.</div>
         </div>
       </section>
 
@@ -360,14 +363,14 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
           <div class="lagebild">
             <div class="radar"><canvas id="radar" aria-label="Radar mit fünf Signaturen im Sektor"></canvas></div>
             <div class="txt">
-              <p class="muted" style="margin:0;font-size:13px" id="radTxt">Fünf Signaturen im Radius, zwei davon mit dunkler Präsenz. Aktualisierung alle 4,5 Sekunden.</p>
+              <p class="muted" style="margin:0;font-size:13px" id="radTxt">Radar im Normalbetrieb. Aktualisierung alle 4,5 Sekunden.</p>
               <div class="legend" id="legend"></div>
               <button class="btn sm" data-go="karte" style="align-self:flex-start">Zur Schattenkarte</button>
             </div>
           </div>
         </section>
         <section class="panel" aria-labelledby="mlH">
-          <h2 id="mlH">Machtlage</h2>
+          <h2 id="mlH">Lagebild</h2>
           <div id="gauges" style="display:flex;flex-direction:column;gap:16px"></div>
         </section>
       </div>
@@ -397,10 +400,10 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
           <div class="toolbar">
             <div class="field"><label for="q">SUCHE</label><input id="q" type="search" placeholder="Name, Ort oder Rang" autocomplete="off"></div>
             <div class="field"><label for="fs">STATUS</label><select id="fs"><option value="">Alle</option></select></div>
-            <div class="field"><label for="so">SORTIERUNG</label><select id="so"><option value="name">Name</option><option value="power" id="soPow">Gefahrenlevel absteigend</option><option value="last">Zuletzt gesehen</option></select></div>
+            <div class="field"><label for="so">SORTIERUNG</label><select id="so"><option value="name">Name</option><option value="power">Gefahrenlevel absteigend</option><option value="last">Zuletzt gesehen</option></select></div>
             <div class="field" style="flex:0 0 auto"><button class="btn" id="addP" hidden>+ Person hinzufügen</button></div>
           </div>
-          <div class="tbl"><table><thead><tr><th>Name</th><th>Rang</th><th>Status</th><th id="thPow">Gefahrenlevel</th><th id="thDark">Dunkle Machtpräsenz</th><th>Ort</th></tr></thead><tbody id="pBody"></tbody></table></div>
+          <div class="tbl"><table><thead><tr><th>Name</th><th>Rang</th><th>Status</th><th>Gefahrenlevel</th><th>Ort</th></tr></thead><tbody id="pBody"></tbody></table></div>
           <div class="dt" id="pCount"></div>
         </div>
         <aside class="b panel" id="pDetail" aria-live="polite"></aside>
@@ -455,19 +458,10 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
         </form>
       </section>
       <section class="panel" id="cfgPanel" aria-labelledby="cfgH" hidden>
-        <h2 id="cfgH">Begriffe und Farben</h2>
-        <p class="muted" style="margin:0">Nur Schatten Leitung und Haupt-Owner. Hier benennst du die Felder und die drei Status um und legst ihre Farben fest. Bestehende Akten und Systeme behalten ihren Status, nur der Name ändert sich. Die Änderung gilt sofort für alle.</p>
-        <form id="cfgForm" class="ugrid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
-          <div class="field"><label for="cfgPower">FELD 1 (GEFAHRENLEVEL)</label><input id="cfgPower" type="text" maxlength="40" required></div>
-          <div class="field"><label for="cfgDark">FELD 2 (DUNKLE MACHTPRÄSENZ)</label><input id="cfgDark" type="text" maxlength="40" required></div>
-          <div class="field"><label for="cfgN_republik">STATUS 1: NAME</label><input id="cfgN_republik" type="text" maxlength="24" required></div>
-          <div class="field"><label for="cfgC_republik">STATUS 1: FARBE</label><input id="cfgC_republik" type="color"></div>
-          <div class="field"><label for="cfgN_kus">STATUS 2: NAME</label><input id="cfgN_kus" type="text" maxlength="24" required></div>
-          <div class="field"><label for="cfgC_kus">STATUS 2: FARBE</label><input id="cfgC_kus" type="color"></div>
-          <div class="field"><label for="cfgN_neutral">STATUS 3: NAME</label><input id="cfgN_neutral" type="text" maxlength="24" required></div>
-          <div class="field"><label for="cfgC_neutral">STATUS 3: FARBE</label><input id="cfgC_neutral" type="color"></div>
-          <div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" id="cfgReset">Standardwerte einsetzen</button></div>
-        </form>
+        <h2 id="cfgH">Anpassung: Ränge, Labels, Berichtsarten</h2>
+        <p class="muted" style="margin:0">Hier änderst du, was in Dropdowns und Filtern zur Auswahl steht. Beim Umbenennen ziehen alle bestehenden Akten, Systeme und Berichte automatisch mit. Entfernen geht nur, wenn nichts mehr damit verknüpft ist. „Bedrohung“ markiert Labels, die im Lagebild und bei Operationen als gefährlich zählen.</p>
+        <div id="cfgBody" class="ugrid" style="align-items:flex-start"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="cfgSave">Änderungen speichern</button><button class="btn ghost" type="button" id="cfgReset">Verwerfen</button></div>
       </section>
       <section class="panel" id="usersPanel" aria-labelledby="usH" hidden>
         <h2 id="usH">Konten verwalten</h2>
@@ -492,7 +486,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       </div>
     </section>
 
-    <footer>JEDI SHADOW NETWORK · TERMINAL · DISZIPLIN · VERBORGENHEIT · LICHT</footer>
+    <footer>JEDI SCHATTEN · TERMINAL · DISZIPLIN · VERBORGENHEIT · LICHT</footer>
   </div>
 </div>
 
@@ -502,7 +496,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
 <div id="login" hidden>
   <form id="loginForm" class="loginbox">
     <svg class="lgo" role="img" aria-label="Emblem der Jedi-Schatten"><use href="#emb"/></svg>
-    <div><div class="eyebrow">KLASSIFIZIERT · ANMELDUNG ERFORDERLICH</div><h2>Jedi Shadow Network</h2></div>
+    <div><div class="eyebrow">KLASSIFIZIERT · ANMELDUNG ERFORDERLICH</div><h2>Jedi Schatten</h2></div>
     <div class="field"><label for="lUser">BENUTZERNAME</label><input id="lUser" type="text" autocomplete="username" autocapitalize="off" required></div>
     <div class="field"><label for="lPass">PASSWORT</label><input id="lPass" type="password" autocomplete="current-password" required></div>
     <div class="hintline" id="lErr" role="alert"></div>
@@ -522,6 +516,14 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
     <button class="btn ghost" type="button" id="forceOut">Abmelden</button>
   </form>
 </div>
+<div id="lock" hidden>
+  <div class="loginbox" role="alertdialog" aria-labelledby="lockH">
+    <svg class="lgo" role="img" aria-label="Emblem der Jedi-Schatten" style="color:var(--red)"><use href="#emb"/></svg>
+    <div><div class="eyebrow" style="color:var(--red)">NOTFALL · UMBRA AKTIV</div><h2 id="lockH">Seite gesperrt</h2></div>
+    <p class="muted" style="margin:0">Das Notfallprotokoll ist ausgelöst. Konten unterhalb des Spektral Rats haben keinen Zugriff, bis der Spektral Rat oder die Schatten Leitung das Protokoll beendet. Diese Seite öffnet sich dann von selbst wieder.</p>
+    <button class="btn ghost" type="button" id="lockOut">Abmelden</button>
+  </div>
+</div>
 <datalist id="locs"></datalist>
 <div id="toasts" aria-live="polite"></div>
 
@@ -532,44 +534,49 @@ var $=function(s,r){return (r||document).querySelector(s)}, $$=function(s,r){ret
 var rnd=function(a,b){return a+Math.random()*(b-a)}, pick=function(a){return a[Math.floor(Math.random()*a.length)]};
 var pad=function(n){return (n<10?'0':'')+n};
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-var STATES=['republik','kus','neutral'],RANKS=['Schatten-Meister','Schatten','Adjutant','Informant','Zielperson'];
+var COLHEX={cyan:'#e6e6e6',red:'#fb4d6d',amber:'#8f8f8f',vio:'#c4c4c4'};
+var COLNAME={cyan:'Hellgrau',red:'Rot',amber:'Mittelgrau',vio:'Silber'};
+var CFG={ranks:['Schatten-Meister','Schatten','Adjutant','Informant','Zielperson'],
+  states:[{name:'Republik',color:'cyan',threat:false},{name:'KUS',color:'red',threat:true},{name:'Neutral',color:'amber',threat:false},{name:'Dunkle Machtpräsenz',color:'vio',threat:true}],
+  rtypes:['Report','Order','Dokument']};
+function stObj(n){for(var i=0;i<CFG.states.length;i++)if(CFG.states[i].name===n)return CFG.states[i];return null}
+function stCol(n){var o=stObj(n);return o?COLHEX[o.color]||'#909090':'#909090'}
+function stChip(n){var o=stObj(n);return o?o.color:'amber'}
+function stNames(){return CFG.states.map(function(x){return x.name})}
+function isThreat(n){var o=stObj(n);return !!(o&&o.threat)}
+function firstThreat(){for(var i=0;i<CFG.states.length;i++)if(CFG.states[i].threat)return CFG.states[i].name;return CFG.states[0].name}
+function defState(){var a=stObj('Neutral');if(a)return a.name;for(var i=0;i<CFG.states.length;i++)if(!CFG.states[i].threat)return CFG.states[i].name;return CFG.states[0].name}
+function tagCls(t){return String(t).toLowerCase().replace(/[^a-z0-9]/g,'')}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function clone(o){return JSON.parse(JSON.stringify(o))}
 function num(v,d){v=+v;return isFinite(v)?v:d}
 
-/* ---------- Begriffe und Farben (vom Owner änderbar, liegen auf dem Server) ---------- */
-var DEF_CFG={labels:{power:'Gefahrenlevel',dark:'Dunkle Machtpräsenz'},states:{republik:{name:'Republik',color:'#e6e6e6'},kus:{name:'KUS',color:'#fb4d6d'},neutral:{name:'Neutral',color:'#8f8f8f'}}};
-var CFG=clone(DEF_CFG);
-function stCol(s){var c=CFG.states[s];return c&&/^#[0-9a-f]{6}$/i.test(c.color)?c.color:'#909090'}
-function stName(s){var c=CFG.states[s];return c?c.name:String(s==null?'':s)}
-function stChip(s,extra){var c=stCol(s);return '<span class="chip" style="color:'+c+';background:'+c+'1f;'+(extra||'')+'">'+esc(stName(s))+'</span>'}
-function stOpts(sel){return STATES.map(function(k){return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+esc(stName(k))+'</option>'}).join('')}
-function renderChrome(){
-  $('#thPow').textContent=CFG.labels.power;$('#thDark').textContent=CFG.labels.dark;$('#soPow').textContent=CFG.labels.power+' absteigend';
-  $('#legend').innerHTML=STATES.map(function(k){return '<span><i style="background:'+stCol(k)+'"></i>'+esc(stName(k)).toUpperCase()+'</span>'}).join('');
-  var fs=$('#fs'),v=fs.value;fs.innerHTML='<option value="">Alle</option>'+STATES.map(function(k){return '<option value="'+k+'">'+esc(stName(k))+'</option>'}).join('');fs.value=v;
-}
-function applyConfig(c){
-  if(!c||!c.labels||!c.states)return;
-  var n={labels:{power:String(c.labels.power||DEF_CFG.labels.power),dark:String(c.labels.dark||DEF_CFG.labels.dark)},states:{}};
-  STATES.forEach(function(k){var d=DEF_CFG.states[k],x=c.states[k]||d;n.states[k]={name:String(x.name||d.name),color:/^#[0-9a-f]{6}$/i.test(x.color)?x.color:d.color}});
-  CFG=n;renderChrome();
-}
-
-/* ---------- Leere Ausgangslage: es gibt keine vorgenerierten Einträge ---------- */
-var DEF_NODES=[];
-var DEF_EDGES=[];
+/* ---------- Standarddaten (Anzeige ohne Datenbank und Vorlage zum Befüllen) ---------- */
+var DEF_PERSONS=[];
+var DEF_NODES=[
+ {k:'n0',id:'Kel Varos',x:.18,y:.3,s:'Republik',i:'Stützpunkt der Einsatzgebiet Drei. Gute Funkabdeckung, zwei Schatten vor Ort.'},
+ {k:'n1',id:'Corvane',x:.34,y:.62,s:'Republik',i:'Archivwelt. Versiegelt seit dem 17.10., Zugang nur mit Freigabe.'},
+ {k:'n2',id:'Halden Reach',x:.5,y:.28,s:'Neutral',i:'Handelsknoten mit wechselnden Loyalitäten. Einsatzgebiet Eins beobachtet.'},
+ {k:'n3',id:'Tarsis Minor',x:.52,y:.7,s:'Republik',i:'Kleine Kolonie, Quelle mehrerer Informanten.'},
+ {k:'n4',id:'Umbra Gate',x:.72,y:.24,s:'KUS',i:'Sprungtor unter dunkler Kontrolle. Verdacht auf Schmuggel und Zirkeltreffen.'},
+ {k:'n5',id:'Myrrh',x:.8,y:.55,s:'Neutral',i:'Heimat einer Zielperson mit hoher Machtsensitivität.'},
+ {k:'n6',id:'Ossuary',x:.9,y:.82,s:'KUS',i:'Verlassene Gräberwelt. Letzter bekannter Aufenthaltsort mehrerer Gesuchter.'},
+ {k:'n7',id:'Dren Station',x:.3,y:.86,s:'Republik',i:'Funkaufklärung. Möglicher Angriff laut abgefangenem Verkehr.'},
+ {k:'n8',id:'Vell',x:.66,y:.88,s:'Neutral',i:'Händlerwelt mit Kontakten in drei Systemen.'},
+ {k:'n9',id:'Cinder',x:.9,y:.12,s:'Republik',i:'Stützpunkt der Einsatzgebiet Fünf. Selten erreichbar, hohe Sicherheit.'}
+];
+var DEF_EDGES=[['n0','n1'],['n0','n2'],['n1','n3'],['n2','n3'],['n2','n4'],['n4','n5'],['n5','n6'],['n3','n8'],['n8','n6'],['n1','n7'],['n4','n9'],['n5','n8']];
 var DEF_MAP={nodes:DEF_NODES,edges:DEF_EDGES};
 
-var CLASSES=['Offen','Intern','Vertraulich','Geheim'],RTYPES=['Report','Order','Dokument'];
+var CLASSES=['Offen','Intern','Vertraulich','Geheim'];
 var ops=[];
-var ticks=['LAGE: ERHÖHTE BEREITSCHAFT IN ALLEN ZELLEN','FUNKDISZIPLIN EINHALTEN, KLARTEXT NUR IM NOTFALL','SIGNATUR MIT DUNKLER PRÄSENZ IM SEKTOR 7'];
+var ticks=[];
 
 /* ---------- State ---------- */
-var S={opDraft:null,opEdit:null,reports:[],repEdit:null,confirmRep:null,alarm:false,phase:0,view:'dashboard',selP:null,selN:null,rep:null,tab:'Alle',
-  persons:[],editP:null,
+var S={editP:null,cfgDraft:null,opDraft:null,opEdit:null,reports:[],repEdit:null,confirmRep:null,alarm:false,phase:0,view:'dashboard',selP:null,selN:null,rep:null,tab:'Alle',
+  persons:DEF_PERSONS.map(function(p,i){var o=clone(p);o.id='d'+i;return o}),
   map:clone(DEF_MAP),draft:null,editing:false,tool:'select',dirty:false,linkFrom:null,hovN:null,
-  add:false,db:null,canWrite:false,canMap:false,role:'Nur Lesen',who:'Agent',confirmDel:null,confirmNode:false,confirmDisc:false,loaded:false};
+  add:false,db:null,canWrite:false,canMap:false,role:'Nur Lesen',who:'Schatten',confirmDel:null,confirmNode:false,confirmDisc:false,loaded:false};
 function mapData(){return S.editing&&S.draft?S.draft:S.map}
 function find(id){for(var i=0;i<S.persons.length;i++)if(S.persons[i].id===id)return S.persons[i];return null}
 
@@ -588,7 +595,7 @@ function writeErr(e){
 
 /* ---------- Boot ---------- */
 (function(){
-  var lines=['SCHATTEN-OS 4.3 · KALTSTART','> Prüfe Tarnidentität ............ OK','> Lade Personenregister .......... OK','> Prüfe Zugriffsrechte ........... OK','> Starte Radar, Sektor 7 ......... OK','> Zugriff wird protokolliert','','Willkommen zurück, Agent.'];
+  var lines=['SCHATTEN-OS 4.3 · KALTSTART','> Prüfe Tarnidentität ............ OK','> Lade Personenregister .......... OK','> Prüfe Zugriffsrechte ........... OK','> Starte Radar, Sektor 7 ......... OK','> Zugriff wird protokolliert','','Willkommen zurück, Schatten.'];
   var el=$('#bootTxt'),i=0,boot=$('#boot');
   function fin(){boot.classList.add('done')}
   boot.addEventListener('click',fin);
@@ -622,8 +629,8 @@ function fit(o){
 }
 
 /* Radar */
-var blips=[{a:.6,d:.62,s:'republik'},{a:2.3,d:.45,s:'kus'},{a:3.4,d:.78,s:'neutral'},{a:4.4,d:.5,s:'republik'},{a:5.5,d:.72,s:'kus'}];
-var extra=[{a:1.2,d:.85,s:'kus'},{a:2.9,d:.35,s:'kus'},{a:4.9,d:.9,s:'kus'},{a:.1,d:.4,s:'kus'}];
+var blips=[{a:.6,d:.62,s:0},{a:2.3,d:.45,s:1},{a:3.4,d:.78,s:2},{a:4.4,d:.5,s:0},{a:5.5,d:.72,s:1}];
+var extra=[{a:1.2,d:.85,s:1},{a:2.9,d:.35,s:1},{a:4.9,d:.9,s:1},{a:.1,d:.4,s:1}];
 function drawRadar(o,t){
   var c=o.ctx,w=o.w,h=o.h,cx=w/2,cy=h/2,R=Math.min(w,h)/2-2;
   c.clearRect(0,0,w,h);
@@ -639,7 +646,7 @@ function drawRadar(o,t){
   list.forEach(function(b){
     var diff=((sw-b.a)%6.283+6.283)%6.283,br=Math.max(.25,1-diff/6.283*1.2);
     var x=cx+Math.cos(b.a)*R*b.d,y=cy+Math.sin(b.a)*R*b.d;
-    var bc=stCol(b.s);c.fillStyle=bc;c.globalAlpha=br;c.shadowColor=bc;c.shadowBlur=12;c.beginPath();c.arc(x,y,4.5,0,6.283);c.fill();c.shadowBlur=0;c.globalAlpha=1});
+    var bc=stCol(stNames()[b.s]||stNames()[0]);c.fillStyle=bc;c.globalAlpha=br;c.shadowColor=bc;c.shadowBlur=12;c.beginPath();c.arc(x,y,4.5,0,6.283);c.fill();c.shadowBlur=0;c.globalAlpha=1});
   c.fillStyle='#fff';c.beginPath();c.arc(cx,cy,3,0,6.283);c.fill();
   c.strokeStyle='rgba('+acc+',.8)';c.lineWidth=1.5;c.beginPath();c.arc(cx,cy,R,0,6.283);c.stroke();
 }
@@ -661,7 +668,7 @@ function drawMap(o,t){
   c.setLineDash([]);
   mapHit=[];
   m.nodes.forEach(function(n,i){
-    var p=px(n),col=stCol(n.s),sel=S.selN===n.k,hov=S.hovN===n.k;
+    var p=px(n),col=stCol(n.s)||'#909090',sel=S.selN===n.k,hov=S.hovN===n.k;
     mapHit.push({x:p.x,y:p.y,k:n.k});
     var pulse=4+2*Math.sin(t*.003+i);
     c.shadowColor=col;c.shadowBlur=sel||hov?24:12;c.fillStyle=col;c.beginPath();c.arc(p.x,p.y,sel?9:6.5,0,6.283);c.fill();c.shadowBlur=0;
@@ -684,29 +691,45 @@ requestAnimationFrame(loop);
 
 /* ---------- Rechte ---------- */
 function applyRights(){
-  $('#whoPill').textContent=S.hosted?S.who:'Agent '+S.who;
+  $('#whoPill').textContent=S.hosted?S.who:'Schatten '+S.who;
   $('#rolePill').textContent='Zugriff: '+S.role;
   $('#addP').hidden=!S.canWrite;$('#rNew').hidden=!S.canWrite;
   syncMap();renderCards();renderRegister();renderReports();renderDash();
 }
 
+function fillSelects(){
+  var fs=$('#fs'),v=fs.value;
+  fs.innerHTML='<option value="">Alle</option>'+stNames().map(function(n){return '<option>'+esc(n)+'</option>'}).join('');
+  if(stNames().indexOf(v)>=0)fs.value=v;
+  $('#legend').innerHTML=CFG.states.map(function(x){return '<span><i style="background:'+COLHEX[x.color]+'"></i>'+esc(x.name).toUpperCase()+'</span>'}).join('');
+}
+function applyConfig(c){
+  if(!c||!c.states||!c.ranks||!c.rtypes)return;
+  CFG={ranks:c.ranks.slice(),states:c.states.map(function(x){return {name:x.name,color:x.color,threat:!!x.threat}}),rtypes:c.rtypes.slice()};
+  fillSelects();
+}
 /* ---------- Dashboard ---------- */
 function renderGauges(){
+  var P=S.persons,N=S.map.nodes,pc=function(a,b){return b?Math.round(a*100/b):0};
+  var dark=P.filter(function(p){return isThreat(p.s)}).length,dn=N.filter(function(n){return isThreat(n.s)}).length;
+  var avg=P.length?Math.round(P.reduce(function(a,p){return a+num(p.p,0)},0)/P.length):0;
+  var act=ops.filter(function(o){return o.p<100}),prog=act.length?Math.round(act.reduce(function(a,o){return a+o.p},0)/act.length):0;
   var g=[
-   {l:'Dunkle Präsenz im Sektor',v:S.alarm?81:37,c:'#fb4d6d',c2:'#7f1d3a'},
-   {l:'Tarnung intakt',v:S.alarm?62:94,c:'#b0b0b0',c2:'#454545'},
-   {l:'Verschlüsselte Kanäle',v:100,c:'#c2c2c2',c2:'#595959',txt:'12 / 12'},
-   {l:'Machtstörung',v:S.alarm?90:60,c:'#909090',c2:'#4a4a4a',txt:S.alarm?'Stufe 5':'Stufe 3'}];
+   {l:'Bedrohungen im Register',v:pc(dark,P.length),c:'#fb4d6d',c2:'#7f1d3a',txt:dark+' von '+P.length},
+   {l:'Bedrohte Systeme auf der Karte',v:pc(dn,N.length),c:'#b0b0b0',c2:'#454545',txt:dn+' von '+N.length},
+   {l:'Ø Gefahrenlevel im Register',v:avg,c:'#c2c2c2',c2:'#595959',txt:P.length?String(avg):'keine Daten'},
+   {l:'Ø Fortschritt laufender Operationen',v:prog,c:'#909090',c2:'#4a4a4a',txt:act.length?prog+' %':'keine Operation'}];
   $('#gauges').innerHTML=g.map(function(x){return '<div class="gauge"><div class="l"><span>'+x.l+'</span><b style="color:'+x.c+'">'+(x.txt||x.v+' %')+'</b></div><div class="bar"><i style="width:'+x.v+'%;background:linear-gradient(90deg,'+x.c2+','+x.c+');box-shadow:0 0 14px '+x.c+'"></i></div></div>'}).join('');
 }
 function renderCards(){
+  if(typeof renderTick==='function')renderTick();renderGauges();
   var active=ops.filter(function(o){return o.p<100}).length;
   var cs=[
    {t:'PERSONENREGISTER',c:'SR-PR-01',n:[[String(S.persons.length),'Akten im Register']],d:'Personen- und Machtsensitiven-Datenbank',g:'Register öffnen',v:'register'},
-   {t:'BERICHTE',c:'SR-BE-02',n:[[String(S.reports.filter(function(r){return r.t==='Report'}).length),'Reports'],[String(S.reports.filter(function(r){return r.t==='Order'}).length),'Orders'],[String(S.reports.filter(function(r){return r.t==='Dokument'}).length),'Dokumente']],d:'Reports · Orders · Dokumente',g:'Berichte lesen',v:'berichte'},
+   {t:'BERICHTE',c:'SR-BE-02',n:CFG.rtypes.slice(0,3).map(function(t){return [String(S.reports.filter(function(r){return r.t===t}).length),t]}),d:CFG.rtypes.join(' · '),g:'Berichte lesen',v:'berichte'},
    {t:'OPERATIONEN',c:'SR-OP-03',n:[[String(active),'aktive Operationen']],d:'Laufende und archivierte Operationen',g:'Operationen verwalten',v:'ops'},
    {t:'SCHATTENKARTE',c:'SR-KA-04',n:[[String(S.map.nodes.length),'Systeme im Blick']],d:'Sektor 7 und Umgebung',g:'Karte öffnen',v:'karte'},
-   {t:'SCHATTEN-OS',c:'SR-OS-05',n:[['44','aktive Agenten']],d:'Kommandoebene und Befehle',g:'Terminal starten',v:'terminal'},
+   {t:'SCHATTEN-OS',c:'SR-OS-05',n:[[String(S.persons.filter(function(p){return p.watch}).length),'beschattete Personen']],d:'Kommandoebene und Befehle',g:'Terminal starten',v:'terminal'},
    {t:'ZUGRIFF',c:'SR-ZG-06',n:[[S.role,'deine Rolle']],d:'Personen: '+(S.canWrite?'bearbeiten':'nur lesen')+' · Karte: '+(S.canMap?'bearbeiten':'nur lesen'),g:S.hosted?'Rechte vergibt die Schatten Leitung unter Konto':'Rechte vergibt der Owner über Teilen',v:null}];
   $('#cards').innerHTML=cs.map(function(c){
     var tag=c.v?'button':'div',attr=c.v?' data-go="'+c.v+'"':'',cls=c.v?'card':'card static';
@@ -736,38 +759,37 @@ function renderLocs(){$('#locs').innerHTML=S.map.nodes.map(function(n){return '<
 function renderRegister(){
   var l=filtered();
   if(!S.add&&(S.selP===null||!find(S.selP)))S.selP=l.length?l[0].id:null;
-  $('#pBody').innerHTML=l.map(function(p){var c=stCol(p.s),pw=Math.max(0,Math.min(100,num(p.p,0))),dk=Math.max(0,Math.min(100,num(p.dp,0)));
-    return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b></td><td>'+esc(p.r)+'</td><td>'+stChip(p.s)+'</td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td><span class="mini"><i style="width:'+dk+'%;background:#fb4d6d"></i></span><span class="mono" style="font-size:11px">'+dk+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="6" class="muted">Keine Akten gefunden.</td></tr>';
+  $('#pBody').innerHTML=l.map(function(p){var c=stCol(p.s)||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
+    return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b></td><td>'+esc(p.r)+'</td><td><span class="chip '+(stChip(p.s)||'amber')+'">'+esc(p.s)+'</span></td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Akten gefunden.</td></tr>';
   $('#pCount').textContent=l.length+' von '+S.persons.length+' Akten';
   $('#regLead').textContent=S.canWrite?'Du kannst Akten hinzufügen, ändern und entfernen. Änderungen sehen alle sofort.':'Du hast Lesezugriff. Akten ändern dürfen nur Phantome, Spektral Rat und Schatten Leitung.';
   renderDetail();
 }
-function personForm(p){
-  var e=!!p;
-  return '<h2>'+(e?'Akte bearbeiten':'Neue Akte')+'</h2><form id="addForm" class="addf" autocomplete="off">'+
-   '<div class="field"><label for="nName">NAME</label><input id="nName" type="text" maxlength="60" required value="'+esc(e?p.n:'')+'"></div>'+
-   '<div class="field"><label for="nRank">RANG</label><select id="nRank">'+RANKS.map(function(r){return '<option'+(e&&p.r===r?' selected':'')+'>'+r+'</option>'}).join('')+'</select></div>'+
-   '<div class="field"><label for="nState">STATUS</label><select id="nState">'+stOpts(e?p.s:'neutral')+'</select></div>'+
-   '<div class="field"><label for="nPow">'+esc(CFG.labels.power).toUpperCase()+' <b id="nPowV" class="mono" style="color:var(--cyan)">'+(e?num(p.p,50):50)+'</b></label><input id="nPow" type="range" min="0" max="100" value="'+(e?num(p.p,50):50)+'"></div>'+
-   '<div class="field"><label for="nDark">'+esc(CFG.labels.dark).toUpperCase()+' <b id="nDarkV" class="mono" style="color:var(--red)">'+(e?num(p.dp,0):0)+'</b></label><input id="nDark" type="range" min="0" max="100" value="'+(e?num(p.dp,0):0)+'"></div>'+
-   '<div class="field"><label for="nLoc">ORT</label><input id="nLoc" type="text" maxlength="40" list="locs" placeholder="System wählen oder eintippen" value="'+esc(e?p.l:'')+'"></div>'+
-   '<div class="field"><label for="nNote">NOTIZ</label><textarea id="nNote" rows="3" maxlength="300">'+esc(e&&p.note!=='Keine Notiz.'?p.note:'')+'</textarea></div>'+
-   '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="submit">'+(e?'Änderungen speichern':'Akte anlegen')+'</button><button class="btn ghost" type="button" data-act="cancelAdd">Abbrechen</button></div></form>';
-}
 function renderDetail(){
   var el=$('#pDetail');
-  if(S.canWrite&&S.editP&&find(S.editP)){el.innerHTML=personForm(find(S.editP));return}
-  if(S.add&&S.canWrite){el.innerHTML=personForm(null);return}
-  var p=find(S.selP);
-  if(!p){
-    el.innerHTML='<h2>Keine Akte gewählt</h2><p class="muted" style="margin:0">'+(S.persons.length?'Wähle links eine Akte.':'Das Register ist leer.'+(S.canWrite?' Mit „Person hinzufügen“ legst du die erste Akte an.':''))+'</p>';
+  if((S.add||S.editP)&&S.canWrite){
+    var e=S.editP?find(S.editP):null;if(S.editP&&!e){S.editP=null}
+    var pv=e||{n:'',r:CFG.ranks[0],s:defState(),p:50,l:'',note:''};
+    el.innerHTML='<h2>'+(e?'Akte bearbeiten':'Neue Akte')+'</h2><form id="addForm" class="addf" autocomplete="off">'+
+     '<div class="field"><label for="nName">NAME</label><input id="nName" type="text" maxlength="40" required value="'+esc(pv.n)+'"></div>'+
+     '<div class="field"><label for="nRank">RANG</label><select id="nRank">'+CFG.ranks.map(function(r){return '<option'+(r===pv.r?' selected':'')+'>'+esc(r)+'</option>'}).join('')+'</select></div>'+
+     '<div class="field"><label for="nState">STATUS</label><select id="nState">'+stNames().map(function(r){return '<option'+(r===pv.s?' selected':'')+'>'+esc(r)+'</option>'}).join('')+'</select></div>'+
+     '<div class="field"><label for="nPow">GEFAHRENLEVEL <b id="nPowV" class="mono" style="color:var(--cyan)">'+num(pv.p,50)+'</b></label><input id="nPow" type="range" min="0" max="100" value="'+num(pv.p,50)+'"></div>'+
+     '<div class="field"><label for="nLoc">ORT</label><input id="nLoc" type="text" maxlength="40" list="locs" placeholder="System wählen oder eintippen" value="'+esc(e?pv.l:'')+'"></div>'+
+     '<div class="field"><label for="nNote">NOTIZ</label><textarea id="nNote" rows="3" maxlength="300">'+esc(e?pv.note:'')+'</textarea></div>'+
+     '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="submit">'+(e?'Änderungen speichern':'Akte anlegen')+'</button><button class="btn ghost" type="button" data-act="cancelAdd">Abbrechen</button></div></form>';
     return;
   }
-  var ini=String(p.n||'?').replace('Dr. ','').split(' ').map(function(x){return x[0]||''}).join('').slice(0,3),col=stCol(p.s),pw=Math.max(0,Math.min(100,num(p.p,0))),dk=Math.max(0,Math.min(100,num(p.dp,0)));
-  el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2>'+stChip(p.s,'margin-top:6px')+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+'</div></div>'+
+  var p=find(S.selP);
+  if(!p){
+    el.innerHTML='<h2>Keine Akte gewählt</h2><p class="muted" style="margin:0">'+(S.persons.length?'Wähle links eine Akte.':'Das Register ist leer.')+'</p>'+
+      (!S.persons.length&&S.canWrite&&DEF_PERSONS.length?'<div><button class="btn sm" data-act="seed">Standarddaten laden</button></div>':'');
+    return;
+  }
+  var ini=String(p.n||'?').replace('Dr. ','').split(' ').map(function(x){return x[0]||''}).join('').slice(0,3),col=stCol(p.s)||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
+  el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2><span class="chip '+(stChip(p.s)||'amber')+'" style="margin-top:6px">'+esc(p.s)+'</span>'+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+'</div></div>'+
    '<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd><dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
-   '<div class="gauge"><div class="l"><span>'+esc(CFG.labels.power)+'</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
-   '<div class="gauge"><div class="l"><span>'+esc(CFG.labels.dark)+'</span><b style="color:#fb4d6d">'+dk+'</b></div><div class="bar"><i style="width:'+dk+'%;background:#fb4d6d;box-shadow:0 0 12px #fb4d6d"></i></div></div>'+
+   '<div class="gauge"><div class="l"><span>Gefahrenlevel</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
    (S.canWrite?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="edit">Bearbeiten</button><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm ghost" data-act="contact">Kontakt aufnehmen</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
    '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Zum Ändern brauchst du mindestens die Rolle Phantom.</p>');
 }
@@ -776,46 +798,44 @@ $('#pBody').addEventListener('click',function(e){var tr=e.target.closest('tr[dat
 $('#pBody').addEventListener('keydown',function(e){if(e.key==='Enter'){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;S.editP=null;renderRegister()}}});
 $('#addP').addEventListener('click',function(){S.add=true;S.editP=null;renderRegister();var n=$('#nName');if(n)n.focus()});
 function today(){var d=new Date();return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'}
-$('#pDetail').addEventListener('input',function(e){
-  if(e.target.id==='nPow')$('#nPowV').textContent=e.target.value;
-  if(e.target.id==='nDark')$('#nDarkV').textContent=e.target.value;
-});
+$('#pDetail').addEventListener('input',function(e){if(e.target.id==='nPow')$('#nPowV').textContent=e.target.value});
 $('#pDetail').addEventListener('submit',function(e){
   e.preventDefault();if(!S.db||!S.canWrite)return;
   var n=$('#nName').value.trim();if(!n)return;
-  var data={n:n,r:$('#nRank').value,s:$('#nState').value,p:num($('#nPow').value,50),dp:num($('#nDark').value,0),l:$('#nLoc').value.trim()||'Unbekannt',note:$('#nNote').value.trim()||'Keine Notiz.'};
-  if(S.editP){
-    var id=S.editP;
-    S.db.collection('persons').doc(id).update(data).then(function(){S.editP=null;S.selP=id;toast('Akte von '+n+' gespeichert.','cyan');renderRegister()}).catch(writeErr);
-    return;
-  }
-  data.seen=today();data.watch=false;data.ts=Date.now();
+  var data={n:n,r:$('#nRank').value,s:$('#nState').value,p:num($('#nPow').value,50),l:$('#nLoc').value.trim()||'Unbekannt',seen:today(),note:$('#nNote').value.trim()||'Keine Notiz.',watch:false,ts:Date.now()};
+  if(S.editP){var eid=S.editP;delete data.watch;delete data.ts;delete data.seen;
+    S.db.collection('persons').doc(eid).update(data).then(function(){S.editP=null;toast('Akte von '+n+' gespeichert.','cyan');renderRegister()}).catch(writeErr);return}
   S.db.collection('persons').add(data).then(function(ref){S.add=false;S.selP=ref.id;toast(n+' wurde ins Register aufgenommen.','cyan');renderRegister()}).catch(writeErr);
 });
 $('#pDetail').addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act;
   if(a==='cancelAdd'){S.add=false;S.editP=null;renderRegister();return}
   if(a==='edit'){S.editP=S.selP;S.add=false;renderRegister();var nn=$('#nName');if(nn)nn.focus();return}
+  if(a==='seed'){seedDefaults();return}
   var p=find(S.selP);if(!p||!S.db||!S.canWrite)return;var ref=S.db.collection('persons').doc(p.id);
   if(a==='watch')ref.update({watch:!p.watch}).then(function(){toast(!p.watch?p.n+' wird beschattet.':'Beschattung von '+p.n+' beendet.','cyan')}).catch(writeErr);
   if(a==='contact')toast('Verschlüsselte Anfrage an '+p.n+' gesendet.');
-  if(a==='flag')ref.update({s:'kus'}).then(function(){toast(p.n+' als Gefahr markiert ('+stName('kus')+').','red')}).catch(writeErr);
+  if(a==='flag')ref.update({s:firstThreat()}).then(function(){toast(p.n+' als Gefahr markiert ('+firstThreat()+').','red')}).catch(writeErr);
   if(a==='remove'){
     if(S.confirmDel!==p.id){S.confirmDel=p.id;renderDetail();setTimeout(function(){if(S.confirmDel===p.id){S.confirmDel=null;renderDetail()}},4000);return}
     S.confirmDel=null;ref.delete().then(function(){S.selP=null;toast(p.n+' wurde aus dem Register entfernt.','red')}).catch(writeErr);
   }
 });
+function seedDefaults(){
+  if(!S.db||!S.canWrite)return;toast('Standarddaten werden geladen.');
+  DEF_PERSONS.reduce(function(pr,p){return pr.then(function(){var o=clone(p);o.watch=false;o.ts=Date.now();return S.db.collection('persons').add(o)})},Promise.resolve()).catch(writeErr);
+}
 
 /* ---------- Berichte ---------- */
 function rx(s){return esc(s).replace(/\[\[(.+?)\]\]/g,'<span class="rx">$1</span>')}
 function clsTag(c){return '<span class="tag '+String(c).toLowerCase()+'">'+esc(c)+'</span>'}
-function docItem(d,i){return '<button class="item" data-doc="'+i+'"><div class="r1"><span><span class="tag '+d.t.toLowerCase()+'">'+esc(d.t)+'</span> '+clsTag(d.cls)+'</span><span class="dt">'+esc(d.d)+'</span></div><div class="ti">'+esc(d.ti)+'</div><div class="by">'+esc(d.by)+'</div></button>'}
+function docItem(d,i){return '<button class="item" data-doc="'+i+'"><div class="r1"><span><span class="tag '+tagCls(d.t)+'">'+esc(d.t)+'</span> '+clsTag(d.cls)+'</span><span class="dt">'+esc(d.d)+'</span></div><div class="ti">'+esc(d.ti)+'</div><div class="by">'+esc(d.by)+'</div></button>'}
 function repById(id){for(var i=0;i<S.reports.length;i++)if(S.reports[i].id===id)return S.reports[i];return null}
 function canEditRep(d){return S.canWrite&&(d.by===S.who||S.canMap)}
 var CLSLV={'Offen':1,'Intern':2,'Vertraulich':3,'Geheim':4};
 function myLevel(){return S.hosted&&H.user?({viewer:1,agent:2,editor:3,owner:4}[H.user.role]||1):1}
 function renderReports(){
-  var tabs=['Alle'].concat(RTYPES);
+  var tabs=['Alle'].concat(CFG.rtypes);
   $('#rTabs').innerHTML=tabs.map(function(t){return '<button data-tab="'+t+'" aria-pressed="'+(S.tab===t)+'">'+t+'</button>'}).join('');
   var list=S.reports.filter(function(d){return S.tab==='Alle'||d.t===S.tab});
   $('#rList').innerHTML=list.length?list.map(function(d){
@@ -826,7 +846,7 @@ function renderReports(){
     var e=S.repEdit,d=e.id?repById(e.id):null,lv=myLevel();
     rd.innerHTML='<form class="rform" id="rForm"><h3>'+(d?'Bericht bearbeiten':'Neuer Bericht')+'</h3>'+
      '<div class="field"><label for="rTi">TITEL</label><input id="rTi" type="text" maxlength="120" required value="'+esc(d?d.ti:'')+'"></div>'+
-     '<div class="field"><label for="rT">ART</label><select id="rT">'+RTYPES.map(function(t){return '<option'+(d&&d.t===t?' selected':'')+'>'+t+'</option>'}).join('')+'</select></div>'+
+     '<div class="field"><label for="rT">ART</label><select id="rT">'+CFG.rtypes.map(function(t){return '<option'+(d&&d.t===t?' selected':'')+'>'+esc(t)+'</option>'}).join('')+'</select></div>'+
      '<div class="field"><label for="rC">GEHEIMHALTUNGSSTUFE</label><select id="rC">'+CLASSES.filter(function(c){return CLSLV[c]<=lv}).map(function(c){return '<option'+((d?d.cls:'Intern')===c?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+
        '<span class="muted" style="font-size:12px">Offen: alle · Intern: ab Phantom · Vertraulich und Geheim: ab Spektral Rat</span></div>'+
      '<div class="field"><label for="rB">TEXT</label><textarea id="rB" maxlength="8000" required>'+esc(d?d.body:'')+'</textarea>'+
@@ -839,7 +859,7 @@ function renderReports(){
   var open=rd.classList.contains('open'),tools='';
   if(d2.body.indexOf('[[')>=0&&S.canMap)tools+='<button class="btn sm" data-act="declass">'+(open?'Wieder schwärzen':'Deklassifizieren')+'</button>';
   if(canEditRep(d2))tools+='<button class="btn sm" data-act="rEdit">Bearbeiten</button><button class="btn sm danger" data-act="rDel">'+(S.confirmRep===d2.id?'Wirklich löschen?':'Löschen')+'</button>';
-  rd.innerHTML='<div class="ph"><span><span class="tag '+d2.t.toLowerCase()+'">'+esc(d2.t)+'</span> '+clsTag(d2.cls)+'</span><span class="dt">'+esc(d2.d)+'</span></div><h3>'+esc(d2.ti)+'</h3><div class="by muted">'+esc(d2.by)+(d2.edited?' · bearbeitet '+esc(d2.edited):'')+'</div>'+
+  rd.innerHTML='<div class="ph"><span><span class="tag '+tagCls(d2.t)+'">'+esc(d2.t)+'</span> '+clsTag(d2.cls)+'</span><span class="dt">'+esc(d2.d)+'</span></div><h3>'+esc(d2.ti)+'</h3><div class="by muted">'+esc(d2.by)+(d2.edited?' · bearbeitet '+esc(d2.edited):'')+'</div>'+
     d2.body.split(/\n{2,}/).map(function(p){return '<p>'+rx(p).replace(/\n/g,'<br>')+'</p>'}).join('')+(tools?'<div class="rtools">'+tools+'</div>':'');
 }
 $('#rTabs').addEventListener('click',function(e){var b=e.target.closest('[data-tab]');if(b){S.tab=b.dataset.tab;renderReports()}});
@@ -878,14 +898,14 @@ function renderNode(){
     if(!n){el.innerHTML='<h2>Bearbeitungsmodus</h2><p class="muted" style="margin:0">Wähle ein System zum Ändern, ziehe es an eine neue Position oder setze mit „System setzen“ ein neues.</p>';return}
     el.innerHTML='<h2>System bearbeiten</h2>'+
      '<div class="field"><label for="eName">NAME</label><input id="eName" type="text" maxlength="40" value="'+esc(n.id)+'"></div>'+
-     '<div class="field"><label for="eState">STATUS</label><select id="eState">'+stOpts(n.s)+'</select></div>'+
+     '<div class="field"><label for="eState">STATUS</label><select id="eState">'+stNames().map(function(s){return '<option'+(s===n.s?' selected':'')+'>'+esc(s)+'</option>'}).join('')+'</select></div>'+
      '<div class="field"><label for="eInfo">LAGE</label><textarea id="eInfo" rows="4" maxlength="300">'+esc(n.i)+'</textarea></div>'+
      '<div><button class="btn sm danger" data-act="delNode">'+(S.confirmNode?'Wirklich löschen?':'System löschen')+'</button></div>';
     return;
   }
   if(!n){el.innerHTML='<h2>Kein System gewählt</h2><p class="muted" style="margin:0">Klicke auf einen Punkt der Karte. Verbindungen des Systems leuchten auf.</p>';return}
   var links=m.edges.filter(function(e){return e[0]===n.k||e[1]===n.k}).map(function(e){var o=nodeByKey(e[0]===n.k?e[1]:e[0]);return o?esc(o.id):''}).filter(Boolean);
-  el.innerHTML='<div class="ph"><h2 style="overflow-wrap:anywhere">'+esc(n.id)+'</h2><span>'+stChip(n.s)+'</span></div><p style="margin:0;color:#e0e0e0;overflow-wrap:anywhere">'+esc(n.i)+'</p><dl class="kv"><dt>Routen</dt><dd>'+(links.join(', ')||'keine')+'</dd></dl>'+nodeActs(n);
+  el.innerHTML='<div class="ph"><h2 style="overflow-wrap:anywhere">'+esc(n.id)+'</h2><span class="chip '+(stChip(n.s)||'amber')+'">'+esc(n.s)+'</span></div><p style="margin:0;color:#e0e0e0;overflow-wrap:anywhere">'+esc(n.i)+'</p><dl class="kv"><dt>Routen</dt><dd>'+(links.join(', ')||'keine')+'</dd></dl>'+nodeActs(n);
 }
 $('#nodeInfo').addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act,n=S.selN?nodeByKey(S.selN):null;if(!n)return;
@@ -897,7 +917,7 @@ $('#nodeInfo').addEventListener('click',function(e){
   }
   if(a==='send'){S.opDraft=n.k;renderNode();var f=$('#opName');if(f)f.focus();return}
   if(a==='opCancel'){S.opDraft=null;renderNode();return}
-  if(a==='scan')toast('Scan von '+n.id+': '+(n.s==='kus'?'dunkle Präsenz bestätigt.':(n.s==='neutral'?'Signaturen uneindeutig.':'keine Auffälligkeiten.')),n.s==='kus'?'red':'cyan');
+  if(a==='scan')toast('Scan von '+n.id+': '+(isThreat(n.s)?'Bedrohung bestätigt ('+n.s+').':(n.s===defState()?'Signaturen uneindeutig.':'keine Auffälligkeiten.')),isThreat(n.s)?'red':'cyan');
 });
 $('#nodeInfo').addEventListener('submit',function(e){
   if(e.target.id!=='opForm')return;e.preventDefault();
@@ -964,7 +984,7 @@ mapO.el.addEventListener('pointerdown',function(e){
     var r=mapO.el.getBoundingClientRect(),w=mapO.w,h=mapO.h;
     var x=Math.min(.98,Math.max(.02,(e.clientX-r.left-16)/(w-32))),y=Math.min(.98,Math.max(.02,(e.clientY-r.top-24)/(h-48)));
     if(S.draft.nodes.length>=60){toast('Maximal 60 Systeme.','red');return}
-    var n={k:newKey(),id:'Neues System',x:x,y:y,s:'neutral',i:'Noch keine Lage bekannt.'};
+    var n={k:newKey(),id:'Neues System',x:x,y:y,s:defState(),i:'Noch keine Lage bekannt.'};
     S.draft.nodes.push(n);S.selN=n.k;S.tool='select';markDirty();renderNode();
     var inp=$('#eName');if(inp){inp.focus();inp.select()}
     return;
@@ -995,19 +1015,19 @@ mapO.el.addEventListener('pointerup',endDrag);mapO.el.addEventListener('pointerc
 mapO.el.addEventListener('click',function(e){if(S.editing)return;S.selN=nodeAt(e);renderNode()});
 
 /* ---------- Operationen ---------- */
-var cells=['Zelle Eins','Zelle Zwei','Zelle Drei','Zelle Vier','Zelle Fünf'],opNames=['Falkenauge','Aschenwind','Schwarzglas','Morgenrot','Stummer Ruf','Nebelpfad'];
+var cells=['Einsatzgebiet Eins','Einsatzgebiet Zwei','Einsatzgebiet Drei','Einsatzgebiet Vier','Einsatzgebiet Fünf'],opNames=['Falkenauge','Aschenwind','Schwarzglas','Morgenrot','Stummer Ruf','Nebelpfad'];
 function newOp(n,name,cell){
   if(ops.some(function(o){return o.loc===n.id&&o.p<100})){toast('In '+n.id+' läuft bereits eine Operation.','red');return}
-  var o={n:name,c:cell||cells[0],loc:n.id,p:5,ph:1,risk:n.s==='kus'?'hoch':'mittel'};
-  var done=function(){S.opDraft=null;renderNode();toast('„'+name+'“ gestartet. Zelle nach '+n.id+' entsandt.','cyan')};
+  var o={n:name,c:cell||cells[0],loc:n.id,p:5,ph:1,risk:isThreat(n.s)?'hoch':'mittel'};
+  var done=function(){S.opDraft=null;renderNode();toast('„'+name+'“ gestartet. Einsatz in '+n.id+' angeordnet.','cyan')};
   if(S.hosted){
     if(!S.canWrite){toast('Operationen starten nur Phantome, Spektral Rat und Schatten Leitung.','red');return}
     api('POST','/api/ops',o).then(function(){return loadData(true)}).then(done).catch(writeErr);return}
   ops.push(o);done();renderOps();renderOpsMini();renderCards();
 }
 function nodeActs(n){
-  if(S.opDraft===n.k)return '<form id="opForm" class="rform"><div class="field"><label for="opName">NAME DER OPERATION</label><input id="opName" type="text" maxlength="60" required placeholder="Name der Operation"></div>'+
-    '<div class="field"><label for="opCell">ZELLE</label><input id="opCell" type="text" maxlength="40" list="cellList" value="'+esc(cells[0])+'" required><datalist id="cellList">'+cells.map(function(c){return '<option value="'+esc(c)+'">'}).join('')+'</datalist></div>'+
+  if(S.opDraft===n.k)return '<form id="opForm" class="rform"><div class="field"><label for="opName">NAME DER OPERATION</label><input id="opName" type="text" maxlength="60" required placeholder="z. B. Operation Nachtfalter"></div>'+
+    '<div class="field"><label for="opCell">EINSATZGEBIET</label><input id="opCell" type="text" maxlength="40" list="cellList" value="'+esc(cells[0])+'" required><datalist id="cellList">'+cells.map(function(c){return '<option value="'+esc(c)+'">'}).join('')+'</datalist></div>'+
     '<div class="rtools"><button class="btn sm" type="submit">Operation starten</button><button class="btn sm ghost" type="button" data-act="opCancel">Abbrechen</button></div></form>';
   return '<div style="display:flex;gap:8px;flex-wrap:wrap">'+((!S.hosted||S.canWrite)?'<button class="btn sm" data-act="send">Operation starten</button>':'')+'<button class="btn sm ghost" data-act="scan">Scannen</button></div>';
 }
@@ -1043,18 +1063,18 @@ $('#opsGrid').addEventListener('click',function(e){
   if(S.hosted){
     if(!S.canMap||!o)return;var a=b.dataset.a,u='/api/ops/'+encodeURIComponent(o.id),pr;
     if(a==='adv'){var np=Math.min(100,o.p+Math.round(rnd(9,19)));pr=api('PATCH',u,{p:np,ph:Math.min(4,Math.max(o.ph,Math.ceil(np/25)))}).then(function(){if(np>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')})}
-    else if(a==='abort')pr=api('DELETE',u).then(function(){toast(o.n+' abgebrochen. Zelle zurückbeordert.','red')});
+    else if(a==='abort')pr=api('DELETE',u).then(function(){toast(o.n+' abgebrochen. Einsatzkräfte zurückbeordert.','red')});
     else if(a==='archive')pr=api('DELETE',u).then(function(){toast(o.n+' archiviert.')});
     else return;
     pr.then(function(){return loadData(true)}).catch(writeErr);return}
   if(b.dataset.a==='adv'){o.p=Math.min(100,o.p+Math.round(rnd(9,19)));o.ph=Math.min(4,Math.max(o.ph,Math.ceil(o.p/25)));if(o.p>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')}
-  else if(b.dataset.a==='abort'){ops.splice(i,1);toast(o.n+' abgebrochen. Zelle zurückbeordert.','red')}
+  else if(b.dataset.a==='abort'){ops.splice(i,1);toast(o.n+' abgebrochen. Einsatzkräfte zurückbeordert.','red')}
   else if(b.dataset.a==='archive'){ops.splice(i,1);toast(o.n+' archiviert.')}
   renderOps();renderOpsMini();renderCards();
 });
 
 /* ---------- UMBRA ---------- */
-var umText=['Löst die Evakuierung aller Schatten-Zellen aus und versiegelt die Archive.','Letzte Warnung: Alle aktiven Agenten werden sofort abgerufen. Erneut drücken zum Auslösen.','Alle Zellen alarmiert. Archive versiegelt, Zugänge gesperrt.'];
+var umText=['Sperrt die Seite für alle Konten unterhalb des Spektral Rats und versiegelt die Archive.','Letzte Warnung: Alle Konten unterhalb des Spektral Rats verlieren sofort den Zugriff. Erneut drücken zum Auslösen.','Notfall aktiv. Konten unterhalb des Spektral Rats sind gesperrt.'];
 function setPhase(p){
   S.phase=p;var chip=$('#umChip'),btn=$('#umBtn');
   chip.className='chip '+['cyan','amber','red'][p];chip.querySelector('span').textContent=['Bereit','Bestätigung erforderlich','UMBRA ausgelöst'][p];
@@ -1063,10 +1083,10 @@ function setPhase(p){
   var alarm=p===2;
   if(alarm!==S.alarm){S.alarm=alarm;document.documentElement.classList.toggle('alarm',alarm);
     $('#stTxt').textContent=alarm?'UMBRA aktiv':'Einsatzbereit';$('.status .ok').style.color=alarm?'var(--red)':'';
-    $('#radTxt').textContent=alarm?'Neun Signaturen im Radius, sechs davon mit dunkler Präsenz. Alle Zellen alarmiert.':'Fünf Signaturen im Radius, zwei davon mit dunkler Präsenz. Aktualisierung alle 4,5 Sekunden.';
-    toast(alarm?'UMBRA ausgelöst. Alle Zellen alarmiert.':'UMBRA beendet. Lage normalisiert.',alarm?'red':'cyan');renderGauges()}
+    $('#radTxt').textContent=alarm?'UMBRA aktiv: erhöhte Aktivität im Radius. Aktualisierung alle 4,5 Sekunden.':'Radar im Normalbetrieb. Aktualisierung alle 4,5 Sekunden.';
+    toast(alarm?'UMBRA ausgelöst. Alle Konten unterhalb des Spektral Rats sind gesperrt.':'UMBRA beendet. Lage normalisiert.',alarm?'red':'cyan');renderGauges()}
 }
-$('#umBtn').addEventListener('click',function(){setPhase(S.phase===0?1:(S.phase===1?2:0))});
+$('#umBtn').addEventListener('click',function(){umbraTo(S.phase===0?1:(S.phase===1?2:0))});
 $('#umCancel').addEventListener('click',function(){setPhase(0)});
 
 /* ---------- Terminal ---------- */
@@ -1075,16 +1095,16 @@ function say(t,c){var d=document.createElement('div');d.className='ln '+(c||'');
 function typeLines(arr,c,i){i=i||0;if(i<arr.length){say(arr[i],c);setTimeout(function(){typeLines(arr,c,i+1)},reduce?0:140)}}
 var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,terminal:1,konto:1};
 var CMD={
- help:function(){typeLines(['help          diese Übersicht','status        Lage und Zähler','scan          Sektor 7 scannen','agents        Schatten im Register','ops           laufende Operationen','rechte        deine Zugriffsrechte','umbra on|off Notfallprotokoll schalten','go <ansicht>  dashboard, register, berichte, karte, ops','whoami        Kennung anzeigen','clear         Bildschirm leeren'],'hl')},
+ help:function(){typeLines(['help          diese Übersicht','status        Lage und Zähler','scan          Sektor 7 scannen','schatten      Schatten im Register','ops           laufende Operationen','rechte        deine Zugriffsrechte','umbra on|off Notfallprotokoll schalten','go <ansicht>  dashboard, register, berichte, karte, ops','whoami        Kennung anzeigen','clear         Bildschirm leeren'],'hl')},
  status:function(){say('Lage: '+(S.alarm?'UMBRA AKTIV':'bereit'),S.alarm?'er':'ok');say('Operationen aktiv: '+ops.filter(function(o){return o.p<100}).length);say('Akten im Register: '+S.persons.length);say('Systeme auf der Karte: '+S.map.nodes.length);say('Dunkle Präsenz: '+(S.alarm?81:37)+' %')},
- scan:function(){typeLines(['Scanne Sektor 7 ...','▓▓▓▓▓▓▓▓▓▓ 100%','Signaturen: '+(S.alarm?9:5)+' (dunkel: '+(S.alarm?6:2)+')','Keine weiteren Auffälligkeiten.'],'ok')},
- agents:function(){var l=S.persons.filter(function(p){return /Schatten/.test(p.r)}).slice(0,6);if(!l.length)say('Keine Schatten im Register.');l.forEach(function(p){say(String(p.n).padEnd(18)+String(p.r).padEnd(18)+p.l)})},
+ scan:function(){typeLines(['Scanne Sektor 7 ...','▓▓▓▓▓▓▓▓▓▓ 100%','Signaturen: '+(S.alarm?9:5)+' (dunkel: '+(S.alarm?6:2)+')','Nächstes Ziel: Umbra Gate, Entfernung 2,4 Parsec'],'ok')},
+ schatten:function(){var l=S.persons.filter(function(p){return /Schatten/.test(p.r)}).slice(0,6);if(!l.length)say('Keine Schatten im Register.');l.forEach(function(p){say(String(p.n).padEnd(18)+String(p.r).padEnd(18)+p.l)})},
  ops:function(){if(!ops.length)say('Keine Operationen.');ops.forEach(function(o){say(o.n.padEnd(26)+(Math.min(o.p,100)+'%').padEnd(6)+o.c)})},
  rechte:function(){say('Rolle: '+S.role,'ok');say('Akten ändern: '+(S.canWrite?'ja':'nein'));say('Karte bearbeiten: '+(S.canMap?'ja':'nein'))},
- whoami:function(){say('Agent '+S.who+' · Rolle '+S.role,'ok')},
+ whoami:function(){say('Schatten '+S.who+' · Rolle '+S.role,'ok')},
  clear:function(){out.innerHTML=''},
  sudo:function(){say('Zugriff verweigert. Dieser Vorfall wird gemeldet.','er')},
- umbra:function(a){if(a[0]==='on'){setPhase(2);say('UMBRA ausgelöst.','er')}else if(a[0]==='off'){setPhase(0);say('UMBRA beendet.','ok')}else say('Verwendung: umbra on | umbra off','er')},
+ umbra:function(a){if(a[0]==='on'){umbraTo(2);say('UMBRA wird ausgelöst ...','er')}else if(a[0]==='off'){umbraTo(0);say('UMBRA wird beendet ...','ok')}else say('Verwendung: umbra on | umbra off','er')},
  go:function(a){if(VIEWS[a[0]]){say('Wechsle zu '+a[0]+' ...','ok');go(a[0])}else say('Unbekannte Ansicht. Siehe help.','er')}
 };
 function runCmd(raw){
@@ -1106,7 +1126,7 @@ function acts(){
    {l:'Dashboard',k:'Ansicht',f:function(){go('dashboard')}},{l:'Personenregister',k:'Ansicht',f:function(){go('register')}},
    {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Schattenkarte',k:'Ansicht',f:function(){go('karte')}},
    {l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Terminal',k:'Ansicht',f:function(){go('terminal')}},
-   {l:'UMBRA auslösen',k:'Aktion',f:function(){setPhase(2)}},{l:'UMBRA beenden',k:'Aktion',f:function(){setPhase(0)}}];
+   {l:'UMBRA auslösen',k:'Aktion',f:function(){umbraTo(2)}},{l:'UMBRA beenden',k:'Aktion',f:function(){umbraTo(0)}}];
   if(S.canWrite)a.push({l:'Person hinzufügen',k:'Aktion',f:function(){go('register');$('#addP').click()}});
   if(S.canMap)a.push({l:'Karte bearbeiten',k:'Aktion',f:function(){go('karte');enterEdit()}});
   return a;
@@ -1151,7 +1171,12 @@ addEventListener('hashchange',function(){var v=location.hash.replace('#','');if(
 /* ---------- Uhr, Ticker ---------- */
 function tickClock(){var d=new Date();$('#clock').textContent=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())}
 tickClock();setInterval(tickClock,1000);
-$('#tick').innerHTML=ticks.concat(ticks).map(function(t){return '<span>'+t+'</span>'}).join('');
+function renderTick(){
+  var act=ops.filter(function(o){return o.p<100}).length;
+  var t=['LAGE: '+(S.alarm?'UMBRA AKTIV':'BEREIT'),'AKTEN IM REGISTER: '+S.persons.length,'AKTIVE OPERATIONEN: '+act,'BERICHTE: '+S.reports.length,'SYSTEME AUF DER KARTE: '+S.map.nodes.length];
+  $('#tick').innerHTML=t.concat(t).map(function(x){return '<span>'+x+'</span>'}).join('');
+}
+renderTick();
 
 /* ---------- Zugriff und gemeinsame Daten ---------- */
 async function initAccess(){
@@ -1198,8 +1223,9 @@ function api(method,url,body){
       if(j===null)throw {code:'no_api',status:r.status};
       if(!r.ok){
         if(j.code==='must_change'){showForce()}
+        if(j.code==='lockdown'){showLock()}
         if(r.status===401&&H.user){H.user=null;showLogin()}
-        throw {status:r.status,code:j.code==='must_change'?'must_change':(r.status===403?'invalid_argument':'error'),message:j.error||''};
+        throw {status:r.status,code:(j.code==='must_change'||j.code==='lockdown')?j.code:(r.status===403?'invalid_argument':'error'),message:j.error||''};
       }
       return j;
     });
@@ -1208,12 +1234,12 @@ function api(method,url,body){
 function loadData(force){
   return api('GET','/api/data?since='+(force?0:H.rev)).then(function(j){
     if(j.same)return;
-    H.rev=j.rev;if(j.config)applyConfig(j.config);S.persons=j.persons||[];S.reports=j.reports||[];if(j.ops)ops=j.ops;S.loaded=true;
+    H.rev=j.rev;applyConfig(j.config);if(typeof j.lockdown==='boolean')syncAlarm(j.lockdown);S.persons=j.persons||[];S.reports=j.reports||[];if(j.ops)ops=j.ops;S.loaded=true;
     if(S.rep&&!repById(S.rep))S.rep=null;
     if(S.selP&&!find(S.selP))S.selP=null;
     if(j.map)S.map={nodes:clone(j.map.nodes||[]),edges:clone(j.map.edges||[])};
     if(!S.editing){if(S.selN&&!nodeByKey(S.selN))S.selN=null;if(S.view==='karte')renderNode()}
-    renderLocs();renderRegister();renderCards();renderDash();if(!S.repEdit)renderReports();renderOps();
+    renderLocs();renderRegister();renderCards();renderDash();if(!S.repEdit)renderReports();renderOps();if(S.view==='konto'&&!S.cfgDraft)renderCfg();
   }).catch(function(){});
 }
 var hostedDb={
@@ -1240,6 +1266,16 @@ $('#forceForm').addEventListener('submit',function(e){
   }).catch(function(err){$('#fErr').textContent=(err&&err.message)||'Das hat nicht geklappt.'}).then(function(){b.disabled=false});
 });
 $('#forceOut').addEventListener('click',function(){api('POST','/api/logout').catch(function(){}).then(function(){$('#force').hidden=true;$('#forceForm').reset();H.user=null;showLogin()})});
+function showLock(){H.locked=true;$('#login').hidden=true;$('#force').hidden=true;$('#lock').hidden=false}
+function hideLock(){H.locked=false;$('#lock').hidden=true}
+function syncAlarm(active){if(active!==S.alarm)setPhase(active?2:0)}
+function umbraTo(next){
+  if(S.hosted&&!S.canMap){toast('Das Notfallprotokoll schalten nur Spektral Rat und Schatten Leitung.','red');return}
+  if(S.hosted&&(next===2||(next===0&&S.phase===2))){
+    api('POST','/api/lockdown',{active:next===2}).then(function(){setPhase(next)}).catch(writeErr);return}
+  setPhase(next)
+}
+$('#lockOut').addEventListener('click',function(){api('POST','/api/logout').catch(function(){}).then(function(){hideLock();H.user=null;showLogin()})});
 function startHosted(u){
   if(u.mustChange){showForce();return}
   H.user=u;S.hosted=true;S.db=hostedDb;S.who=u.name;
@@ -1248,10 +1284,13 @@ function startHosted(u){
   S.role=ROLE_NAMES[u.role]||'Schatten';
   $('#login').hidden=true;$('#logoutBtn').hidden=false;$('#navKonto').hidden=false;
   applyRights();loadData(true);
-  clearInterval(H.timer);H.timer=setInterval(function(){if(!document.hidden)loadData(false)},5000);
+  clearInterval(H.timer);H.timer=setInterval(function(){
+    if(document.hidden)return;
+    if(H.locked)api('GET','/api/session').then(function(j){if(j.user&&!j.lockdown){hideLock();loadData(true)}}).catch(function(){});
+    else loadData(false)},5000);
 }
 function showLogin(){
-  clearInterval(H.timer);
+  clearInterval(H.timer);hideLock();
   S.canWrite=false;S.canMap=false;S.role='Nur Lesen';S.persons=[];S.reports=[];ops=[];S.rep=null;S.repEdit=null;S.selP=null;H.rev=0;
   if(S.editing)leaveEdit();
   $('#login').hidden=false;$('#logoutBtn').hidden=true;$('#navKonto').hidden=true;
@@ -1275,13 +1314,44 @@ $('#logoutBtn').addEventListener('click',function(){
 });
 function apiErr(err){toast(err&&err.message?err.message:'Das hat nicht geklappt. Bitte versuche es erneut.','red')}
 
+function renderCfg(){
+  var pan=$('#cfgPanel');pan.hidden=!(S.hosted&&S.canMap);if(pan.hidden)return;
+  if(!S.cfgDraft)S.cfgDraft={ranks:CFG.ranks.map(function(n){return {o:n,n:n}}),states:CFG.states.map(function(x){return {o:x.name,n:x.name,color:x.color,threat:x.threat}}),rtypes:CFG.rtypes.map(function(n){return {o:n,n:n}})};
+  var D=S.cfgDraft;
+  function col(k,title,ws){
+    return '<div class="cfgcol" data-k="'+k+'"><h3 style="margin:0;font-size:14px">'+title+'</h3>'+D[k].map(function(it,i){
+      return '<div class="cfgrow" data-k="'+k+'" data-i="'+i+'"><input type="text" class="cfn" maxlength="30" value="'+esc(it.n)+'" aria-label="'+title+' Name">'+
+        (ws?'<select class="cfc" aria-label="Farbe">'+Object.keys(COLNAME).map(function(c){return '<option value="'+c+'"'+(it.color===c?' selected':'')+'>'+COLNAME[c]+'</option>'}).join('')+'</select><label class="cft"><input type="checkbox" class="cft"'+(it.threat?' checked':'')+'> Bedrohung</label>':'')+
+        '<button type="button" class="btn sm danger" data-cfg="del">Entfernen</button></div>'}).join('')+
+      '<div><button type="button" class="btn sm" data-cfg="add" data-k="'+k+'">+ Hinzufügen</button></div></div>';
+  }
+  $('#cfgBody').innerHTML=col('ranks','Ränge',false)+col('states','Labels (Status)',true)+col('rtypes','Berichtsarten',false);
+}
+function cfgRow(e){var r=e.target.closest('.cfgrow');return r?{k:r.dataset.k,i:+r.dataset.i}:null}
+$('#cfgBody').addEventListener('input',function(e){var r=cfgRow(e);if(!r||!S.cfgDraft)return;if(e.target.classList.contains('cfn'))S.cfgDraft[r.k][r.i].n=e.target.value});
+$('#cfgBody').addEventListener('change',function(e){var r=cfgRow(e);if(!r||!S.cfgDraft)return;
+  if(e.target.classList.contains('cfc'))S.cfgDraft[r.k][r.i].color=e.target.value;
+  if(e.target.classList.contains('cft'))S.cfgDraft[r.k][r.i].threat=e.target.checked});
+$('#cfgBody').addEventListener('click',function(e){
+  var b=e.target.closest('[data-cfg]');if(!b||!S.cfgDraft)return;var D=S.cfgDraft;
+  if(b.dataset.cfg==='add'){var k=b.dataset.k;if(D[k].length>=(k==='rtypes'?8:k==='states'?12:30)){toast('Mehr Einträge sind hier nicht möglich.','red');return}
+    D[k].push(k==='states'?{o:null,n:'',color:'amber',threat:false}:{o:null,n:''});renderCfg();var ins=$$('#cfgBody [data-k="'+k+'"] .cfn');if(ins.length)ins[ins.length-1].focus();return}
+  if(b.dataset.cfg==='del'){var r=cfgRow(e);if(D[r.k].length<=1){toast('Mindestens ein Eintrag muss bleiben.','red');return}D[r.k].splice(r.i,1);renderCfg()}
+});
+$('#cfgReset').addEventListener('click',function(){S.cfgDraft=null;renderCfg()});
+$('#cfgSave').addEventListener('click',function(){
+  var D=S.cfgDraft;if(!D||!S.canMap)return;
+  var strip=function(a,ws){return a.map(function(x){var o={o:x.o,n:x.n.trim()};if(ws){o.color=x.color;o.threat=!!x.threat}return o})};
+  var body={ranks:strip(D.ranks),states:strip(D.states,true),rtypes:strip(D.rtypes)};
+  api('PUT','/api/config',body).then(function(){S.cfgDraft=null;return loadData(true)}).then(function(){renderCfg();renderRegister();renderReports();toast('Anpassungen gespeichert.','cyan')}).catch(apiErr);
+});
 function renderKonto(){
   if(!H.user)return;
+  renderCfg();
   var own=H.user.role==='owner';
   $('#ktLead').textContent='Angemeldet als '+H.user.name+' mit der Rolle '+S.role+'.';
-  $('#usersPanel').hidden=!own;$('#cfgPanel').hidden=!own;
+  $('#usersPanel').hidden=!own;
   if(!own)return;
-  fillCfg(CFG);
   api('GET','/api/users').then(function(j){
     var st=j.storage==='remote'?'Speicher: dauerhaft (Änderungen bleiben nach Neustarts erhalten).':j.storage==='remote-error'?'Speicher: Dauerspeicher antwortet gerade nicht, Änderungen werden nachgeholt.':'Speicher: FLÜCHTIG. Bei jedem Neustart gehen Konten, Personen und Berichte verloren (siehe README, Dauerspeicher).';
     $('#ktLead').textContent='Angemeldet als '+H.user.name+' mit der Rolle '+S.role+'. '+st;
@@ -1299,17 +1369,6 @@ function renderKonto(){
     }).join('');
   }).catch(apiErr);
 }
-function fillCfg(c){
-  $('#cfgPower').value=c.labels.power;$('#cfgDark').value=c.labels.dark;
-  STATES.forEach(function(k){$('#cfgN_'+k).value=c.states[k].name;$('#cfgC_'+k).value=c.states[k].color});
-}
-$('#cfgReset').addEventListener('click',function(){fillCfg(DEF_CFG);toast('Standardwerte eingesetzt. Mit „Speichern“ übernehmen.')});
-$('#cfgForm').addEventListener('submit',function(e){
-  e.preventDefault();if(!H.user||H.user.role!=='owner')return;
-  var body={labels:{power:$('#cfgPower').value.trim(),dark:$('#cfgDark').value.trim()},states:{}};
-  STATES.forEach(function(k){body.states[k]={name:$('#cfgN_'+k).value.trim(),color:$('#cfgC_'+k).value}});
-  api('PUT','/api/config',body).then(function(){return loadData(true)}).then(function(){toast('Begriffe und Farben gespeichert.','cyan')}).catch(apiErr);
-});
 $('#uBody').addEventListener('change',function(e){
   var sel=e.target.closest('.urole');if(!sel)return;var tr=sel.closest('tr');
   api('PATCH','/api/users/'+encodeURIComponent(tr.dataset.u),{role:sel.value}).then(function(){toast('Rolle von '+tr.dataset.u+' geändert.','cyan')}).catch(function(err){apiErr(err);renderKonto()});
@@ -1350,7 +1409,7 @@ $('#pwForm').addEventListener('submit',function(e){
 });
 
 /* ---------- Start ---------- */
-renderChrome();renderGauges();renderCards();renderDash();renderRegister();renderReports();renderNode();renderOps();renderLocs();syncMap();
+fillSelects();renderGauges();renderCards();renderDash();renderRegister();renderReports();renderNode();renderOps();renderLocs();syncMap();
 var start=location.hash.replace('#','');go(VIEWS[start]?start:'dashboard');
 initAccess();
 })();
