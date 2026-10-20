@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>
-<title>Jedi Schatten</title>
+<title>Jedi Shadow Network</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -237,6 +237,7 @@ footer{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--di
 
 textarea{width:100%;background:#000000;border:1px solid var(--line2);border-radius:8px;padding:10px 14px;color:#fff;font-family:inherit;resize:vertical;min-height:80px}
 input[type=range]{accent-color:var(--acc);width:100%;min-height:32px}
+input[type=color]{padding:2px;min-height:38px;width:100%;cursor:pointer}
 .btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
 input[type=password]{min-height:42px;background:#000;border:1px solid var(--line2);border-radius:8px;padding:0 14px;color:#fff;width:100%;outline-offset:2px}
 #login,#force{position:fixed;inset:0;z-index:110;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
@@ -360,7 +361,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
             <div class="radar"><canvas id="radar" aria-label="Radar mit fünf Signaturen im Sektor"></canvas></div>
             <div class="txt">
               <p class="muted" style="margin:0;font-size:13px" id="radTxt">Fünf Signaturen im Radius, zwei davon mit dunkler Präsenz. Aktualisierung alle 4,5 Sekunden.</p>
-              <div class="legend"><span><i style="background:var(--cyan)"></i>VERBÜNDET</span><span><i style="background:var(--red)"></i>DUNKEL</span><span><i style="background:var(--amber)"></i>UNKLAR</span></div>
+              <div class="legend" id="legend"></div>
               <button class="btn sm" data-go="karte" style="align-self:flex-start">Zur Schattenkarte</button>
             </div>
           </div>
@@ -395,11 +396,11 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
         <div class="a panel">
           <div class="toolbar">
             <div class="field"><label for="q">SUCHE</label><input id="q" type="search" placeholder="Name, Ort oder Rang" autocomplete="off"></div>
-            <div class="field"><label for="fs">STATUS</label><select id="fs"><option value="">Alle</option><option>Verbündet</option><option>Dunkel</option><option>Unklar</option></select></div>
-            <div class="field"><label for="so">SORTIERUNG</label><select id="so"><option value="name">Name</option><option value="power">Machtlevel absteigend</option><option value="last">Zuletzt gesehen</option></select></div>
+            <div class="field"><label for="fs">STATUS</label><select id="fs"><option value="">Alle</option></select></div>
+            <div class="field"><label for="so">SORTIERUNG</label><select id="so"><option value="name">Name</option><option value="power" id="soPow">Gefahrenlevel absteigend</option><option value="last">Zuletzt gesehen</option></select></div>
             <div class="field" style="flex:0 0 auto"><button class="btn" id="addP" hidden>+ Person hinzufügen</button></div>
           </div>
-          <div class="tbl"><table><thead><tr><th>Name</th><th>Rang</th><th>Status</th><th>Machtlevel</th><th>Ort</th></tr></thead><tbody id="pBody"></tbody></table></div>
+          <div class="tbl"><table><thead><tr><th>Name</th><th>Rang</th><th>Status</th><th id="thPow">Gefahrenlevel</th><th id="thDark">Dunkle Machtpräsenz</th><th>Ort</th></tr></thead><tbody id="pBody"></tbody></table></div>
           <div class="dt" id="pCount"></div>
         </div>
         <aside class="b panel" id="pDetail" aria-live="polite"></aside>
@@ -451,6 +452,21 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
           <div class="field"><label for="pwNew">NEU (MIN. 5 ZEICHEN, BUCHSTABEN UND ZAHLEN)</label><input id="pwNew" type="password" autocomplete="new-password" minlength="5" required></div>
           <div class="field"><label for="pwNew2">NEU WIEDERHOLEN</label><input id="pwNew2" type="password" autocomplete="new-password" minlength="5" required></div>
           <div><button class="btn" type="submit">Passwort speichern</button></div>
+        </form>
+      </section>
+      <section class="panel" id="cfgPanel" aria-labelledby="cfgH" hidden>
+        <h2 id="cfgH">Begriffe und Farben</h2>
+        <p class="muted" style="margin:0">Nur Schatten Leitung und Haupt-Owner. Hier benennst du die Felder und die drei Status um und legst ihre Farben fest. Bestehende Akten und Systeme behalten ihren Status, nur der Name ändert sich. Die Änderung gilt sofort für alle.</p>
+        <form id="cfgForm" class="ugrid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+          <div class="field"><label for="cfgPower">FELD 1 (GEFAHRENLEVEL)</label><input id="cfgPower" type="text" maxlength="40" required></div>
+          <div class="field"><label for="cfgDark">FELD 2 (DUNKLE MACHTPRÄSENZ)</label><input id="cfgDark" type="text" maxlength="40" required></div>
+          <div class="field"><label for="cfgN_republik">STATUS 1: NAME</label><input id="cfgN_republik" type="text" maxlength="24" required></div>
+          <div class="field"><label for="cfgC_republik">STATUS 1: FARBE</label><input id="cfgC_republik" type="color"></div>
+          <div class="field"><label for="cfgN_kus">STATUS 2: NAME</label><input id="cfgN_kus" type="text" maxlength="24" required></div>
+          <div class="field"><label for="cfgC_kus">STATUS 2: FARBE</label><input id="cfgC_kus" type="color"></div>
+          <div class="field"><label for="cfgN_neutral">STATUS 3: NAME</label><input id="cfgN_neutral" type="text" maxlength="24" required></div>
+          <div class="field"><label for="cfgC_neutral">STATUS 3: FARBE</label><input id="cfgC_neutral" type="color"></div>
+          <div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" id="cfgReset">Standardwerte einsetzen</button></div>
         </form>
       </section>
       <section class="panel" id="usersPanel" aria-labelledby="usH" hidden>
@@ -516,64 +532,42 @@ var $=function(s,r){return (r||document).querySelector(s)}, $$=function(s,r){ret
 var rnd=function(a,b){return a+Math.random()*(b-a)}, pick=function(a){return a[Math.floor(Math.random()*a.length)]};
 var pad=function(n){return (n<10?'0':'')+n};
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-var COL={Verbündet:'#e6e6e6',Dunkel:'#fb4d6d',Unklar:'#8f8f8f'};
-var CHIP={Verbündet:'cyan',Dunkel:'red',Unklar:'amber'};
-var STATES=['Verbündet','Dunkel','Unklar'],RANKS=['Schatten-Meister','Schatten','Adjutant','Informant','Zielperson'];
+var STATES=['republik','kus','neutral'],RANKS=['Schatten-Meister','Schatten','Adjutant','Informant','Zielperson'];
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function clone(o){return JSON.parse(JSON.stringify(o))}
 function num(v,d){v=+v;return isFinite(v)?v:d}
 
-/* ---------- Standarddaten (Anzeige ohne Datenbank und Vorlage zum Befüllen) ---------- */
-var DEF_PERSONS=[
- {n:'Kael Orren',r:'Schatten-Meister',s:'Verbündet',p:88,l:'Kel Varos',seen:'17.10.',note:'Leitet Zelle Drei. Keine Auffälligkeiten, hohe Verlässlichkeit.'},
- {n:'Mira Tallon',r:'Schatten',s:'Verbündet',p:71,l:'Corvane',seen:'17.10.',note:'Spezialistin für Archivzugriffe. Meldet täglich.'},
- {n:'Ilen Maro',r:'Schatten',s:'Verbündet',p:64,l:'Corvane',seen:'16.10.',note:'Datenbeschaffung, zuletzt im Zirkel-System aktiv.'},
- {n:'Torvan Ashe',r:'Adjutant',s:'Verbündet',p:42,l:'Halden Reach',seen:'17.10.',note:'Verwaltet Orders und Freigaben.'},
- {n:'Sorin Valk',r:'Informant',s:'Unklar',p:35,l:'Tarsis Minor',seen:'04.10.',note:'Liefert Gutachten, Motive nicht geklärt.'},
- {n:'Rhea Calder',r:'Zielperson',s:'Unklar',p:79,l:'Myrrh',seen:'04.10.',note:'Hohe Machtsensitivität laut Gutachten. Beobachtung läuft.'},
- {n:'Dr. Lyra Senn',r:'Informant',s:'Verbündet',p:28,l:'Kel Varos',seen:'16.10.',note:'Medizinische Kontaktperson der Zelle Drei.'},
- {n:'Dax Holloran',r:'Zielperson',s:'Dunkel',p:91,l:'Umbra Gate',seen:'15.10.',note:'Verdacht auf Kontakt zu dunklen Zirkeln. Nicht ansprechen.'},
- {n:'Vesper Quill',r:'Zielperson',s:'Dunkel',p:84,l:'Ossuary',seen:'12.10.',note:'Tauchte nach dem Vorfall in Ossuary unter.'},
- {n:'Oren Thale',r:'Schatten',s:'Verbündet',p:57,l:'Dren Station',seen:'14.10.',note:'Zuständig für Funkaufklärung.'},
- {n:'Ysolde Karn',r:'Informant',s:'Unklar',p:22,l:'Vell',seen:'09.10.',note:'Händlerin mit Kontakten in drei Systemen.'},
- {n:'Bram Odessa',r:'Adjutant',s:'Verbündet',p:31,l:'Halden Reach',seen:'17.10.',note:'Logistik und Transport.'},
- {n:'Taryn Vol',r:'Schatten',s:'Verbündet',p:68,l:'Cinder',seen:'13.10.',note:'Infiltration, derzeit unter Tarnidentität.'},
- {n:'Juno Prax',r:'Zielperson',s:'Unklar',p:48,l:'Vell',seen:'11.10.',note:'Ehemaliger Schatten, Loyalität ungewiss.'},
- {n:'Edric Sol',r:'Schatten-Meister',s:'Verbündet',p:93,l:'Cinder',seen:'10.10.',note:'Leitet Zelle Fünf. Selten erreichbar.'},
- {n:'Neve Arlen',r:'Schatten',s:'Verbündet',p:52,l:'Tarsis Minor',seen:'16.10.',note:'Nachwuchs, erste Feldeinsätze.'},
- {n:'Harrow Bright',r:'Zielperson',s:'Dunkel',p:73,l:'Umbra Gate',seen:'08.10.',note:'Schmuggelrouten durch den Sektor.'},
- {n:'Cade Ilvane',r:'Informant',s:'Unklar',p:19,l:'Myrrh',seen:'02.10.',note:'Gelegentlicher Kontakt, unzuverlässig.'},
- {n:'Sable Renn',r:'Schatten',s:'Verbündet',p:60,l:'Dren Station',seen:'17.10.',note:'Spurensicherung und Verhöre.'},
- {n:'Quill Morrow',r:'Adjutant',s:'Verbündet',p:26,l:'Kel Varos',seen:'15.10.',note:'Protokollführung der Zelle Eins.'},
- {n:'Anya Drev',r:'Zielperson',s:'Dunkel',p:86,l:'Ossuary',seen:'06.10.',note:'Mögliche Anführerin. Höchste Vorsicht.'},
- {n:'Marcus Pell',r:'Informant',s:'Verbündet',p:24,l:'Corvane',seen:'12.10.',note:'Archivar, liefert Hintergrunddaten.'}
-];
-var DEF_NODES=[
- {k:'n0',id:'Kel Varos',x:.18,y:.3,s:'Verbündet',i:'Stützpunkt der Zelle Drei. Gute Funkabdeckung, zwei Agenten vor Ort.'},
- {k:'n1',id:'Corvane',x:.34,y:.62,s:'Verbündet',i:'Archivwelt. Versiegelt seit dem 17.10., Zugang nur mit Freigabe.'},
- {k:'n2',id:'Halden Reach',x:.5,y:.28,s:'Unklar',i:'Handelsknoten mit wechselnden Loyalitäten. Zelle Eins beobachtet.'},
- {k:'n3',id:'Tarsis Minor',x:.52,y:.7,s:'Verbündet',i:'Kleine Kolonie, Quelle mehrerer Informanten.'},
- {k:'n4',id:'Umbra Gate',x:.72,y:.24,s:'Dunkel',i:'Sprungtor unter dunkler Kontrolle. Verdacht auf Schmuggel und Zirkeltreffen.'},
- {k:'n5',id:'Myrrh',x:.8,y:.55,s:'Unklar',i:'Heimat einer Zielperson mit hoher Machtsensitivität.'},
- {k:'n6',id:'Ossuary',x:.9,y:.82,s:'Dunkel',i:'Verlassene Gräberwelt. Letzter bekannter Aufenthaltsort mehrerer Gesuchter.'},
- {k:'n7',id:'Dren Station',x:.3,y:.86,s:'Verbündet',i:'Funkaufklärung. Möglicher Angriff laut abgefangenem Verkehr.'},
- {k:'n8',id:'Vell',x:.66,y:.88,s:'Unklar',i:'Händlerwelt mit Kontakten in drei Systemen.'},
- {k:'n9',id:'Cinder',x:.9,y:.12,s:'Verbündet',i:'Stützpunkt der Zelle Fünf. Selten erreichbar, hohe Sicherheit.'}
-];
-var DEF_EDGES=[['n0','n1'],['n0','n2'],['n1','n3'],['n2','n3'],['n2','n4'],['n4','n5'],['n5','n6'],['n3','n8'],['n8','n6'],['n1','n7'],['n4','n9'],['n5','n8']];
+/* ---------- Begriffe und Farben (vom Owner änderbar, liegen auf dem Server) ---------- */
+var DEF_CFG={labels:{power:'Gefahrenlevel',dark:'Dunkle Machtpräsenz'},states:{republik:{name:'Republik',color:'#e6e6e6'},kus:{name:'KUS',color:'#fb4d6d'},neutral:{name:'Neutral',color:'#8f8f8f'}}};
+var CFG=clone(DEF_CFG);
+function stCol(s){var c=CFG.states[s];return c&&/^#[0-9a-f]{6}$/i.test(c.color)?c.color:'#909090'}
+function stName(s){var c=CFG.states[s];return c?c.name:String(s==null?'':s)}
+function stChip(s,extra){var c=stCol(s);return '<span class="chip" style="color:'+c+';background:'+c+'1f;'+(extra||'')+'">'+esc(stName(s))+'</span>'}
+function stOpts(sel){return STATES.map(function(k){return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+esc(stName(k))+'</option>'}).join('')}
+function renderChrome(){
+  $('#thPow').textContent=CFG.labels.power;$('#thDark').textContent=CFG.labels.dark;$('#soPow').textContent=CFG.labels.power+' absteigend';
+  $('#legend').innerHTML=STATES.map(function(k){return '<span><i style="background:'+stCol(k)+'"></i>'+esc(stName(k)).toUpperCase()+'</span>'}).join('');
+  var fs=$('#fs'),v=fs.value;fs.innerHTML='<option value="">Alle</option>'+STATES.map(function(k){return '<option value="'+k+'">'+esc(stName(k))+'</option>'}).join('');fs.value=v;
+}
+function applyConfig(c){
+  if(!c||!c.labels||!c.states)return;
+  var n={labels:{power:String(c.labels.power||DEF_CFG.labels.power),dark:String(c.labels.dark||DEF_CFG.labels.dark)},states:{}};
+  STATES.forEach(function(k){var d=DEF_CFG.states[k],x=c.states[k]||d;n.states[k]={name:String(x.name||d.name),color:/^#[0-9a-f]{6}$/i.test(x.color)?x.color:d.color}});
+  CFG=n;renderChrome();
+}
+
+/* ---------- Leere Ausgangslage: es gibt keine vorgenerierten Einträge ---------- */
+var DEF_NODES=[];
+var DEF_EDGES=[];
 var DEF_MAP={nodes:DEF_NODES,edges:DEF_EDGES};
 
 var CLASSES=['Offen','Intern','Vertraulich','Geheim'],RTYPES=['Report','Order','Dokument'];
-var ops=[
- {n:'Operation Nachtfalter',c:'Zelle Drei',loc:'Tarnsektor 7',p:68,ph:3,risk:'mittel'},
- {n:'Operation Stille Kluft',c:'Zelle Eins',loc:'Halden Reach',p:31,ph:2,risk:'hoch'},
- {n:'Operation Dämmerwache',c:'Zelle Fünf',loc:'Cinder',p:92,ph:4,risk:'niedrig'}
-];
-var ticks=['LAGE: ERHÖHTE BEREITSCHAFT IN ALLEN ZELLEN','ZELLE DREI MELDET KONTAKT IN KEL VAROS','ARCHIV CORVANE VERSIEGELT','FUNKDISZIPLIN EINHALTEN, KLARTEXT NUR IM NOTFALL','SIGNATUR MIT DUNKLER PRÄSENZ IM SEKTOR 7','ZIRKEL-ÜBERTRAG: 312 DATENSÄTZE ZUR PRÜFUNG'];
+var ops=[];
+var ticks=['LAGE: ERHÖHTE BEREITSCHAFT IN ALLEN ZELLEN','FUNKDISZIPLIN EINHALTEN, KLARTEXT NUR IM NOTFALL','SIGNATUR MIT DUNKLER PRÄSENZ IM SEKTOR 7'];
 
 /* ---------- State ---------- */
 var S={opDraft:null,opEdit:null,reports:[],repEdit:null,confirmRep:null,alarm:false,phase:0,view:'dashboard',selP:null,selN:null,rep:null,tab:'Alle',
-  persons:DEF_PERSONS.map(function(p,i){var o=clone(p);o.id='d'+i;return o}),
+  persons:[],editP:null,
   map:clone(DEF_MAP),draft:null,editing:false,tool:'select',dirty:false,linkFrom:null,hovN:null,
   add:false,db:null,canWrite:false,canMap:false,role:'Nur Lesen',who:'Agent',confirmDel:null,confirmNode:false,confirmDisc:false,loaded:false};
 function mapData(){return S.editing&&S.draft?S.draft:S.map}
@@ -628,8 +622,8 @@ function fit(o){
 }
 
 /* Radar */
-var blips=[{a:.6,d:.62,s:'Verbündet'},{a:2.3,d:.45,s:'Dunkel'},{a:3.4,d:.78,s:'Unklar'},{a:4.4,d:.5,s:'Verbündet'},{a:5.5,d:.72,s:'Dunkel'}];
-var extra=[{a:1.2,d:.85,s:'Dunkel'},{a:2.9,d:.35,s:'Dunkel'},{a:4.9,d:.9,s:'Dunkel'},{a:.1,d:.4,s:'Dunkel'}];
+var blips=[{a:.6,d:.62,s:'republik'},{a:2.3,d:.45,s:'kus'},{a:3.4,d:.78,s:'neutral'},{a:4.4,d:.5,s:'republik'},{a:5.5,d:.72,s:'kus'}];
+var extra=[{a:1.2,d:.85,s:'kus'},{a:2.9,d:.35,s:'kus'},{a:4.9,d:.9,s:'kus'},{a:.1,d:.4,s:'kus'}];
 function drawRadar(o,t){
   var c=o.ctx,w=o.w,h=o.h,cx=w/2,cy=h/2,R=Math.min(w,h)/2-2;
   c.clearRect(0,0,w,h);
@@ -645,7 +639,7 @@ function drawRadar(o,t){
   list.forEach(function(b){
     var diff=((sw-b.a)%6.283+6.283)%6.283,br=Math.max(.25,1-diff/6.283*1.2);
     var x=cx+Math.cos(b.a)*R*b.d,y=cy+Math.sin(b.a)*R*b.d;
-    c.fillStyle=COL[b.s];c.globalAlpha=br;c.shadowColor=COL[b.s];c.shadowBlur=12;c.beginPath();c.arc(x,y,4.5,0,6.283);c.fill();c.shadowBlur=0;c.globalAlpha=1});
+    var bc=stCol(b.s);c.fillStyle=bc;c.globalAlpha=br;c.shadowColor=bc;c.shadowBlur=12;c.beginPath();c.arc(x,y,4.5,0,6.283);c.fill();c.shadowBlur=0;c.globalAlpha=1});
   c.fillStyle='#fff';c.beginPath();c.arc(cx,cy,3,0,6.283);c.fill();
   c.strokeStyle='rgba('+acc+',.8)';c.lineWidth=1.5;c.beginPath();c.arc(cx,cy,R,0,6.283);c.stroke();
 }
@@ -667,7 +661,7 @@ function drawMap(o,t){
   c.setLineDash([]);
   mapHit=[];
   m.nodes.forEach(function(n,i){
-    var p=px(n),col=COL[n.s]||'#909090',sel=S.selN===n.k,hov=S.hovN===n.k;
+    var p=px(n),col=stCol(n.s),sel=S.selN===n.k,hov=S.hovN===n.k;
     mapHit.push({x:p.x,y:p.y,k:n.k});
     var pulse=4+2*Math.sin(t*.003+i);
     c.shadowColor=col;c.shadowBlur=sel||hov?24:12;c.fillStyle=col;c.beginPath();c.arc(p.x,p.y,sel?9:6.5,0,6.283);c.fill();c.shadowBlur=0;
@@ -742,67 +736,75 @@ function renderLocs(){$('#locs').innerHTML=S.map.nodes.map(function(n){return '<
 function renderRegister(){
   var l=filtered();
   if(!S.add&&(S.selP===null||!find(S.selP)))S.selP=l.length?l[0].id:null;
-  $('#pBody').innerHTML=l.map(function(p){var c=COL[p.s]||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
-    return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b></td><td>'+esc(p.r)+'</td><td><span class="chip '+(CHIP[p.s]||'amber')+'">'+esc(p.s)+'</span></td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Akten gefunden.</td></tr>';
+  $('#pBody').innerHTML=l.map(function(p){var c=stCol(p.s),pw=Math.max(0,Math.min(100,num(p.p,0))),dk=Math.max(0,Math.min(100,num(p.dp,0)));
+    return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b></td><td>'+esc(p.r)+'</td><td>'+stChip(p.s)+'</td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td><span class="mini"><i style="width:'+dk+'%;background:#fb4d6d"></i></span><span class="mono" style="font-size:11px">'+dk+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="6" class="muted">Keine Akten gefunden.</td></tr>';
   $('#pCount').textContent=l.length+' von '+S.persons.length+' Akten';
   $('#regLead').textContent=S.canWrite?'Du kannst Akten hinzufügen, ändern und entfernen. Änderungen sehen alle sofort.':'Du hast Lesezugriff. Akten ändern dürfen nur Phantome, Spektral Rat und Schatten Leitung.';
   renderDetail();
 }
+function personForm(p){
+  var e=!!p;
+  return '<h2>'+(e?'Akte bearbeiten':'Neue Akte')+'</h2><form id="addForm" class="addf" autocomplete="off">'+
+   '<div class="field"><label for="nName">NAME</label><input id="nName" type="text" maxlength="60" required value="'+esc(e?p.n:'')+'"></div>'+
+   '<div class="field"><label for="nRank">RANG</label><select id="nRank">'+RANKS.map(function(r){return '<option'+(e&&p.r===r?' selected':'')+'>'+r+'</option>'}).join('')+'</select></div>'+
+   '<div class="field"><label for="nState">STATUS</label><select id="nState">'+stOpts(e?p.s:'neutral')+'</select></div>'+
+   '<div class="field"><label for="nPow">'+esc(CFG.labels.power).toUpperCase()+' <b id="nPowV" class="mono" style="color:var(--cyan)">'+(e?num(p.p,50):50)+'</b></label><input id="nPow" type="range" min="0" max="100" value="'+(e?num(p.p,50):50)+'"></div>'+
+   '<div class="field"><label for="nDark">'+esc(CFG.labels.dark).toUpperCase()+' <b id="nDarkV" class="mono" style="color:var(--red)">'+(e?num(p.dp,0):0)+'</b></label><input id="nDark" type="range" min="0" max="100" value="'+(e?num(p.dp,0):0)+'"></div>'+
+   '<div class="field"><label for="nLoc">ORT</label><input id="nLoc" type="text" maxlength="40" list="locs" placeholder="System wählen oder eintippen" value="'+esc(e?p.l:'')+'"></div>'+
+   '<div class="field"><label for="nNote">NOTIZ</label><textarea id="nNote" rows="3" maxlength="300">'+esc(e&&p.note!=='Keine Notiz.'?p.note:'')+'</textarea></div>'+
+   '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="submit">'+(e?'Änderungen speichern':'Akte anlegen')+'</button><button class="btn ghost" type="button" data-act="cancelAdd">Abbrechen</button></div></form>';
+}
 function renderDetail(){
   var el=$('#pDetail');
-  if(S.add&&S.canWrite){
-    el.innerHTML='<h2>Neue Akte</h2><form id="addForm" class="addf" autocomplete="off">'+
-     '<div class="field"><label for="nName">NAME</label><input id="nName" type="text" maxlength="40" required></div>'+
-     '<div class="field"><label for="nRank">RANG</label><select id="nRank">'+RANKS.map(function(r){return '<option>'+r+'</option>'}).join('')+'</select></div>'+
-     '<div class="field"><label for="nState">STATUS</label><select id="nState">'+STATES.map(function(r){return '<option>'+r+'</option>'}).join('')+'</select></div>'+
-     '<div class="field"><label for="nPow">MACHTLEVEL <b id="nPowV" class="mono" style="color:var(--cyan)">50</b></label><input id="nPow" type="range" min="0" max="100" value="50"></div>'+
-     '<div class="field"><label for="nLoc">ORT</label><input id="nLoc" type="text" maxlength="40" list="locs" placeholder="System wählen oder eintippen"></div>'+
-     '<div class="field"><label for="nNote">NOTIZ</label><textarea id="nNote" rows="3" maxlength="300"></textarea></div>'+
-     '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="submit">Akte anlegen</button><button class="btn ghost" type="button" data-act="cancelAdd">Abbrechen</button></div></form>';
-    return;
-  }
+  if(S.canWrite&&S.editP&&find(S.editP)){el.innerHTML=personForm(find(S.editP));return}
+  if(S.add&&S.canWrite){el.innerHTML=personForm(null);return}
   var p=find(S.selP);
   if(!p){
-    el.innerHTML='<h2>Keine Akte gewählt</h2><p class="muted" style="margin:0">'+(S.persons.length?'Wähle links eine Akte.':'Das Register ist leer.')+'</p>'+
-      (!S.persons.length&&S.canWrite?'<div><button class="btn sm" data-act="seed">Standarddaten laden</button></div>':'');
+    el.innerHTML='<h2>Keine Akte gewählt</h2><p class="muted" style="margin:0">'+(S.persons.length?'Wähle links eine Akte.':'Das Register ist leer.'+(S.canWrite?' Mit „Person hinzufügen“ legst du die erste Akte an.':''))+'</p>';
     return;
   }
-  var ini=String(p.n||'?').replace('Dr. ','').split(' ').map(function(x){return x[0]||''}).join('').slice(0,3),col=COL[p.s]||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
-  el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2><span class="chip '+(CHIP[p.s]||'amber')+'" style="margin-top:6px">'+esc(p.s)+'</span>'+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+'</div></div>'+
+  var ini=String(p.n||'?').replace('Dr. ','').split(' ').map(function(x){return x[0]||''}).join('').slice(0,3),col=stCol(p.s),pw=Math.max(0,Math.min(100,num(p.p,0))),dk=Math.max(0,Math.min(100,num(p.dp,0)));
+  el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2>'+stChip(p.s,'margin-top:6px')+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+'</div></div>'+
    '<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd><dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
-   '<div class="gauge"><div class="l"><span>Machtlevel</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
-   (S.canWrite?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm ghost" data-act="contact">Kontakt aufnehmen</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
+   '<div class="gauge"><div class="l"><span>'+esc(CFG.labels.power)+'</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
+   '<div class="gauge"><div class="l"><span>'+esc(CFG.labels.dark)+'</span><b style="color:#fb4d6d">'+dk+'</b></div><div class="bar"><i style="width:'+dk+'%;background:#fb4d6d;box-shadow:0 0 12px #fb4d6d"></i></div></div>'+
+   (S.canWrite?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="edit">Bearbeiten</button><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm ghost" data-act="contact">Kontakt aufnehmen</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
    '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Zum Ändern brauchst du mindestens die Rolle Phantom.</p>');
 }
 ['q','fs','so'].forEach(function(id){$('#'+id).addEventListener('input',renderRegister)});
-$('#pBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;S.confirmDel=null;renderRegister()}});
-$('#pBody').addEventListener('keydown',function(e){if(e.key==='Enter'){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;renderRegister()}}});
-$('#addP').addEventListener('click',function(){S.add=true;renderRegister();var n=$('#nName');if(n)n.focus()});
+$('#pBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;S.editP=null;S.confirmDel=null;renderRegister()}});
+$('#pBody').addEventListener('keydown',function(e){if(e.key==='Enter'){var tr=e.target.closest('tr[data-p]');if(tr){S.selP=tr.dataset.p;S.add=false;S.editP=null;renderRegister()}}});
+$('#addP').addEventListener('click',function(){S.add=true;S.editP=null;renderRegister();var n=$('#nName');if(n)n.focus()});
 function today(){var d=new Date();return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'}
-$('#pDetail').addEventListener('input',function(e){if(e.target.id==='nPow')$('#nPowV').textContent=e.target.value});
+$('#pDetail').addEventListener('input',function(e){
+  if(e.target.id==='nPow')$('#nPowV').textContent=e.target.value;
+  if(e.target.id==='nDark')$('#nDarkV').textContent=e.target.value;
+});
 $('#pDetail').addEventListener('submit',function(e){
   e.preventDefault();if(!S.db||!S.canWrite)return;
   var n=$('#nName').value.trim();if(!n)return;
-  var data={n:n,r:$('#nRank').value,s:$('#nState').value,p:num($('#nPow').value,50),l:$('#nLoc').value.trim()||'Unbekannt',seen:today(),note:$('#nNote').value.trim()||'Keine Notiz.',watch:false,ts:Date.now()};
+  var data={n:n,r:$('#nRank').value,s:$('#nState').value,p:num($('#nPow').value,50),dp:num($('#nDark').value,0),l:$('#nLoc').value.trim()||'Unbekannt',note:$('#nNote').value.trim()||'Keine Notiz.'};
+  if(S.editP){
+    var id=S.editP;
+    S.db.collection('persons').doc(id).update(data).then(function(){S.editP=null;S.selP=id;toast('Akte von '+n+' gespeichert.','cyan');renderRegister()}).catch(writeErr);
+    return;
+  }
+  data.seen=today();data.watch=false;data.ts=Date.now();
   S.db.collection('persons').add(data).then(function(ref){S.add=false;S.selP=ref.id;toast(n+' wurde ins Register aufgenommen.','cyan');renderRegister()}).catch(writeErr);
 });
 $('#pDetail').addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act;
-  if(a==='cancelAdd'){S.add=false;renderRegister();return}
-  if(a==='seed'){seedDefaults();return}
+  if(a==='cancelAdd'){S.add=false;S.editP=null;renderRegister();return}
+  if(a==='edit'){S.editP=S.selP;S.add=false;renderRegister();var nn=$('#nName');if(nn)nn.focus();return}
   var p=find(S.selP);if(!p||!S.db||!S.canWrite)return;var ref=S.db.collection('persons').doc(p.id);
   if(a==='watch')ref.update({watch:!p.watch}).then(function(){toast(!p.watch?p.n+' wird beschattet.':'Beschattung von '+p.n+' beendet.','cyan')}).catch(writeErr);
   if(a==='contact')toast('Verschlüsselte Anfrage an '+p.n+' gesendet.');
-  if(a==='flag')ref.update({s:'Dunkel'}).then(function(){toast(p.n+' als Gefahr markiert.','red')}).catch(writeErr);
+  if(a==='flag')ref.update({s:'kus'}).then(function(){toast(p.n+' als Gefahr markiert ('+stName('kus')+').','red')}).catch(writeErr);
   if(a==='remove'){
     if(S.confirmDel!==p.id){S.confirmDel=p.id;renderDetail();setTimeout(function(){if(S.confirmDel===p.id){S.confirmDel=null;renderDetail()}},4000);return}
     S.confirmDel=null;ref.delete().then(function(){S.selP=null;toast(p.n+' wurde aus dem Register entfernt.','red')}).catch(writeErr);
   }
 });
-function seedDefaults(){
-  if(!S.db||!S.canWrite)return;toast('Standarddaten werden geladen.');
-  DEF_PERSONS.reduce(function(pr,p){return pr.then(function(){var o=clone(p);o.watch=false;o.ts=Date.now();return S.db.collection('persons').add(o)})},Promise.resolve()).catch(writeErr);
-}
 
 /* ---------- Berichte ---------- */
 function rx(s){return esc(s).replace(/\[\[(.+?)\]\]/g,'<span class="rx">$1</span>')}
@@ -876,14 +878,14 @@ function renderNode(){
     if(!n){el.innerHTML='<h2>Bearbeitungsmodus</h2><p class="muted" style="margin:0">Wähle ein System zum Ändern, ziehe es an eine neue Position oder setze mit „System setzen“ ein neues.</p>';return}
     el.innerHTML='<h2>System bearbeiten</h2>'+
      '<div class="field"><label for="eName">NAME</label><input id="eName" type="text" maxlength="40" value="'+esc(n.id)+'"></div>'+
-     '<div class="field"><label for="eState">STATUS</label><select id="eState">'+STATES.map(function(s){return '<option'+(s===n.s?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
+     '<div class="field"><label for="eState">STATUS</label><select id="eState">'+stOpts(n.s)+'</select></div>'+
      '<div class="field"><label for="eInfo">LAGE</label><textarea id="eInfo" rows="4" maxlength="300">'+esc(n.i)+'</textarea></div>'+
      '<div><button class="btn sm danger" data-act="delNode">'+(S.confirmNode?'Wirklich löschen?':'System löschen')+'</button></div>';
     return;
   }
   if(!n){el.innerHTML='<h2>Kein System gewählt</h2><p class="muted" style="margin:0">Klicke auf einen Punkt der Karte. Verbindungen des Systems leuchten auf.</p>';return}
   var links=m.edges.filter(function(e){return e[0]===n.k||e[1]===n.k}).map(function(e){var o=nodeByKey(e[0]===n.k?e[1]:e[0]);return o?esc(o.id):''}).filter(Boolean);
-  el.innerHTML='<div class="ph"><h2 style="overflow-wrap:anywhere">'+esc(n.id)+'</h2><span class="chip '+(CHIP[n.s]||'amber')+'">'+esc(n.s)+'</span></div><p style="margin:0;color:#e0e0e0;overflow-wrap:anywhere">'+esc(n.i)+'</p><dl class="kv"><dt>Routen</dt><dd>'+(links.join(', ')||'keine')+'</dd></dl>'+nodeActs(n);
+  el.innerHTML='<div class="ph"><h2 style="overflow-wrap:anywhere">'+esc(n.id)+'</h2><span>'+stChip(n.s)+'</span></div><p style="margin:0;color:#e0e0e0;overflow-wrap:anywhere">'+esc(n.i)+'</p><dl class="kv"><dt>Routen</dt><dd>'+(links.join(', ')||'keine')+'</dd></dl>'+nodeActs(n);
 }
 $('#nodeInfo').addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act,n=S.selN?nodeByKey(S.selN):null;if(!n)return;
@@ -895,7 +897,7 @@ $('#nodeInfo').addEventListener('click',function(e){
   }
   if(a==='send'){S.opDraft=n.k;renderNode();var f=$('#opName');if(f)f.focus();return}
   if(a==='opCancel'){S.opDraft=null;renderNode();return}
-  if(a==='scan')toast('Scan von '+n.id+': '+(n.s==='Dunkel'?'dunkle Präsenz bestätigt.':(n.s==='Unklar'?'Signaturen uneindeutig.':'keine Auffälligkeiten.')),n.s==='Dunkel'?'red':'cyan');
+  if(a==='scan')toast('Scan von '+n.id+': '+(n.s==='kus'?'dunkle Präsenz bestätigt.':(n.s==='neutral'?'Signaturen uneindeutig.':'keine Auffälligkeiten.')),n.s==='kus'?'red':'cyan');
 });
 $('#nodeInfo').addEventListener('submit',function(e){
   if(e.target.id!=='opForm')return;e.preventDefault();
@@ -962,7 +964,7 @@ mapO.el.addEventListener('pointerdown',function(e){
     var r=mapO.el.getBoundingClientRect(),w=mapO.w,h=mapO.h;
     var x=Math.min(.98,Math.max(.02,(e.clientX-r.left-16)/(w-32))),y=Math.min(.98,Math.max(.02,(e.clientY-r.top-24)/(h-48)));
     if(S.draft.nodes.length>=60){toast('Maximal 60 Systeme.','red');return}
-    var n={k:newKey(),id:'Neues System',x:x,y:y,s:'Unklar',i:'Noch keine Lage bekannt.'};
+    var n={k:newKey(),id:'Neues System',x:x,y:y,s:'neutral',i:'Noch keine Lage bekannt.'};
     S.draft.nodes.push(n);S.selN=n.k;S.tool='select';markDirty();renderNode();
     var inp=$('#eName');if(inp){inp.focus();inp.select()}
     return;
@@ -996,7 +998,7 @@ mapO.el.addEventListener('click',function(e){if(S.editing)return;S.selN=nodeAt(e
 var cells=['Zelle Eins','Zelle Zwei','Zelle Drei','Zelle Vier','Zelle Fünf'],opNames=['Falkenauge','Aschenwind','Schwarzglas','Morgenrot','Stummer Ruf','Nebelpfad'];
 function newOp(n,name,cell){
   if(ops.some(function(o){return o.loc===n.id&&o.p<100})){toast('In '+n.id+' läuft bereits eine Operation.','red');return}
-  var o={n:name,c:cell||cells[0],loc:n.id,p:5,ph:1,risk:n.s==='Dunkel'?'hoch':'mittel'};
+  var o={n:name,c:cell||cells[0],loc:n.id,p:5,ph:1,risk:n.s==='kus'?'hoch':'mittel'};
   var done=function(){S.opDraft=null;renderNode();toast('„'+name+'“ gestartet. Zelle nach '+n.id+' entsandt.','cyan')};
   if(S.hosted){
     if(!S.canWrite){toast('Operationen starten nur Phantome, Spektral Rat und Schatten Leitung.','red');return}
@@ -1004,7 +1006,7 @@ function newOp(n,name,cell){
   ops.push(o);done();renderOps();renderOpsMini();renderCards();
 }
 function nodeActs(n){
-  if(S.opDraft===n.k)return '<form id="opForm" class="rform"><div class="field"><label for="opName">NAME DER OPERATION</label><input id="opName" type="text" maxlength="60" required placeholder="z. B. Operation Nachtfalter"></div>'+
+  if(S.opDraft===n.k)return '<form id="opForm" class="rform"><div class="field"><label for="opName">NAME DER OPERATION</label><input id="opName" type="text" maxlength="60" required placeholder="Name der Operation"></div>'+
     '<div class="field"><label for="opCell">ZELLE</label><input id="opCell" type="text" maxlength="40" list="cellList" value="'+esc(cells[0])+'" required><datalist id="cellList">'+cells.map(function(c){return '<option value="'+esc(c)+'">'}).join('')+'</datalist></div>'+
     '<div class="rtools"><button class="btn sm" type="submit">Operation starten</button><button class="btn sm ghost" type="button" data-act="opCancel">Abbrechen</button></div></form>';
   return '<div style="display:flex;gap:8px;flex-wrap:wrap">'+((!S.hosted||S.canWrite)?'<button class="btn sm" data-act="send">Operation starten</button>':'')+'<button class="btn sm ghost" data-act="scan">Scannen</button></div>';
@@ -1075,7 +1077,7 @@ var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,terminal:1,konto:1};
 var CMD={
  help:function(){typeLines(['help          diese Übersicht','status        Lage und Zähler','scan          Sektor 7 scannen','agents        Schatten im Register','ops           laufende Operationen','rechte        deine Zugriffsrechte','umbra on|off Notfallprotokoll schalten','go <ansicht>  dashboard, register, berichte, karte, ops','whoami        Kennung anzeigen','clear         Bildschirm leeren'],'hl')},
  status:function(){say('Lage: '+(S.alarm?'UMBRA AKTIV':'bereit'),S.alarm?'er':'ok');say('Operationen aktiv: '+ops.filter(function(o){return o.p<100}).length);say('Akten im Register: '+S.persons.length);say('Systeme auf der Karte: '+S.map.nodes.length);say('Dunkle Präsenz: '+(S.alarm?81:37)+' %')},
- scan:function(){typeLines(['Scanne Sektor 7 ...','▓▓▓▓▓▓▓▓▓▓ 100%','Signaturen: '+(S.alarm?9:5)+' (dunkel: '+(S.alarm?6:2)+')','Nächstes Ziel: Umbra Gate, Entfernung 2,4 Parsec'],'ok')},
+ scan:function(){typeLines(['Scanne Sektor 7 ...','▓▓▓▓▓▓▓▓▓▓ 100%','Signaturen: '+(S.alarm?9:5)+' (dunkel: '+(S.alarm?6:2)+')','Keine weiteren Auffälligkeiten.'],'ok')},
  agents:function(){var l=S.persons.filter(function(p){return /Schatten/.test(p.r)}).slice(0,6);if(!l.length)say('Keine Schatten im Register.');l.forEach(function(p){say(String(p.n).padEnd(18)+String(p.r).padEnd(18)+p.l)})},
  ops:function(){if(!ops.length)say('Keine Operationen.');ops.forEach(function(o){say(o.n.padEnd(26)+(Math.min(o.p,100)+'%').padEnd(6)+o.c)})},
  rechte:function(){say('Rolle: '+S.role,'ok');say('Akten ändern: '+(S.canWrite?'ja':'nein'));say('Karte bearbeiten: '+(S.canMap?'ja':'nein'))},
@@ -1206,7 +1208,7 @@ function api(method,url,body){
 function loadData(force){
   return api('GET','/api/data?since='+(force?0:H.rev)).then(function(j){
     if(j.same)return;
-    H.rev=j.rev;S.persons=j.persons||[];S.reports=j.reports||[];if(j.ops)ops=j.ops;S.loaded=true;
+    H.rev=j.rev;if(j.config)applyConfig(j.config);S.persons=j.persons||[];S.reports=j.reports||[];if(j.ops)ops=j.ops;S.loaded=true;
     if(S.rep&&!repById(S.rep))S.rep=null;
     if(S.selP&&!find(S.selP))S.selP=null;
     if(j.map)S.map={nodes:clone(j.map.nodes||[]),edges:clone(j.map.edges||[])};
@@ -1277,8 +1279,9 @@ function renderKonto(){
   if(!H.user)return;
   var own=H.user.role==='owner';
   $('#ktLead').textContent='Angemeldet als '+H.user.name+' mit der Rolle '+S.role+'.';
-  $('#usersPanel').hidden=!own;
+  $('#usersPanel').hidden=!own;$('#cfgPanel').hidden=!own;
   if(!own)return;
+  fillCfg(CFG);
   api('GET','/api/users').then(function(j){
     var st=j.storage==='remote'?'Speicher: dauerhaft (Änderungen bleiben nach Neustarts erhalten).':j.storage==='remote-error'?'Speicher: Dauerspeicher antwortet gerade nicht, Änderungen werden nachgeholt.':'Speicher: FLÜCHTIG. Bei jedem Neustart gehen Konten, Personen und Berichte verloren (siehe README, Dauerspeicher).';
     $('#ktLead').textContent='Angemeldet als '+H.user.name+' mit der Rolle '+S.role+'. '+st;
@@ -1296,6 +1299,17 @@ function renderKonto(){
     }).join('');
   }).catch(apiErr);
 }
+function fillCfg(c){
+  $('#cfgPower').value=c.labels.power;$('#cfgDark').value=c.labels.dark;
+  STATES.forEach(function(k){$('#cfgN_'+k).value=c.states[k].name;$('#cfgC_'+k).value=c.states[k].color});
+}
+$('#cfgReset').addEventListener('click',function(){fillCfg(DEF_CFG);toast('Standardwerte eingesetzt. Mit „Speichern“ übernehmen.')});
+$('#cfgForm').addEventListener('submit',function(e){
+  e.preventDefault();if(!H.user||H.user.role!=='owner')return;
+  var body={labels:{power:$('#cfgPower').value.trim(),dark:$('#cfgDark').value.trim()},states:{}};
+  STATES.forEach(function(k){body.states[k]={name:$('#cfgN_'+k).value.trim(),color:$('#cfgC_'+k).value}});
+  api('PUT','/api/config',body).then(function(){return loadData(true)}).then(function(){toast('Begriffe und Farben gespeichert.','cyan')}).catch(apiErr);
+});
 $('#uBody').addEventListener('change',function(e){
   var sel=e.target.closest('.urole');if(!sel)return;var tr=sel.closest('tr');
   api('PATCH','/api/users/'+encodeURIComponent(tr.dataset.u),{role:sel.value}).then(function(){toast('Rolle von '+tr.dataset.u+' geändert.','cyan')}).catch(function(err){apiErr(err);renderKonto()});
@@ -1336,7 +1350,7 @@ $('#pwForm').addEventListener('submit',function(e){
 });
 
 /* ---------- Start ---------- */
-renderGauges();renderCards();renderDash();renderRegister();renderReports();renderNode();renderOps();renderLocs();syncMap();
+renderChrome();renderGauges();renderCards();renderDash();renderRegister();renderReports();renderNode();renderOps();renderLocs();syncMap();
 var start=location.hash.replace('#','');go(VIEWS[start]?start:'dashboard');
 initAccess();
 })();
