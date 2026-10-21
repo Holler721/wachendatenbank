@@ -19,14 +19,36 @@ const SESSION_MS = 12 * 60 * 60 * 1000;
 const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
-const PERMS = ['write', 'manage', 'intern', 'secret']; // Schreiben | Verwalten (Karte, Anpassung, Notfall, fremde Inhalte) | Intern lesen | Vertraulich/Geheim lesen
-const ALLP = { write: true, manage: true, intern: true, secret: true };
+// Einzelrechte, pro Gruppe auf der Website (Konto -> Gruppen und Rechte) vergebbar
+const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'intern', 'secret', 'logs'];
+const ALLP = {}; PERMS.forEach(function (x) { ALLP[x] = true; });
+const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs' };
+const WRITE_PERMS = ['persons', 'files', 'reports', 'opsStart'];            // früher „Schreiben“
+const MANAGE_PERMS = ['opsManage', 'map', 'others', 'config', 'lockdown'];  // früher „Verwalten“
 const BUILTIN = {
   viewer: { label: 'Schatten', perms: {} },
-  agent: { label: 'Phantom', perms: { write: true, intern: true } },
-  editor: { label: 'Spektral Rat', perms: { write: true, manage: true, intern: true, secret: true } },
+  agent: { label: 'Phantom', perms: { persons: true, files: true, reports: true, opsStart: true, intern: true } },
+  editor: { label: 'Spektral Rat', perms: { persons: true, files: true, reports: true, opsStart: true, opsManage: true, map: true, others: true, config: true, lockdown: true, intern: true, secret: true } },
   owner: { label: 'Schatten Leitung', perms: ALLP }
 };
+function upgradePerms(pm) { // Gespeicherte Rechte älterer Versionen (write/manage) umstellen
+  if (!pm || typeof pm !== 'object' || Array.isArray(pm)) return pm;
+  if (('write' in pm || 'manage' in pm) && !('persons' in pm)) {
+    const o = Object.assign({}, pm);
+    WRITE_PERMS.forEach(function (x) { o[x] = !!pm.write; });
+    MANAGE_PERMS.forEach(function (x) { o[x] = !!pm.manage; });
+    o.logs = false;
+    return o;
+  }
+  return pm;
+}
+/* ---------- Protokoll: wer hat wann was gemacht ---------- */
+const LOG_MAX = 3000;
+function logAct(u, a, t) {
+  if (!Array.isArray(db.logs)) db.logs = [];
+  db.logs.push({ ts: Date.now(), u: u ? u.name : '', n: u ? (u.display || u.name) : '', sid: u ? (u.sid || '') : '', a: String(a).slice(0, 80), t: String(t || '').slice(0, 300) });
+  if (db.logs.length > LOG_MAX) db.logs.splice(0, db.logs.length - LOG_MAX);
+}
 const COLORS = ['cyan', 'red', 'amber', 'vio', 'darkred', 'orange', 'yellow', 'green', 'darkgreen', 'lightblue', 'blue', 'darkblue', 'purple', 'pink', 'white'];
 const DEFAULT_CONFIG = {
   ranks: ['Schatten-Meister', 'Schatten', 'Adjutant', 'Informant', 'Zielperson'],
@@ -193,8 +215,8 @@ function normalizeDb() {
     rtypes: cleanNames(c.rtypes, DEFAULT_CONFIG.rtypes)
   };
   const rr = isObj(db.roles) ? db.roles : {}, roles = {};
-  Object.keys(BUILTIN).forEach(function (k) { roles[k] = { label: str(rr[k] && rr[k].label, 30) || BUILTIN[k].label, perms: isObj(rr[k]) && isObj(rr[k].perms) ? rr[k].perms : Object.assign({}, BUILTIN[k].perms) }; });
-  Object.keys(rr).forEach(function (k) { if (!roles[k] && /^r[a-f0-9]{6,12}$/.test(k) && isObj(rr[k]) && str(rr[k].label, 30)) roles[k] = { label: str(rr[k].label, 30), perms: isObj(rr[k].perms) ? rr[k].perms : {} }; });
+  Object.keys(BUILTIN).forEach(function (k) { roles[k] = { label: str(rr[k] && rr[k].label, 30) || BUILTIN[k].label, perms: isObj(rr[k]) && isObj(rr[k].perms) ? upgradePerms(rr[k].perms) : Object.assign({}, BUILTIN[k].perms) }; });
+  Object.keys(rr).forEach(function (k) { if (!roles[k] && /^r[a-f0-9]{6,12}$/.test(k) && isObj(rr[k]) && str(rr[k].label, 30)) roles[k] = { label: str(rr[k].label, 30), perms: isObj(rr[k].perms) ? upgradePerms(rr[k].perms) : {} }; });
   Object.keys(roles).forEach(function (k) { const o = {}; PERMS.forEach(function (x) { o[x] = k === 'owner' ? true : !!roles[k].perms[x]; }); roles[k].perms = o; });
   db.roles = roles;
   Object.keys(db.users).forEach(function (k) {
@@ -204,6 +226,7 @@ function normalizeDb() {
   });
   Object.keys(db.users).forEach(function (k) { if (!db.users[k].sid) db.users[k].sid = genSid(); });
   if (!isObj(db.lockdown)) db.lockdown = { active: false };
+  if (!Array.isArray(db.logs)) db.logs = [];
   if (!isObj(db.map)) db.map = { nodes: [], edges: [], rev: 1 };
   const keys = {};
   db.map.nodes = (Array.isArray(db.map.nodes) ? db.map.nodes : []).filter(function (n) {
@@ -473,7 +496,7 @@ async function api(req, res, url) {
   }
   if (db.lockdown.active && ['/api/session', '/api/login', '/api/logout'].indexOf(p) < 0) {
     const lu = sessionUser(req);
-    if (lu && !can(lu, 'manage')) return send(res, 403, { error: 'Notfall: Die Seite ist für dein Konto gesperrt.', code: 'lockdown' });
+    if (lu && !can(lu, 'lockdown')) return send(res, 403, { error: 'Notfall: Die Seite ist für dein Konto gesperrt.', code: 'lockdown' });
   }
   if (['/api/session', '/api/login', '/api/logout', '/api/password'].indexOf(p) < 0) {
     const cu = sessionUser(req);
@@ -489,12 +512,15 @@ async function api(req, res, url) {
     if (limited('ip:' + ip, 8) || limited('u:' + name, 30)) return send(res, 429, { error: 'Zu viele Versuche. Bitte warte 15 Minuten.' });
     const u = db.users[name];
     const ok = u ? checkPw(String(b.password || ''), u.hash) : (checkPw('x', 'scrypt$00$00'), false);
-    if (!ok) { fail('ip:' + ip); fail('u:' + name); return send(res, 401, { error: 'Benutzername oder Passwort stimmt nicht.' }); }
+    if (!ok) { fail('ip:' + ip); fail('u:' + name); logAct(u || null, 'Anmeldung fehlgeschlagen', u ? '' : 'Name: ' + name); save(); return send(res, 401, { error: 'Benutzername oder Passwort stimmt nicht.' }); }
     fails.delete('ip:' + ip); fails.delete('u:' + name);
     setCookie(res, req, makeToken(u.name), Math.floor(SESSION_MS / 1000));
+    logAct(u, 'Anmeldung', ''); save();
     return send(res, 200, { user: publicUser(u), lockdown: !!db.lockdown.active });
   }
   if (p === '/api/logout' && method === 'POST') {
+    const lo = sessionUser(req);
+    if (lo) { logAct(lo, 'Abmeldung', ''); save(); }
     setCookie(res, req, '', 0);
     return send(res, 200, { ok: true });
   }
@@ -506,45 +532,48 @@ async function api(req, res, url) {
     const persons = Object.keys(db.persons).filter(function (id) { return canSee(me, db.persons[id]); })
       .map(function (id) { const x = db.persons[id]; return Object.assign({ id: id }, x, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
       .sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-    const reports = Object.keys(db.reports).map(function (id) { return Object.assign({ id: id }, db.reports[id]); })
+    const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; return Object.assign({ id: id }, x, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
       .filter(function (r) { return canRead(me, r.cls); })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     return send(res, 200, { me: publicUser(me), groups: groupsList(), rev: db.rev, persons: persons, map: db.map, reports: reports, config: db.config, lockdown: !!db.lockdown.active,
       ops: Object.keys(db.ops).filter(function (id) { return canSee(me, db.ops[id]); }).map(function (id) { return Object.assign({ id: id }, db.ops[id]); }).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); }) });
   }
   if (p === '/api/persons' && method === 'POST') {
-    need(req, 'write');
+    const cu0 = need(req, 'persons');
     if (Object.keys(db.persons).length >= 2000) return send(res, 400, { error: 'Das Register ist voll.' });
     const o = cleanPerson(await readBody(req), false);
     o.ts = Date.now();
     const id = newId();
-    db.persons[id] = o; bump();
+    db.persons[id] = o; logAct(cu0, 'Person angelegt', o.n + ' (' + o.r + ', ' + o.s + ')'); bump();
     return send(res, 200, { id: id });
   }
-  const fm = /^\/api\/persons\/([A-Za-z0-9_-]{1,40})\/files(?:\/([A-Za-z0-9_-]{1,40}))?$/.exec(p);
+  const fm = /^\/api\/(persons|reports)\/([A-Za-z0-9_-]{1,40})\/files(?:\/([A-Za-z0-9_-]{1,40}))?$/.exec(p);
   if (fm) {
-    const u = need(req, 'write');
-    const per = db.persons[fm[1]];
-    if (!per || !canSee(u, per)) return send(res, 404, { error: 'Person nicht gefunden.' });
-    per.files = Array.isArray(per.files) ? per.files : [];
+    const isRep = fm[1] === 'reports';
+    const W = isRep ? { perm: 'reports', one: 'Anhang', what: 'Bericht', max: 100 } : { perm: 'files', one: 'Akte', what: 'Person', max: 200 };
+    const u = need(req, W.perm);
+    const par = isRep ? db.reports[fm[2]] : db.persons[fm[2]];
+    if (!par || (isRep ? !canRead(u, par.cls) : !canSee(u, par))) return send(res, 404, { error: W.what + ' nicht gefunden.' });
+    const parName = isRep ? par.ti : par.n;
+    par.files = Array.isArray(par.files) ? par.files : [];
     const clean = function (b) {
-      const text = str(b && b.text, 8000); if (!text) { const e = new Error('Der Text der Akte fehlt.'); e.status = 400; throw e; }
-      return { title: str(b.title, 120) || 'Akte', text: text, groups: cleanGroups(b.groups) };
+      const text = str(b && b.text, 8000); if (!text) { const e = new Error('Der Text fehlt.'); e.status = 400; throw e; }
+      return { title: str(b.title, 120) || W.one, text: text, groups: cleanGroups(b.groups) };
     };
-    if (!fm[2] && method === 'POST') {
-      if (per.files.length >= 200) return send(res, 400, { error: 'Zu viele Akten bei dieser Person.' });
+    if (!fm[3] && method === 'POST') {
+      if (par.files.length >= W.max) return send(res, 400, { error: 'Zu viele Einträge bei diesem ' + (isRep ? 'Bericht' : 'Eintrag') + '.' });
       const f = Object.assign(clean(await readBody(req)), { id: newId(), ts: Date.now(), by: u.name, byName: dispName(u) });
-      per.files.push(f); bump();
+      par.files.push(f); logAct(u, W.one + ' hinzugefügt', parName + ': ' + f.title); bump();
       return send(res, 200, { id: f.id });
     }
-    const f = fm[2] && per.files.filter(function (x) { return x.id === fm[2] && canSee(u, x); })[0];
-    if (!f) return send(res, 404, { error: 'Akte nicht gefunden.' });
-    if (f.by !== u.name && !can(u, 'manage')) return send(res, 403, { error: 'Fremde Akten bearbeiten nur Rollen mit dem Recht „Verwalten“.' });
-    if (method === 'PATCH') { Object.assign(f, clean(await readBody(req)), { edited: Date.now() }); bump(); return send(res, 200, { ok: true }); }
-    if (method === 'DELETE') { per.files = per.files.filter(function (x) { return x !== f; }); bump(); return send(res, 200, { ok: true }); }
+    const f = fm[3] && par.files.filter(function (x) { return x.id === fm[3] && canSee(u, x); })[0];
+    if (!f) return send(res, 404, { error: W.one + ' nicht gefunden.' });
+    if (f.by !== u.name && !can(u, 'others')) return send(res, 403, { error: 'Fremde Einträge ändern nur Gruppen mit dem Recht „Fremde Inhalte“.' });
+    if (method === 'PATCH') { Object.assign(f, clean(await readBody(req)), { edited: Date.now() }); logAct(u, W.one + ' geändert', parName + ': ' + f.title); bump(); return send(res, 200, { ok: true }); }
+    if (method === 'DELETE') { par.files = par.files.filter(function (x) { return x !== f; }); logAct(u, W.one + ' gelöscht', parName + ': ' + f.title); bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/roles' && method === 'PUT') {
-    need(req, 'owner');
+    const ru = need(req, 'owner');
     const b = await readBody(req);
     const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
     if (!b || !Array.isArray(b.roles) || b.roles.length > 20) bad('Ungültige Gruppen (maximal 20).');
@@ -573,64 +602,82 @@ async function api(req, res, url) {
     };
     Object.keys(db.persons).forEach(function (k) { const x = db.persons[k]; fix(x); (Array.isArray(x.files) ? x.files : []).forEach(fix); });
     Object.keys(db.ops).forEach(function (k) { fix(db.ops[k]); });
+    Object.keys(db.reports).forEach(function (k) { (Array.isArray(db.reports[k].files) ? db.reports[k].files : []).forEach(fix); });
+    logAct(ru, 'Gruppen und Rechte geändert', Object.keys(out).map(function (k) { const pm = out[k].perms; return out[k].label + ': ' + (PERMS.filter(function (x) { return pm[x]; }).map(function (x) { return PERM_LBL[x]; }).join(', ') || 'keine'); }).join(' | '));
     bump();
     return send(res, 200, { ok: true, roles: rolesList() });
   }
   let m = /^\/api\/persons\/([A-Za-z0-9_-]{1,40})$/.exec(p);
   if (m) {
-    const pu = need(req, 'write');
+    const pu = need(req, 'persons');
     const cur = db.persons[m[1]];
     if (!cur || !canSee(pu, cur)) return send(res, 404, { error: 'Akte nicht gefunden.' });
     if (method === 'PATCH') {
       const o = cleanPerson(await readBody(req), true);
-      Object.assign(cur, o); bump();
+      const LBL = { n: 'Name', r: 'Rang', s: 'Status', p: 'Gefahrenlevel', l: 'Ort', note: 'Notiz', watch: 'Beschattung', groups: 'Sichtbarkeit' };
+      const ch = [];
+      Object.keys(o).forEach(function (k) {
+        if (JSON.stringify(o[k]) === JSON.stringify(cur[k])) return;
+        if (k === 'r' || k === 's' || k === 'p' || k === 'n' || k === 'l') ch.push(LBL[k] + ': ' + cur[k] + ' → ' + o[k]);
+        else if (k === 'watch') ch.push(o.watch ? 'Beschattung gestartet' : 'Beschattung beendet');
+        else if (LBL[k]) ch.push(LBL[k] + ' geändert');
+      });
+      const before = cur.n;
+      Object.assign(cur, o); if (ch.length) logAct(pu, 'Person geändert', before + ' (' + ch.join(', ') + ')'); bump();
       return send(res, 200, { ok: true });
     }
-    if (method === 'DELETE') { delete db.persons[m[1]]; bump(); return send(res, 200, { ok: true }); }
+    if (method === 'DELETE') { logAct(pu, 'Person entfernt', cur.n); delete db.persons[m[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/reports' && method === 'POST') {
-    const u = need(req, 'write');
+    const u = need(req, 'reports');
     if (Object.keys(db.reports).length >= 1000) return send(res, 400, { error: 'Das Berichtsarchiv ist voll.' });
     const o = cleanReport(await readBody(req), false);
     if (!canRead(u, o.cls)) return send(res, 403, { error: 'Diese Geheimhaltungsstufe darfst du nicht vergeben.' });
     o.by = u.name; o.byName = dispName(u); o.d = fullDate(); o.ts = Date.now();
     const id = newId();
-    db.reports[id] = o; bump();
+    db.reports[id] = o; logAct(u, 'Bericht angelegt', o.t + ' · ' + o.cls + ': ' + o.ti); bump();
     return send(res, 200, { id: id });
   }
   const rm = /^\/api\/reports\/([A-Za-z0-9_-]{1,40})$/.exec(p);
   if (rm) {
-    const u = need(req, 'write');
+    const u = need(req, 'reports');
     const cur = db.reports[rm[1]];
     if (!cur || !canRead(u, cur.cls)) return send(res, 404, { error: 'Bericht nicht gefunden.' });
-    if (cur.by !== u.name && !can(u, 'manage')) return send(res, 403, { error: 'Fremde Berichte bearbeiten nur Spektral Rat und Schatten Leitung.' });
+    if (cur.by !== u.name && !can(u, 'others')) return send(res, 403, { error: 'Fremde Berichte bearbeiten nur Gruppen mit dem Recht „Fremde Inhalte“.' });
     if (method === 'PATCH') {
       const o = cleanReport(await readBody(req), true);
       if (o.cls && !canRead(u, o.cls)) return send(res, 403, { error: 'Diese Geheimhaltungsstufe darfst du nicht vergeben.' });
-      Object.assign(cur, o); cur.edited = fullDate(); bump();
+      Object.assign(cur, o); cur.edited = fullDate(); logAct(u, 'Bericht geändert', cur.t + ' · ' + cur.cls + ': ' + cur.ti); bump();
       return send(res, 200, { ok: true });
     }
-    if (method === 'DELETE') { delete db.reports[rm[1]]; bump(); return send(res, 200, { ok: true }); }
+    if (method === 'DELETE') { logAct(u, 'Bericht gelöscht', cur.ti); delete db.reports[rm[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/ops' && method === 'POST') {
-    need(req, 'write');
+    const su = need(req, 'opsStart');
     if (Object.keys(db.ops).length >= 200) return send(res, 400, { error: 'Zu viele Operationen.' });
     const o = cleanOp(Object.assign({ p: 5, ph: 1 }, await readBody(req)), false);
     o.ts = Date.now();
     const id = newId();
-    db.ops[id] = o; bump();
+    db.ops[id] = o; logAct(su, 'Operation gestartet', o.n + ' (' + o.c + ', ' + o.loc + ')'); bump();
     return send(res, 200, { id: id });
   }
   const om = /^\/api\/ops\/([A-Za-z0-9_-]{1,40})$/.exec(p);
   if (om) {
-    const ou = need(req, 'manage');
+    const ou = need(req, 'opsManage');
     const cur = db.ops[om[1]];
     if (!cur || !canSee(ou, cur)) return send(res, 404, { error: 'Operation nicht gefunden.' });
-    if (method === 'PATCH') { Object.assign(cur, cleanOp(await readBody(req), true)); bump(); return send(res, 200, { ok: true }); }
-    if (method === 'DELETE') { delete db.ops[om[1]]; bump(); return send(res, 200, { ok: true }); }
+    if (method === 'PATCH') {
+      const o = cleanOp(await readBody(req), true), ch = [];
+      if (o.n !== undefined && o.n !== cur.n) ch.push('umbenannt in „' + o.n + '“');
+      if (o.p !== undefined && o.p !== cur.p) ch.push('Fortschritt ' + cur.p + ' → ' + o.p + ' %');
+      if (o.groups !== undefined && JSON.stringify(o.groups) !== JSON.stringify(cur.groups || [])) ch.push('Sichtbarkeit geändert');
+      const before = cur.n;
+      Object.assign(cur, o); if (ch.length) logAct(ou, 'Operation geändert', before + ': ' + ch.join(', ')); bump(); return send(res, 200, { ok: true });
+    }
+    if (method === 'DELETE') { logAct(ou, cur.p >= 100 ? 'Operation archiviert' : 'Operation abgebrochen', cur.n); delete db.ops[om[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/config' && method === 'PUT') {
-    need(req, 'manage');
+    const cfu = need(req, 'config');
     const c = cleanConfig(await readBody(req));
     Object.keys(db.persons).forEach(function (k) { const x = db.persons[k]; if (c.rr[x.r]) x.r = c.rr[x.r]; if (c.rs[x.s]) x.s = c.rs[x.s]; });
     Object.keys(db.reports).forEach(function (k) { const x = db.reports[k]; if (c.rt[x.t]) x.t = c.rt[x.t]; });
@@ -640,19 +687,21 @@ async function api(req, res, url) {
       states: c.states.map(function (x) { return { name: x.n, color: x.color, threat: x.threat }; }),
       rtypes: c.rtypes.map(function (x) { return x.n; })
     };
+    logAct(cfu, 'Anpassung geändert', 'Ränge: ' + db.config.ranks.join(', ') + ' | Labels: ' + db.config.states.map(function (x) { return x.name; }).join(', ') + ' | Berichtsarten: ' + db.config.rtypes.join(', '));
     bump();
     return send(res, 200, { ok: true });
   }
   if (p === '/api/lockdown' && method === 'POST') {
-    const me = need(req, 'manage');
+    const me = need(req, 'lockdown');
     const b = await readBody(req);
     db.lockdown = b.active === true ? { active: true, by: me.name, ts: Date.now() } : { active: false };
+    logAct(me, db.lockdown.active ? 'Notfall UMBRA ausgelöst' : 'Notfall UMBRA beendet', '');
     bump();
     return send(res, 200, { ok: true, lockdown: db.lockdown.active });
   }
   if (p === '/api/map' && method === 'PUT') {
-    need(req, 'manage');
-    db.map = cleanMap(await readBody(req)); bump();
+    const mu = need(req, 'map');
+    db.map = cleanMap(await readBody(req)); logAct(mu, 'Karte geändert', db.map.nodes.length + ' Systeme, ' + db.map.edges.length + ' Routen'); bump();
     return send(res, 200, { ok: true });
   }
   if (p === '/api/password' && method === 'POST') {
@@ -661,9 +710,15 @@ async function api(req, res, url) {
     if (!checkPw(String(b.current || ''), u.hash)) return send(res, 400, { error: 'Das aktuelle Passwort stimmt nicht.' });
     validPassword(b.next);
     if (checkPw(String(b.next), u.hash)) return send(res, 400, { error: 'Das neue Passwort muss sich vom bisherigen unterscheiden.' });
-    u.hash = hashPw(b.next); u.since = Date.now(); u.mustChange = false; save();
+    const first = !!u.mustChange;
+    u.hash = hashPw(b.next); u.since = Date.now(); u.mustChange = false; logAct(u, first ? 'Eigenes Passwort gewählt (erste Anmeldung)' : 'Passwort geändert', ''); save();
     setCookie(res, req, makeToken(u.name), Math.floor(SESSION_MS / 1000));
     return send(res, 200, { ok: true, user: publicUser(u) });
+  }
+  if (p === '/api/logs' && method === 'GET') {
+    need(req, 'logs');
+    const lim = Math.max(1, Math.min(LOG_MAX, Number(url.searchParams.get('limit')) || 1000));
+    return send(res, 200, { total: db.logs.length, logs: db.logs.slice(-lim).reverse() });
   }
   if (p === '/api/users' && method === 'GET') {
     need(req, 'owner');
@@ -680,6 +735,7 @@ async function api(req, res, url) {
     const pw = genPassword();
     const sid = b.sid ? cleanSid(b.sid, null) : genSid();
     db.users[name] = { name: name, display: display, sid: sid, role: b.role, hash: hashPw(pw), created: new Date().toISOString(), since: Date.now(), mustChange: true };
+    logAct(me, 'Konto angelegt', display + ' (' + sid + ', ' + ((db.roles[b.role] || {}).label || b.role) + ')');
     save();
     return send(res, 200, { ok: true, username: display, sid: sid, password: pw });
   }
@@ -696,23 +752,27 @@ async function api(req, res, url) {
     if (method === 'PATCH') {
       const b = await readBody(req);
       if (u.name === MAIN && ('role' in b || b.reset === true)) return send(res, 400, { error: 'Rolle und Passwort des Haupt-Owner-Kontos sind hier nicht änderbar.' });
+      const uch = [];
       if ('display' in b) {
         const d = cleanDisplay(b.display);
         if (userKey(d) !== u.name) return send(res, 400, { error: 'Beim Namen lässt sich nur die Groß- und Kleinschreibung ändern. Für einen anderen Namen lege ein neues Konto an.' });
+        if (d !== dispName(u)) uch.push('Name: ' + dispName(u) + ' → ' + d);
         u.display = d;
       }
-      if ('sid' in b) u.sid = cleanSid(b.sid, u);
+      if ('sid' in b) { const ns = cleanSid(b.sid, u); if (ns !== u.sid) uch.push('Schatten ID: ' + (u.sid || '-') + ' → ' + ns); u.sid = ns; }
       if ('role' in b && u.name !== MAIN) {
         if (!db.roles[b.role]) return send(res, 400, { error: 'Ungültige Rolle.' });
         if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
+        if (b.role !== u.role) uch.push('Gruppe: ' + ((db.roles[u.role] || {}).label || u.role) + ' → ' + ((db.roles[b.role] || {}).label || b.role));
         u.role = b.role;
       }
       let pw = null;
-      if (b.reset === true && u.name !== MAIN) { pw = genPassword(); u.hash = hashPw(pw); u.since = Date.now(); u.mustChange = true; }
+      if (b.reset === true && u.name !== MAIN) { pw = genPassword(); u.hash = hashPw(pw); u.since = Date.now(); u.mustChange = true; uch.push('neues Passwort erzeugt'); }
+      if (uch.length) logAct(me, 'Konto geändert', dispName(u) + ': ' + uch.join(', '));
       save();
       return send(res, 200, { ok: true, username: dispName(u), password: pw });
     }
-    if (method === 'DELETE') { delete db.users[key]; save(); return send(res, 200, { ok: true }); }
+    if (method === 'DELETE') { logAct(me, 'Konto gelöscht', dispName(u) + ' (' + (u.sid || '-') + ')'); delete db.users[key]; save(); return send(res, 200, { ok: true }); }
   }
   return send(res, 404, { error: 'Nicht gefunden.' });
 }
