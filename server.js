@@ -20,15 +20,15 @@ const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
 // Einzelrechte, pro Gruppe auf der Website (Konto -> Gruppen und Rechte) vergebbar
-const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'intern', 'secret', 'logs'];
+const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs'];
 const ALLP = {}; PERMS.forEach(function (x) { ALLP[x] = true; });
-const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs' };
+const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs' };
 const WRITE_PERMS = ['persons', 'files', 'reports', 'opsStart'];            // früher „Schreiben“
 const MANAGE_PERMS = ['opsManage', 'map', 'others', 'config', 'lockdown'];  // früher „Verwalten“
 const BUILTIN = {
-  viewer: { label: 'Schatten', perms: {} },
-  agent: { label: 'Phantom', perms: { persons: true, files: true, reports: true, opsStart: true, intern: true } },
-  editor: { label: 'Spektral Rat', perms: { persons: true, files: true, reports: true, opsStart: true, opsManage: true, map: true, others: true, config: true, lockdown: true, intern: true, secret: true } },
+  viewer: { label: 'Schatten', perms: { open: true } },
+  agent: { label: 'Phantom', perms: { persons: true, files: true, reports: true, opsStart: true, open: true, intern: true } },
+  editor: { label: 'Spektral Rat', perms: { persons: true, files: true, reports: true, opsStart: true, opsManage: true, map: true, others: true, config: true, lockdown: true, open: true, intern: true, secret: true } },
   owner: { label: 'Schatten Leitung', perms: ALLP }
 };
 function upgradePerms(pm) { // Gespeicherte Rechte älterer Versionen (write/manage) umstellen
@@ -38,8 +38,9 @@ function upgradePerms(pm) { // Gespeicherte Rechte älterer Versionen (write/man
     WRITE_PERMS.forEach(function (x) { o[x] = !!pm.write; });
     MANAGE_PERMS.forEach(function (x) { o[x] = !!pm.manage; });
     o.logs = false;
-    return o;
+    pm = o;
   }
+  if (!('open' in pm)) { pm = Object.assign({}, pm, { open: true }); } // „Offen lesen“ war früher für alle erlaubt
   return pm;
 }
 /* ---------- Protokoll: wer hat wann was gemacht ---------- */
@@ -63,7 +64,7 @@ const DEFAULT_CONFIG = {
 const OLD_STATES = { 'Verbündet': 'Republik', 'Dunkel': 'KUS', 'Unklar': 'Neutral' };
 function rolePerms(u) { if (!u) return {}; if (u.role === 'owner') return ALLP; const r = db.roles[u.role]; return (r && r.perms) || {}; }
 function can(u, perm) { return !!rolePerms(u)[perm]; }
-function canRead(u, cls) { return cls === 'Offen' || (cls === 'Intern' ? can(u, 'intern') : can(u, 'secret')); }
+function canRead(u, cls) { return cls === 'Offen' ? can(u, 'open') : (cls === 'Intern' ? can(u, 'intern') : can(u, 'secret')); }
 function rolesList() { return Object.keys(db.roles).map(function (k) { return { key: k, label: db.roles[k].label, builtin: !!BUILTIN[k], perms: k === 'owner' ? ALLP : db.roles[k].perms }; }); }
 /* Sichtbarkeit: leere Liste = alle Gruppen, sonst nur die genannten Gruppen (Schatten Leitung sieht immer alles) */
 function canSee(u, it) { return !it || !Array.isArray(it.groups) || !it.groups.length || !!(u && (u.role === 'owner' || it.groups.indexOf(u.role) >= 0)); }
