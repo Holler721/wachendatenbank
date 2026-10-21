@@ -1,4 +1,4 @@
-# Jedi Schatten
+# Schatten Datenbank
 
 Node.js, keine Abhängigkeiten. Start: `node server.js` (Port aus `PORT`).
 
@@ -37,3 +37,18 @@ Unter "Konto" lassen sich Ränge, Labels (Status: Republik, KUS, Neutral, Dunkle
 
 ## Notfall (UMBRA)
 Spektral Rat und Schatten Leitung können das Notfallprotokoll auslösen und beenden. Solange es aktiv ist, sind alle Konten unterhalb des Spektral Rats gesperrt (Sperrbildschirm, der Server liefert keine Daten). Die Seite öffnet sich bei Ende von selbst wieder.
+
+## Akten bei Personen
+Im Personen-Register zeigt jede Person unten ihre Akten (neueste oben). Jede Akte hat Titel und freien Text. Anlegen ab dem Recht „Schreiben“; eigene Akten bearbeiten/löschen, fremde nur mit „Verwalten“.
+
+## Gruppen und Rechte (Schatten Leitung)
+Unter „Konto“ → „Gruppen und Rechte“ legt die Schatten Leitung pro Gruppe fest: Schreiben, Verwalten, Intern lesen, Vertraulich lesen. Neue Gruppen lassen sich dort anlegen und danach Konten zuweisen. Grundgruppen bleiben bestehen, die Schatten Leitung hat immer alle Rechte. Eine Gruppe lässt sich nur entfernen, wenn kein Konto sie mehr nutzt.
+
+## Sichtbarkeit nach Gruppen
+Personen, Akten (bei Personen) und Operationen haben ein Feld „Sichtbar für“. Standard: alle Gruppen. Wählt man „Alle Gruppen“ ab, sehen nur die angehakten Gruppen den Eintrag; die anderen sehen ihn gar nicht (der Server liefert ihn nicht aus). Die Schatten Leitung sieht immer alles. Bei Operationen ändert man die Sichtbarkeit über den Knopf „Sichtbarkeit“ (ab Verwalten). Wird eine Gruppe gelöscht, bleiben ihre Einträge eingeschränkt (dann nur Schatten Leitung).
+
+## Kontonamen und Schatten ID
+Namen dürfen Leerzeichen und Großbuchstaben enthalten (z. B. „Nario Zeyscho“). Bei der Anmeldung ist die Schreibweise egal. Jedes Konto bekommt automatisch eine Schatten ID (z. B. SD-4821), die Schatten Leitung kann sie unter „Konto“ ändern. Beim Namen lässt sich nachträglich nur die Groß-/Kleinschreibung ändern.
+
+## Farben
+Labels können Weiß, Hellgrau, Silber, Mittelgrau, Rot, Dunkelrot, Orange, Gelb, Grün, Dunkelgrün, Hellblau, Blau, Dunkelblau, Lila oder Pink sein.
