@@ -12,7 +12,7 @@ fieldset.vis{border:1px solid var(--line);border-radius:10px;padding:10px 12px;m
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
-/* Layout: schwebende Seitenleiste links, sieben Terminal-Ansichten rechts, Sternenfeld und Radar als Atmosphäre */
+/* Layout: schwebende Seitenleiste links, die Ansichten rechts, Sternenfeld und Radar als Atmosphäre */
 :root{
   --bg:#000000; --bg2:#050505; --panel:#0a0a0a; --panel2:#111111; --line:#242424; --line2:#3a3a3a;
   --fg:#f0f0f0; --mute:#9c9c9c; --dim:#727272;
@@ -213,15 +213,6 @@ canvas.map{width:100%;aspect-ratio:16/10;min-height:300px;display:block;border-r
 .phases i{flex:1;height:4px;border-radius:2px;background:#1c1c1c}
 .phases i.on{background:var(--acc);box-shadow:0 0 8px var(--acc-glow)}
 
-.term{background:#000000;border:1px solid var(--line2);border-radius:12px;padding:16px;font-family:var(--mono);font-size:13px;min-height:420px;max-height:560px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
-.term .ln{white-space:pre-wrap;word-break:break-word;color:#d8d8d8}
-.term .ln.in{color:#fff}
-.term .ln.ok{color:var(--cyan)}
-.term .ln.er{color:var(--red)}
-.term .ln.hl{color:var(--acc)}
-.prompt{display:flex;gap:8px;align-items:center;margin-top:6px}
-.prompt span{color:var(--acc);white-space:nowrap}
-.prompt input{background:transparent;border:0;outline:0;min-height:28px;padding:0;font-family:var(--mono);font-size:13px;color:#fff;flex:1;min-width:0}
 
 #pal{position:fixed;inset:0;z-index:80;background:rgba(5,5,5,.7);backdrop-filter:blur(4px);display:flex;justify-content:center;align-items:flex-start;padding:12vh 16px 16px}
 #pal[hidden]{display:none}
@@ -314,7 +305,6 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       <button data-nav="berichte"><span>Berichte</span><small>SR-02</small></button>
       <button data-nav="karte"><span>Galaxis Karte</span><small>SR-04</small></button>
       <button data-nav="ops"><span>Operationen</span><small>SR-03</small></button>
-      <button data-nav="terminal"><span>Terminal</span><small>SR-OS</small></button>
       <button data-nav="logs" id="navLogs" hidden><span>Logs</span><small>SR-LG</small></button>
       <button data-nav="konto" id="navKonto" hidden><span>Konto</span><small>SR-KT</small></button>
     </nav>
@@ -342,7 +332,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
         <div class="t">
           <div class="eyebrow">KLASSIFIZIERT · ZUGRIFF WIRD PROTOKOLLIERT</div>
           <h1 data-t="Schatten Datenbank">Schatten <span class="g">Datenbank</span></h1>
-          <p class="lead">Operatives Terminal der Schatten: was ansteht, was zuletzt einging und wohin es von hier aus weitergeht.</p>
+          <p class="lead">Lagezentrale der Schatten: was ansteht, was zuletzt einging und wohin es von hier aus weitergeht.</p>
         </div>
         <div class="date" id="dateTxt">Samstag, 17.10.2026</div>
       </header>
@@ -494,23 +484,22 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
         <div class="toolbar">
           <div class="field"><label for="lgQ">SUCHE</label><input id="lgQ" type="search" placeholder="Aktion, Betreff, Name oder Schatten ID" autocomplete="off"></div>
           <div class="field"><label for="lgU">KONTO</label><select id="lgU"><option value="">Alle</option></select></div>
+          <div class="field"><label for="lgC">BEREICH</label><select id="lgC"><option value="">Alle</option></select></div>
           <div class="field"><label for="lgA">AKTION</label><select id="lgA"><option value="">Alle</option></select></div>
+        </div>
+        <div class="toolbar">
+          <div class="field"><label for="lgFrom">VON</label><input id="lgFrom" type="date"></div>
+          <div class="field"><label for="lgTo">BIS</label><input id="lgTo" type="date"></div>
+          <div class="field"><label>ZEITRAUM</label><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm ghost" type="button" data-lgr="0">Heute</button><button class="btn sm ghost" type="button" data-lgr="7">7 Tage</button><button class="btn sm ghost" type="button" data-lgr="30">30 Tage</button><button class="btn sm ghost" type="button" data-lgr="">Alles</button></div></div>
+          <div class="field" style="flex:0 0 auto"><label for="lgBad">NUR KRITISCHE</label><span style="display:flex;gap:6px;align-items:center;min-height:40px;font-size:13px"><input id="lgBad" type="checkbox" aria-label="Nur kritische Einträge"> Fehlversuche, Löschungen, Notfall</span></div>
+          <div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button class="btn sm ghost" type="button" id="lgReset">Filter zurücksetzen</button></div>
         </div>
         <div class="tbl"><table><thead><tr><th>Zeit</th><th>Konto</th><th>Schatten ID</th><th>Aktion</th><th>Betreff</th></tr></thead><tbody id="lgBody"></tbody></table></div>
         <div class="dt" id="lgCount"></div>
       </section>
     </section>
 
-    <!-- TERMINAL -->
-    <section class="view" id="v-terminal" hidden>
-      <header class="head"><div class="t"><div class="eyebrow">SCHATTEN-OS · KOMMANDOEBENE</div><h1 class="sm" data-t="Terminal">Terminal</h1><p class="lead">Tippe <b class="mono" style="color:var(--cyan)">help</b> für alle Befehle.</p></div></header>
-      <div class="term" id="term" role="log" aria-live="polite">
-        <div id="termOut"></div>
-        <form class="prompt" id="termForm"><span id="termPs">nyx@shadow:~$</span><input id="termIn" type="text" autocomplete="off" spellcheck="false" aria-label="Befehl"></form>
-      </div>
-    </section>
-
-    <footer>SCHATTEN DATENBANK · TERMINAL · DISZIPLIN · VERBORGENHEIT · LICHT</footer>
+    <footer>SCHATTEN DATENBANK · DISZIPLIN · VERBORGENHEIT · LICHT</footer>
   </div>
 </div>
 
@@ -577,7 +566,7 @@ function clone(o){return JSON.parse(JSON.stringify(o))}
 function num(v,d){v=+v;return isFinite(v)?v:d}
 
 /* ---------- Einzelrechte ---------- */
-var PL=[['persons','Personen','Personen anlegen, ändern, entfernen'],['files','Akten','Akten bei Personen schreiben'],['reports','Berichte','Berichte schreiben und Anhänge hinzufügen'],['opsStart','Op. starten','Operationen starten'],['opsManage','Op. steuern','Operationen vorantreiben, umbenennen, Sichtbarkeit, abbrechen, archivieren'],['map','Karte','Galaxis Karte bearbeiten'],['others','Fremde Inhalte','Fremde Berichte, Akten und Anhänge ändern, deklassifizieren'],['config','Anpassung','Ränge, Labels und Berichtsarten ändern'],['lockdown','Notfall','UMBRA auslösen/beenden; bleibt bei UMBRA freigeschaltet'],['intern','Intern lesen','Berichte der Stufe Intern lesen'],['secret','Vertraulich lesen','Berichte der Stufen Vertraulich und Geheim lesen'],['logs','Logs','Protokoll sehen: wer hat wann was gemacht']];
+var PL=[['persons','Personen','Personen anlegen, ändern, entfernen'],['files','Akten','Akten bei Personen schreiben'],['reports','Berichte','Berichte schreiben und Anhänge hinzufügen'],['opsStart','Op. starten','Operationen starten'],['opsManage','Op. steuern','Operationen vorantreiben, umbenennen, Sichtbarkeit, abbrechen, archivieren'],['map','Karte','Galaxis Karte bearbeiten'],['others','Fremde Inhalte','Fremde Berichte, Akten und Anhänge ändern, deklassifizieren'],['config','Anpassung','Ränge, Labels und Berichtsarten ändern'],['lockdown','Notfall','UMBRA auslösen/beenden; bleibt bei UMBRA freigeschaltet'],['open','Offen lesen','Berichte der Stufe Offen lesen'],['intern','Intern lesen','Berichte der Stufe Intern lesen'],['secret','Vertraulich lesen','Berichte der Stufen Vertraulich und Geheim lesen'],['logs','Logs','Protokoll sehen: wer hat wann was gemacht']];
 var WRITE_P={persons:1,files:1,reports:1,opsStart:1},MANAGE_P={opsManage:1,map:1,others:1,config:1,lockdown:1};
 function P(k){if(S.hosted&&H.user)return !!(H.user.perms&&H.user.perms[k]);return WRITE_P[k]?!!S.canWrite:MANAGE_P[k]?!!S.canMap:false}
 
@@ -784,7 +773,7 @@ function renderCards(){
    {t:'BERICHTE',c:'SR-BE-02',n:CFG.rtypes.slice(0,3).map(function(t){return [String(S.reports.filter(function(r){return r.t===t}).length),t]}),d:CFG.rtypes.join(' · '),g:'Berichte lesen',v:'berichte'},
    {t:'OPERATIONEN',c:'SR-OP-03',n:[[String(active),'aktive Operationen']],d:'Laufende und archivierte Operationen',g:'Operationen verwalten',v:'ops'},
    {t:'SCHATTENKARTE',c:'SR-KA-04',n:[[String(S.map.nodes.length),'Systeme im Blick']],d:'Sektor 7 und Umgebung',g:'Karte öffnen',v:'karte'},
-   {t:'SCHATTEN-OS',c:'SR-OS-05',n:[[String(S.persons.filter(function(p){return p.watch}).length),'beschattete Personen']],d:'Kommandoebene und Befehle',g:'Terminal starten',v:'terminal'},
+   {t:'BESCHATTUNG',c:'SR-BS-05',n:[[String(S.persons.filter(function(p){return p.watch}).length),'beschattete Personen']],d:'Personen unter Beobachtung',g:'Register öffnen',v:'register'},
    {t:'ZUGRIFF',c:'SR-ZG-06',n:[[S.role,'deine Rolle']],d:'Personen: '+(P('persons')?'bearbeiten':'nur lesen')+' · Karte: '+(P('map')?'bearbeiten':'nur lesen'),g:S.hosted?'Rechte vergibt die Schatten Leitung unter Konto':'Rechte vergibt der Owner über Teilen',v:null}];
   $('#cards').innerHTML=cs.map(function(c){
     var tag=c.v?'button':'div',attr=c.v?' data-go="'+c.v+'"':'',cls=c.v?'card':'card static';
@@ -907,8 +896,6 @@ function clsTag(c){return '<span class="tag '+String(c).toLowerCase()+'">'+esc(c
 function docItem(d,i){return '<button class="item" data-doc="'+i+'"><div class="r1"><span><span class="tag '+tagCls(d.t)+'">'+esc(d.t)+'</span> '+clsTag(d.cls)+'</span><span class="dt">'+esc(d.d)+'</span></div><div class="ti">'+esc(d.ti)+'</div><div class="by">'+esc(d.byName||d.by)+(d.files&&d.files.length?' · '+d.files.length+(d.files.length===1?' Anhang':' Anhänge'):'')+'</div></button>'}
 function repById(id){for(var i=0;i<S.reports.length;i++)if(S.reports[i].id===id)return S.reports[i];return null}
 function canEditRep(d){return P('reports')&&(d.by===S.who||P('others'))}
-var CLSLV={'Offen':1,'Intern':2,'Vertraulich':3,'Geheim':4};
-function myLevel(){var q=S.hosted&&H.user&&H.user.perms||{};return q.secret?4:q.intern?2:1}
 function repFilesHtml(d){
   if(!S.hosted)return '';
   var fl=(d.files||[]).slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)});
@@ -934,12 +921,12 @@ function renderReports(){
     :'<p class="muted" style="padding:18px">Noch keine Berichte'+(S.tab==='Alle'?'':' dieser Art')+'.'+(P('reports')?' Mit „Neuer Bericht“ legst du den ersten an.':'')+'</p>';
   var rd=$('#reader');
   if(S.repEdit){
-    var e=S.repEdit,d=e.id?repById(e.id):null,lv=myLevel();
+    var e=S.repEdit,d=e.id?repById(e.id):null,CLSP={'Offen':'open','Intern':'intern','Vertraulich':'secret','Geheim':'secret'};
     rd.innerHTML='<form class="rform" id="rForm"><h3>'+(d?'Bericht bearbeiten':'Neuer Bericht')+'</h3>'+
      '<div class="field"><label for="rTi">TITEL</label><input id="rTi" type="text" maxlength="120" required value="'+esc(d?d.ti:'')+'"></div>'+
      '<div class="field"><label for="rT">ART</label><select id="rT">'+CFG.rtypes.map(function(t){return '<option'+(d&&d.t===t?' selected':'')+'>'+esc(t)+'</option>'}).join('')+'</select></div>'+
-     '<div class="field"><label for="rC">GEHEIMHALTUNGSSTUFE</label><select id="rC">'+CLASSES.filter(function(c){return CLSLV[c]<=lv}).map(function(c){return '<option'+((d?d.cls:'Intern')===c?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+
-       '<span class="muted" style="font-size:12px">Offen: alle · Intern: Recht „Intern lesen“ · Vertraulich und Geheim: Recht „Vertraulich lesen“</span></div>'+
+     '<div class="field"><label for="rC">GEHEIMHALTUNGSSTUFE</label><select id="rC">'+CLASSES.filter(function(c){return !S.hosted||P(CLSP[c])}).map(function(c){return '<option'+((d?d.cls:'Intern')===c?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+
+       '<span class="muted" style="font-size:12px">Wer welche Stufe lesen darf, legt die Schatten Leitung unter Konto → Gruppen und Rechte fest (Offen lesen, Intern lesen, Vertraulich lesen).</span></div>'+
      '<div class="field"><label for="rB">TEXT</label><textarea id="rB" maxlength="8000" required>'+esc(d?d.body:'')+'</textarea>'+
        '<span class="muted" style="font-size:12px">Leerzeile = neuer Absatz. Stellen in [[doppelten Klammern]] werden geschwärzt.</span></div>'+
      '<div class="rtools"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" data-act="rCancel">Abbrechen</button></div></form>';
@@ -1185,43 +1172,14 @@ function setPhase(p){
 $('#umBtn').addEventListener('click',function(){umbraTo(S.phase===0?1:(S.phase===1?2:0))});
 $('#umCancel').addEventListener('click',function(){setPhase(0)});
 
-/* ---------- Terminal ---------- */
-var out=$('#termOut'),hist=[],hi=0;
-function say(t,c){var d=document.createElement('div');d.className='ln '+(c||'');d.textContent=t;out.appendChild(d);var tm=$('#term');tm.scrollTop=tm.scrollHeight}
-function typeLines(arr,c,i){i=i||0;if(i<arr.length){say(arr[i],c);setTimeout(function(){typeLines(arr,c,i+1)},reduce?0:140)}}
-var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,terminal:1,konto:1,logs:1};
-var CMD={
- help:function(){typeLines(['help          diese Übersicht','status        Lage und Zähler','scan          Sektor 7 scannen','schatten      Schatten im Register','ops           laufende Operationen','rechte        deine Zugriffsrechte','umbra on|off Notfallprotokoll schalten','go <ansicht>  dashboard, register, berichte, karte, ops','whoami        Kennung anzeigen','clear         Bildschirm leeren'],'hl')},
- status:function(){say('Lage: '+(S.alarm?'UMBRA AKTIV':'bereit'),S.alarm?'er':'ok');say('Operationen aktiv: '+ops.filter(function(o){return o.p<100}).length);say('Akten im Register: '+S.persons.length);say('Systeme auf der Karte: '+S.map.nodes.length);say('Dunkle Präsenz: '+(S.alarm?81:37)+' %')},
- scan:function(){typeLines(['Scanne Sektor 7 ...','▓▓▓▓▓▓▓▓▓▓ 100%','Signaturen: '+(S.alarm?9:5)+' (dunkel: '+(S.alarm?6:2)+')','Nächstes Ziel: Umbra Gate, Entfernung 2,4 Parsec'],'ok')},
- schatten:function(){var l=S.persons.filter(function(p){return /Schatten/.test(p.r)}).slice(0,6);if(!l.length)say('Keine Schatten im Register.');l.forEach(function(p){say(String(p.n).padEnd(18)+String(p.r).padEnd(18)+p.l)})},
- ops:function(){if(!ops.length)say('Keine Operationen.');ops.forEach(function(o){say(o.n.padEnd(26)+(Math.min(o.p,100)+'%').padEnd(6)+o.c)})},
- rechte:function(){say('Rolle: '+S.role,'ok');PL.forEach(function(x){say(String(x[1]).padEnd(22)+(P(x[0])?'ja':'nein'))})},
- whoami:function(){say((S.whoName||S.who)+(S.sid?' · Schatten ID '+S.sid:'')+' · Rolle '+S.role,'ok')},
- clear:function(){out.innerHTML=''},
- sudo:function(){say('Zugriff verweigert. Dieser Vorfall wird gemeldet.','er')},
- umbra:function(a){if(a[0]==='on'){umbraTo(2);say('UMBRA wird ausgelöst ...','er')}else if(a[0]==='off'){umbraTo(0);say('UMBRA wird beendet ...','ok')}else say('Verwendung: umbra on | umbra off','er')},
- go:function(a){if(VIEWS[a[0]]){say('Wechsle zu '+a[0]+' ...','ok');go(a[0])}else say('Unbekannte Ansicht. Siehe help.','er')}
-};
-function runCmd(raw){
-  var parts=raw.trim().split(/\s+/),c=parts[0].toLowerCase();if(!c)return;
-  say($('#termPs').textContent+' '+raw,'in');
-  if(CMD.hasOwnProperty(c))CMD[c](parts.slice(1));else say('Unbekannter Befehl: '+c+'. Tippe help.','er');
-}
-$('#termForm').addEventListener('submit',function(e){e.preventDefault();var v=$('#termIn').value;if(v.trim()){hist.push(v);hi=hist.length}$('#termIn').value='';runCmd(v)});
-$('#termIn').addEventListener('keydown',function(e){
-  if(e.key==='ArrowUp'&&hist.length){hi=Math.max(0,hi-1);this.value=hist[hi];e.preventDefault()}
-  if(e.key==='ArrowDown'&&hist.length){hi=Math.min(hist.length,hi+1);this.value=hist[hi]||'';e.preventDefault()}
-});
-$('#term').addEventListener('click',function(e){if(!window.getSelection().toString())$('#termIn').focus()});
-say('SCHATTEN-OS 4.3 · Sitzung gestartet','ok');say('Tippe help für alle Befehle.');
+var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1};
 
 /* ---------- Palette ---------- */
 function acts(){
   var a=[
    {l:'Dashboard',k:'Ansicht',f:function(){go('dashboard')}},{l:'Personenregister',k:'Ansicht',f:function(){go('register')}},
    {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Galaxis Karte',k:'Ansicht',f:function(){go('karte')}},
-   {l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Terminal',k:'Ansicht',f:function(){go('terminal')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
+   {l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
    {l:'UMBRA auslösen',k:'Aktion',f:function(){umbraTo(2)}},{l:'UMBRA beenden',k:'Aktion',f:function(){umbraTo(0)}}];
   if(P('persons'))a.push({l:'Person hinzufügen',k:'Aktion',f:function(){go('register');$('#addP').click()}});
   if(P('map'))a.push({l:'Karte bearbeiten',k:'Aktion',f:function(){go('karte');enterEdit()}});
@@ -1255,7 +1213,6 @@ function go(v){
   $$('#nav button').forEach(function(b){b.setAttribute('aria-current',b.dataset.nav===v?'page':'false')});
   if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();if(v==='logs'){if(!(S.hosted&&P('logs'))){go('dashboard');return}loadLogs()}
   if(v==='dashboard'){renderDash();renderCards()}
-  if(v==='terminal')setTimeout(function(){$('#termIn').focus({preventScroll:true})},0);
   if(location.hash!=='#'+v){try{location.hash=v}catch(e){}}
   window.scrollTo(0,0);
 }
@@ -1320,7 +1277,7 @@ function renderRoles(){
 $('#rBody').addEventListener('input',function(e){var tr=e.target.closest('tr');if(!tr||!H.rdraft)return;var r=H.rdraft[+tr.dataset.i];if(e.target.classList.contains('rl'))r.label=e.target.value});
 $('#rBody').addEventListener('change',function(e){var tr=e.target.closest('tr');if(!tr||!H.rdraft||!e.target.classList.contains('rp'))return;H.rdraft[+tr.dataset.i].perms[e.target.dataset.p]=e.target.checked});
 $('#rBody').addEventListener('click',function(e){var b=e.target.closest('.rdel');if(!b)return;H.rdraft.splice(+b.closest('tr').dataset.i,1);renderRoles()});
-$('#rAdd').addEventListener('click',function(){if(!H.rdraft)return;H.rdraft.push({key:null,label:'',builtin:false,perms:{}});renderRoles();var i=$$('#rBody .rl');if(i.length)i[i.length-1].focus()});
+$('#rAdd').addEventListener('click',function(){if(!H.rdraft)return;H.rdraft.push({key:null,label:'',builtin:false,perms:{open:true}});renderRoles();var i=$$('#rBody .rl');if(i.length)i[i.length-1].focus()});
 $('#rReset').addEventListener('click',function(){H.rdraft=null;renderRoles()});
 $('#rSave').addEventListener('click',function(){if(!H.rdraft)return;
   api('PUT','/api/roles',{roles:H.rdraft.map(function(r){return {key:r.key,label:r.label.trim(),perms:r.perms}})}).then(function(j){H.roles=j.roles;H.rdraft=null;renderRoles();renderKonto();toast('Gruppen und Rechte gespeichert.','cyan')}).catch(apiErr)});
@@ -1434,14 +1391,24 @@ function loadLogs(){
     fillSel('#lgA',Object.keys(as).sort().map(function(a){return [a,a]}));
     renderLogs()}).catch(apiErr);
 }
+var LGCAT=[[/Anmeldung|Abmeldung|Passwort/,'Anmeldung und Passwort'],[/Person/,'Personen'],[/^Akte/,'Akten'],[/Anhang/,'Anhänge'],[/Bericht/,'Berichte'],[/Operation/,'Operationen'],[/Karte/,'Karte'],[/Notfall/,'Notfall'],[/Gruppen|Rechte/,'Gruppen und Rechte'],[/Konto/,'Konten'],[/Anpassung/,'Anpassung']];
+function lgCat(a){for(var i=0;i<LGCAT.length;i++)if(LGCAT[i][0].test(a))return LGCAT[i][1];return 'Sonstiges'}
+function lgBadA(a){return /fehlgeschlagen|gelöscht|entfernt|abgebrochen|Notfall/.test(a)}
+function dayStart(v){if(!v)return null;var p=v.split('-');return new Date(+p[0],+p[1]-1,+p[2]).getTime()}
 function renderLogs(){
-  var q=$('#lgQ').value.trim().toLowerCase(),fu=$('#lgU').value,fa=$('#lgA').value;
-  var l=LG.rows.filter(function(r){return (!fu||(r.u||'')===fu)&&(!fa||r.a===fa)&&(!q||((r.n||'')+' '+(r.sid||'')+' '+r.a+' '+(r.t||'')).toLowerCase().indexOf(q)>-1)});
-  $('#lgBody').innerHTML=l.slice(0,1500).map(function(r){var bad=/fehlgeschlagen|gelöscht|entfernt|abgebrochen|UMBRA ausgelöst/.test(r.a);
-    return '<tr><td class="mono" style="white-space:nowrap;font-size:12px">'+esc(fDate(r.ts))+'</td><td><b>'+esc(r.n||'(unbekannt)')+'</b></td><td class="mono" style="font-size:12px">'+esc(r.sid||'')+'</td><td'+(bad?' style="color:var(--red)"':'')+'>'+esc(r.a)+'</td><td style="overflow-wrap:anywhere;font-size:13px">'+esc(r.t||'')+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Einträge.</td></tr>';
+  var cs=$('#lgC'),cv=cs.value;cs.innerHTML='<option value="">Alle</option>'+LGCAT.map(function(x){return x[1]}).concat(['Sonstiges']).filter(function(c){return LG.rows.some(function(r){return lgCat(r.a)===c})}).map(function(c){return '<option>'+esc(c)+'</option>'}).join('');cs.value=cv;
+  var q=$('#lgQ').value.trim().toLowerCase(),fu=$('#lgU').value,fa=$('#lgA').value,fc=$('#lgC').value,bad=$('#lgBad').checked,
+    from=dayStart($('#lgFrom').value),to=dayStart($('#lgTo').value);if(to!==null)to+=86400000;
+  var l=LG.rows.filter(function(r){return (!fu||(r.u||'')===fu)&&(!fa||r.a===fa)&&(!fc||lgCat(r.a)===fc)&&(!bad||lgBadA(r.a))&&(from===null||r.ts>=from)&&(to===null||r.ts<to)&&(!q||((r.n||'')+' '+(r.sid||'')+' '+r.a+' '+(r.t||'')).toLowerCase().indexOf(q)>-1)});
+  $('#lgBody').innerHTML=l.slice(0,1500).map(function(r){var b=lgBadA(r.a);
+    return '<tr><td class="mono" style="white-space:nowrap;font-size:12px">'+esc(fDate(r.ts))+'</td><td><b>'+esc(r.n||'(unbekannt)')+'</b></td><td class="mono" style="font-size:12px">'+esc(r.sid||'')+'</td><td'+(b?' style="color:var(--red)"':'')+'>'+esc(r.a)+'</td><td style="overflow-wrap:anywhere;font-size:13px">'+esc(r.t||'')+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Einträge für diese Filter.</td></tr>';
   $('#lgCount').textContent=l.length+' von '+LG.rows.length+' Einträgen'+(l.length>1500?' (die ersten 1500 angezeigt)':'')+' · gespeichert werden die letzten 3000 Aktionen';
 }
-['lgQ','lgU','lgA'].forEach(function(id){$('#'+id).addEventListener('input',renderLogs)});
+function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+document.addEventListener('click',function(e){var b=e.target.closest('[data-lgr]');if(!b)return;
+  if(b.dataset.lgr===''){$('#lgFrom').value='';$('#lgTo').value=''}else{var d=new Date();d.setDate(d.getDate()-(+b.dataset.lgr));$('#lgFrom').value=iso(d);$('#lgTo').value=iso(new Date())}renderLogs()});
+$('#lgReset').addEventListener('click',function(){['lgQ','lgFrom','lgTo'].forEach(function(id){$('#'+id).value=''});['lgU','lgA','lgC'].forEach(function(id){$('#'+id).value=''});$('#lgBad').checked=false;renderLogs()});
+['lgQ','lgU','lgA','lgC','lgFrom','lgTo','lgBad'].forEach(function(id){$('#'+id).addEventListener('input',renderLogs);$('#'+id).addEventListener('change',renderLogs)});
 $('#lgRefresh').addEventListener('click',loadLogs);
 function renderCfg(){
   var pan=$('#cfgPanel');pan.hidden=!(S.hosted&&P('config'));if(pan.hidden)return;
