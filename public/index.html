@@ -14,6 +14,10 @@ fieldset.vis{border:1px solid var(--line);border-radius:10px;padding:10px 12px;m
 <style>
 .watchbar{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--red);border-radius:8px;background:rgba(251,77,109,.1);color:var(--red);font-weight:600;letter-spacing:.04em}
 #pBody tr.watched td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.kosbar{display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid #ff2a4d;border-radius:8px;background:rgba(255,42,77,.18);color:#ff5a74;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.chip.kos{color:#fff;background:#c2102f;font-weight:800;letter-spacing:.08em}
+#pBody tr.kosrow td{background:rgba(194,16,47,.12)}
+#pBody tr.kosrow td:first-child{box-shadow:inset 4px 0 0 #ff2a4d}
 /* Layout: schwebende Seitenleiste links, die Ansichten rechts, Sternenfeld und Radar als Atmosphäre */
 :root{
   --bg:#000000; --bg2:#050505; --panel:#0a0a0a; --panel2:#111111; --line:#242424; --line2:#3a3a3a;
@@ -810,7 +814,7 @@ function renderCards(){
    {t:'BERICHTE',c:'SR-BE-02',n:CFG.rtypes.slice(0,3).map(function(t){return [String(S.reports.filter(function(r){return r.t===t}).length),t]}),d:CFG.rtypes.join(' · '),g:'Berichte lesen',v:'berichte'},
    {t:'OPERATIONEN',c:'SR-OP-03',n:[[String(active),'aktive Operationen']],d:'Laufende und archivierte Operationen',g:'Operationen verwalten',v:'ops'},
    {t:'SCHATTENKARTE',c:'SR-KA-04',n:[[String(S.map.nodes.length),'Systeme im Blick']],d:'Sektor 7 und Umgebung',g:'Karte öffnen',v:'karte'},
-   {t:'BESCHATTUNG',c:'SR-BS-05',n:[[String(S.persons.filter(function(p){return p.watch}).length),'beschattete Personen']],d:'Personen unter Beobachtung',g:'Register öffnen',v:'register'},
+   {t:'BESCHATTUNG',c:'SR-BS-05',n:[[String(S.persons.filter(function(p){return p.watch}).length),'beschattete Personen'],[String(S.persons.filter(function(p){return p.kos}).length),'KoS-Personen']],d:'Personen unter Beobachtung',g:'Register öffnen',v:'register'},
    {t:'ZUGRIFF',c:'SR-ZG-06',n:[[S.role,'deine Rolle']],d:'Personen: '+(P('persons')?'bearbeiten':'nur lesen')+' · Karte: '+(P('map')?'bearbeiten':'nur lesen'),g:S.hosted?'Rechte vergibt die Schatten Leitung unter Konto':'Rechte vergibt der Owner über Teilen',v:null}];
   $('#cards').innerHTML=cs.map(function(c){
     var tag=c.v?'button':'div',attr=c.v?' data-go="'+c.v+'"':'',cls=c.v?'card':'card static';
@@ -844,7 +848,7 @@ function renderRegister(){
   var l=filtered();
   if(!S.add&&(S.selP===null||!find(S.selP)))S.selP=l.length?l[0].id:null;
   $('#pBody').innerHTML=l.map(function(p){var c=stCol(p.s)||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
-    return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+(p.watch?' watched':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b>'+(p.watch?' <span class="chip red" title="Wird beschattet">● Beschattet</span>':'')+(p.groups&&p.groups.length?' <span class="muted" style="font-size:11px" title="'+esc(visText(p.groups))+'">eingeschränkt</span>':'')+'</td><td>'+esc(p.r)+'</td><td><span class="chip '+(stChip(p.s)||'amber')+'">'+esc(p.s)+'</span></td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Akten gefunden.</td></tr>';
+    return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+(p.watch?' watched':'')+(p.kos?' kosrow':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b>'+(p.kos?' <span class="chip kos" title="Kill on Sight">KoS</span>':'')+(p.watch?' <span class="chip red" title="Wird beschattet">● Beschattet</span>':'')+(p.groups&&p.groups.length?' <span class="muted" style="font-size:11px" title="'+esc(visText(p.groups))+'">eingeschränkt</span>':'')+'</td><td>'+esc(p.r)+'</td><td><span class="chip '+(stChip(p.s)||'amber')+'">'+esc(p.s)+'</span></td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Akten gefunden.</td></tr>';
   $('#pCount').textContent=l.length+' von '+S.persons.length+' Akten';
   $('#regLead').textContent=P('persons')?'Du kannst Akten hinzufügen, ändern und entfernen. Änderungen sehen alle sofort.':'Du hast Lesezugriff. Akten ändern dürfen nur Gruppen mit dem Recht „Personen“.';
   renderDetail();
@@ -882,6 +886,7 @@ function renderDetail(){
      '<div class="field"><label for="nSp">SPEZIES</label><input id="nSp" type="text" maxlength="60" placeholder="z. B. Mensch, Twi\'lek, Zabrak" value="'+esc(e?(pv.sp||''):'')+'"></div>'+
      '<div class="field"><label for="nLook">AUSSEHEN</label><textarea id="nLook" rows="3" maxlength="2000" placeholder="Größe, Haare, Augen, Kleidung, auffällige Merkmale ...">'+esc(e?(pv.look||''):'')+'</textarea></div>'+
      '<div class="field"><label>WEITERE FELDER (FREI WÄHLBAR)</label><div id="xList" style="display:grid;gap:8px">'+(e&&pv.extra?pv.extra:[]).map(xRow).join('')+'</div><div><button class="btn sm ghost" type="button" data-act="xadd">+ Feld hinzufügen</button></div><span class="muted" style="font-size:12px">Eigene Felder mit Bezeichnung und Beschreibung, z. B. Herkunft, Waffen, Fähigkeiten, Familie.</span></div>'+
+     '<div class="field"><label class="cft"><input type="checkbox" id="nKos"'+(e&&pv.kos?' checked':'')+'> KoS (Kill on Sight)</label></div>'+
      '<div class="field"><label for="nNote">NOTIZ</label><textarea id="nNote" rows="3" maxlength="300">'+esc(e?pv.note:'')+'</textarea></div>'+
      visPicker('pv',e?e.groups:[])+'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="submit">'+(e?'Änderungen speichern':'Akte anlegen')+'</button><button class="btn ghost" type="button" data-act="cancelAdd">Abbrechen</button></div></form>';
     return;
@@ -893,10 +898,10 @@ function renderDetail(){
     return;
   }
   var ini=String(p.n||'?').replace('Dr. ','').split(' ').map(function(x){return x[0]||''}).join('').slice(0,3),col=stCol(p.s)||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
-  el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2><span class="chip '+(stChip(p.s)||'amber')+'" style="margin-top:6px">'+esc(p.s)+'</span>'+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+visChip(p.groups,'margin-top:6px')+'</div></div>'+
-   ''+(p.watch?'<div class="watchbar" role="status"><span class="dot"></span> Diese Person wird beschattet</div>':'')+'<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd>'+(p.sp?'<dt>Spezies</dt><dd style="overflow-wrap:anywhere">'+esc(p.sp)+'</dd>':'')+(p.look?'<dt>Aussehen</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(p.look)+'</dd>':'')+(p.extra||[]).map(function(x){return '<dt>'+esc(x.k)+'</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(x.v)+'</dd>'}).join('')+'<dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
+  el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2><span class="chip '+(stChip(p.s)||'amber')+'" style="margin-top:6px">'+esc(p.s)+'</span>'+(p.kos?' <span class="chip kos" style="margin-top:6px">KoS</span>':'')+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+visChip(p.groups,'margin-top:6px')+'</div></div>'+
+   ''+(p.kos?'<div class="kosbar" role="alert">☠ KoS · Kill on Sight</div>':'')+(p.watch?'<div class="watchbar" role="status"><span class="dot"></span> Diese Person wird beschattet</div>':'')+'<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd>'+(p.sp?'<dt>Spezies</dt><dd style="overflow-wrap:anywhere">'+esc(p.sp)+'</dd>':'')+(p.look?'<dt>Aussehen</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(p.look)+'</dd>':'')+(p.extra||[]).map(function(x){return '<dt>'+esc(x.k)+'</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(x.v)+'</dd>'}).join('')+'<dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
    '<div class="gauge"><div class="l"><span>Gefahrenlevel</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
-   (P('persons')?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="edit">Bearbeiten</button><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
+   (P('persons')?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="edit">Bearbeiten</button><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm danger" data-act="kos">'+(p.kos?'KoS aufheben':'KoS setzen')+'</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
    '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Dir fehlt das Recht „Personen“.</p>')+filesHtml(p);
 }
 ['q','fs','so'].forEach(function(id){$('#'+id).addEventListener('input',renderRegister)});
@@ -908,7 +913,7 @@ $('#pDetail').addEventListener('input',function(e){if(e.target.id==='nPow')$('#n
 $('#pDetail').addEventListener('submit',function(e){
   e.preventDefault();if(!S.db||!P('persons'))return;
   var n=$('#nName').value.trim();if(!n)return;
-  var data={n:n,r:$('#nRank').value,s:$('#nState').value,p:num($('#nPow').value,50),l:$('#nLoc').value.trim()||'Unbekannt',seen:today(),note:$('#nNote').value.trim()||'Keine Notiz.',sp:$('#nSp').value.trim(),look:$('#nLook').value.trim(),extra:readExtra(),watch:false,ts:Date.now()};
+  var data={n:n,r:$('#nRank').value,s:$('#nState').value,p:num($('#nPow').value,50),l:$('#nLoc').value.trim()||'Unbekannt',seen:today(),note:$('#nNote').value.trim()||'Keine Notiz.',sp:$('#nSp').value.trim(),look:$('#nLook').value.trim(),extra:readExtra(),kos:$('#nKos').checked,watch:false,ts:Date.now()};
   var gv=readVis('pv');if(gv!==undefined)data.groups=gv;
   if(S.editP){var eid=S.editP;delete data.watch;delete data.ts;delete data.seen;
     S.db.collection('persons').doc(eid).update(data).then(function(){S.editP=null;toast('Akte von '+n+' gespeichert.','cyan');renderRegister()}).catch(writeErr);return}
@@ -923,6 +928,7 @@ $('#pDetail').addEventListener('click',function(e){
   if(a==='edit'){S.editP=S.selP;S.add=false;renderRegister();var nn=$('#nName');if(nn)nn.focus();return}
   if(a==='seed'){seedDefaults();return}
   var p=find(S.selP);if(!p||!S.db||!P('persons'))return;var ref=S.db.collection('persons').doc(p.id);
+  if(a==='kos'){var nk=!p.kos;if(nk&&!confirm('KoS (Kill on Sight) für '+p.n+' setzen?'))return;ref.update({kos:nk}).then(function(){toast(nk?p.n+' ist jetzt KoS (Kill on Sight).':'KoS für '+p.n+' aufgehoben.',nk?'red':'cyan')}).catch(writeErr);return}
   if(a==='watch')ref.update({watch:!p.watch}).then(function(){toast(!p.watch?p.n+' wird beschattet.':'Beschattung von '+p.n+' beendet.','cyan')}).catch(writeErr);
   if(a==='flag')ref.update({s:firstThreat()}).then(function(){toast(p.n+' als Gefahr markiert ('+firstThreat()+').','red')}).catch(writeErr);
   if(a==='remove'){
