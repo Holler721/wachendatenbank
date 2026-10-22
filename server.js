@@ -81,7 +81,7 @@ function canTouch(me, u) { // darf me das Konto u verwalten?
 }
 function can(u, perm) { return !!rolePerms(u)[perm]; }
 function canRead(u, cls) { return cls === 'Offen' ? can(u, 'open') : (cls === 'Intern' ? can(u, 'intern') : can(u, 'secret')); }
-function rolesList() { return Object.keys(db.roles).map(function (k) { return { key: k, label: db.roles[k].label, builtin: !!BUILTIN[k], rank: db.roles[k].rank || 1, perms: k === 'owner' ? ALLP : db.roles[k].perms }; }); }
+function rolesList() { return Object.keys(db.roles).sort(function (a, b) { const ra = a === 'owner' ? 99 : (db.roles[a].rank || 1), rb = b === 'owner' ? 99 : (db.roles[b].rank || 1); return rb - ra || String(db.roles[a].label).localeCompare(String(db.roles[b].label), 'de'); }).map(function (k) { return { key: k, label: db.roles[k].label, builtin: !!BUILTIN[k], rank: db.roles[k].rank || 1, perms: k === 'owner' ? ALLP : db.roles[k].perms }; }); }
 /* Sichtbarkeit: leere Liste = alle Gruppen, sonst nur die genannten Gruppen (Schatten Leitung sieht immer alles) */
 function canSee(u, it) { return !it || !Array.isArray(it.groups) || !it.groups.length || !!(u && (u.role === 'owner' || it.groups.indexOf(u.role) >= 0)); }
 function cleanGroups(v) {
@@ -302,6 +302,7 @@ function sessionUser(req) {
   const u = db.users[t.u];
   if (!u || t.iat < (u.since || 0)) return null;
   if (u.expires && u.expires <= Date.now()) return null; // temporäres Konto abgelaufen
+  if (u.blocked) return null; // Konto gesperrt
   return u;
 }
 function isHttps(req) {
@@ -550,6 +551,7 @@ async function api(req, res, url) {
     const u = db.users[name];
     const ok = u ? checkPw(String(b.password || ''), u.hash) : (checkPw('x', 'scrypt$00$00'), false);
     if (!ok) { fail('ip:' + ip); fail('u:' + name); logAct(u || null, 'Anmeldung fehlgeschlagen', u ? '' : 'Name: ' + name); save(); return send(res, 401, { error: 'Benutzername oder Passwort stimmt nicht.' }); }
+    if (u.blocked) { logAct(u, 'Anmeldung abgelehnt', 'Konto gesperrt'); save(); return send(res, 401, { error: 'Dieses Konto ist gesperrt. Bitte wende dich an die Schatten Leitung.' }); }
     if (u.expires && u.expires <= Date.now()) { logAct(u, 'Anmeldung abgelehnt', 'Temporäres Konto abgelaufen'); save(); return send(res, 401, { error: 'Dieses temporäre Konto ist abgelaufen. Bitte die Schatten Leitung um eine Verlängerung.' }); }
     fails.delete('ip:' + ip); fails.delete('u:' + name);
     setCookie(res, req, makeToken(u.name), Math.floor(SESSION_MS / 1000));
@@ -773,7 +775,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
@@ -829,6 +831,11 @@ async function api(req, res, url) {
           if (u.role === 'owner' || b.role === 'owner') return send(res, 400, { error: 'Schatten-Leitungs-Konten können nicht befristet werden.' });
           u.expires = cleanUntil(b.until); uch.push('befristet bis ' + untilTxt(u.expires));
         }
+      }
+      if ('blocked' in b && u.name !== MAIN) {
+        const nb = !!b.blocked;
+        if (nb && u.name === me.name) return send(res, 400, { error: 'Du kannst dein eigenes Konto nicht sperren.' });
+        if (nb !== !!u.blocked) { if (nb) { u.blocked = true; u.since = Date.now(); } else delete u.blocked; uch.push(nb ? 'gesperrt' : 'entsperrt'); }
       }
       let pw = null;
       if (b.reset === true && u.name !== MAIN) { pw = genPassword(); u.hash = hashPw(pw); u.since = Date.now(); u.mustChange = true; uch.push('neues Passwort erzeugt'); }
