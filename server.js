@@ -922,7 +922,7 @@ async function api(req, res, url) {
     const cur = m[2] ? db.ris[board][m[2]] : null;
     if (m[2] && !cur) return send(res, 404, { error: 'Bericht nicht gefunden.' });
     if (cur && (method === 'PATCH' || method === 'DELETE')) {
-      if (cur.bk !== ru.name && !(!ru.ris && can(ru, 'ris') && can(ru, 'others'))) return send(res, 403, { error: 'Fremde Berichte ändern nur Konten mit den Rechten „RIS Kooperation“ und „Fremde Inhalte“.' });
+      if (!risWrite(ru, board)) return send(res, 403, { error: board === 'ris' ? '„' + bname + '“ bearbeiten nur RIS-Konten.' : '„' + bname + '“ bearbeiten nur Konten der Wächter-Seite mit dem Recht „RIS Kooperation“.' });
       if (method === 'PATCH') {
         Object.assign(cur, clean(await readBody(req)), { edited: Date.now() });
         logAct(ru, 'RIS: Bericht geändert', bname + ': ' + cur.ti); bump();
