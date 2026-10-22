@@ -473,6 +473,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
           <div class="field"><label for="nuName">NAME (Z. B. NARIO ZEYSCHO)</label><input id="nuName" type="text" autocomplete="off" required minlength="3" maxlength="40"></div>
           <div class="field"><label for="nuSid">SCHATTEN ID (LEER = AUTOMATISCH)</label><input id="nuSid" type="text" autocomplete="off" maxlength="20"></div>
           <div class="field"><label for="nuRole">ROLLE</label><select id="nuRole"></select></div>
+          <div class="field"><label for="nuDur">KONTO-DAUER</label><select id="nuDur"><option value="">Unbefristet</option><option value="1h">Temporär: 1 Stunde</option><option value="6h">Temporär: 6 Stunden</option><option value="24h">Temporär: 24 Stunden</option><option value="3d">Temporär: 3 Tage</option><option value="7d">Temporär: 7 Tage</option><option value="30d">Temporär: 30 Tage</option><option value="custom">Temporär: bis Datum und Uhrzeit …</option></select><input id="nuUntil" type="datetime-local" hidden aria-label="Ablaufdatum"></div>
           <div><button class="btn" type="submit">Konto anlegen und Passwort erzeugen</button></div>
         </form>
         <div class="panel cred" id="credBox" hidden aria-live="polite"></div>
@@ -1385,7 +1386,7 @@ $('#loginForm').addEventListener('submit',function(e){
   api('POST','/api/login',{username:$('#lUser').value.trim(),password:$('#lPass').value}).then(function(j){
     H.tmpPw=j.user.mustChange?$('#lPass').value:'';$('#lPass').value='';startHosted(j.user);
   }).catch(function(err){
-    $('#lErr').textContent=err&&err.status===429?'Zu viele Versuche. Bitte warte 15 Minuten.':(err&&err.status?'Benutzername oder Passwort stimmt nicht.':'Der Server ist nicht erreichbar.');
+    $('#lErr').textContent=err&&err.status===429?'Zu viele Versuche. Bitte warte 15 Minuten.':(err&&err.status?(err.message||'Benutzername oder Passwort stimmt nicht.'):'Der Server ist nicht erreichbar.');
   }).then(function(){b.disabled=false});
 });
 $('#logoutBtn').addEventListener('click',function(){
@@ -1457,7 +1458,7 @@ function renderKonto(){
   if(!H.user)return;
   renderCfg();
   var own=P('accounts'),grp=P('groups');
-  $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Schatten ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'.';
+  $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Schatten ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'.'+(H.user.expires?' Dein Konto ist befristet bis '+expTxt(H.user.expires)+'.':'');
   renderRoles();$('#usersPanel').hidden=!own;
   if(!own&&!grp)return;
   api('GET','/api/users').then(function(j){
@@ -1479,12 +1480,14 @@ function renderKonto(){
       var opts=roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+RN(r)+'</option>'}).join('');
       return '<tr data-u="'+esc(u.name)+'"><td>'+nm+'</td><td>'+sid+'</td>'+
        '<td><select class="urole" aria-label="Rolle von '+esc(dn)+'">'+opts+'</select></td>'+
-       '<td class="muted">'+(u.mustChange?'wartet auf erste Anmeldung':'selbst gewählt')+'</td>'+
+       '<td class="muted">'+(u.mustChange?'wartet auf erste Anmeldung':'selbst gewählt')+(u.expires?'<div style="margin-top:4px"><span class="chip '+(u.expires<=Date.now()?'red':'vio')+'">'+(u.expires<=Date.now()?'abgelaufen seit ':'Temporär bis ')+esc(expTxt(u.expires))+'</span></div>':'')+'<select class="uexp" aria-label="Gültigkeit ändern" style="margin-top:6px"><option value="">Gültigkeit ändern …</option><option value="none">Unbefristet</option><option value="1h">1 Stunde ab jetzt</option><option value="24h">24 Stunden ab jetzt</option><option value="7d">7 Tage ab jetzt</option><option value="30d">30 Tage ab jetzt</option></select></td>'+
        '<td><div class="acts">'+sv+'<button class="btn sm" data-uact="pw">Neues Passwort erzeugen</button><button class="btn sm danger" data-uact="del">Löschen</button></div></td></tr>';
     }).join('');
   }).catch(apiErr);
 }
 $('#uBody').addEventListener('change',function(e){
+  var ex=e.target.closest('.uexp');
+  if(ex){if(!ex.value)return;var trx=ex.closest('tr');api('PATCH','/api/users/'+encodeURIComponent(trx.dataset.u),{until:ex.value==='none'?null:Date.now()+DUR[ex.value]}).then(function(){toast('Gültigkeit geändert.','cyan');renderKonto()}).catch(function(err){apiErr(err);renderKonto()});return}
   var sel=e.target.closest('.urole');if(!sel)return;var tr=sel.closest('tr');
   api('PATCH','/api/users/'+encodeURIComponent(tr.dataset.u),{role:sel.value}).then(function(){toast('Rolle von '+tr.dataset.u+' geändert.','cyan')}).catch(function(err){apiErr(err);renderKonto()});
 });
@@ -1516,11 +1519,15 @@ function showCred(user,pw,title,sid){
     (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){toast('Zugangsdaten kopiert.','cyan')}).catch(function(){var r=document.createRange();r.selectNodeContents(c);var sl=getSelection();sl.removeAllRanges();sl.addRange(r);toast('Passwort markiert. Mit Strg+C kopieren.','')})});
   box.appendChild(bt);box.hidden=false;
 }
+var DUR={'1h':3600e3,'6h':6*3600e3,'24h':86400e3,'3d':3*86400e3,'7d':7*86400e3,'30d':30*86400e3};
+function untilFrom(sel,custom){if(!sel)return 0;if(sel==='custom'){var t=custom?new Date(custom).getTime():NaN;return isFinite(t)?t:false}return Date.now()+DUR[sel]}
+function expTxt(t){return new Date(t).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+$('#nuDur').addEventListener('change',function(){$('#nuUntil').hidden=this.value!=='custom'});
 $('#newUserForm').addEventListener('submit',function(e){
   e.preventDefault();var f=this;
-  var nb={username:$('#nuName').value.trim(),role:$('#nuRole').value};if($('#nuSid').value.trim())nb.sid=$('#nuSid').value.trim();
+  var nb={username:$('#nuName').value.trim(),role:$('#nuRole').value};var ut=untilFrom($('#nuDur').value,$('#nuUntil').value);if(ut===false){toast('Bitte ein Ablaufdatum wählen.','red');return}if(ut)nb.until=ut;if($('#nuSid').value.trim())nb.sid=$('#nuSid').value.trim();
   api('POST','/api/users',nb).then(function(j){
-    f.reset();showCred(j.username,j.password,'Konto angelegt',j.sid);renderKonto();
+    f.reset();$('#nuUntil').hidden=true;showCred(j.username,j.password,'Konto angelegt',j.sid);renderKonto();
   }).catch(apiErr);
 });
 $('#pwForm').addEventListener('submit',function(e){
