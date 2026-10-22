@@ -197,7 +197,7 @@ function ensureOwner() {
 }
 
 /* Unantastbare Konten (untouchable.json): Schatten Leitung, nicht änderbar, nicht sperrbar, nicht löschbar, Passwort nur durch das Konto selbst */
-const UNTOUCHABLE = [{ username: 'Mace Windu', group: 'Jedi Ratsvorsitz', hash: 'scrypt$0047ab28be909767bc39e2f2c09517e3$8594a5532825b202f307e236607de462410c595f7af6eb8b54ba420e22bd020d63a6820bdfd63d1574d43c2fa787673c1f127ebf19995b960121e4792bf6e4d6' }]; // fest im Code: kein zusätzliches File nötig
+const UNTOUCHABLE = [{ username: 'Mace Windu', group: 'Jedi Ratsvorsitz', sid: 'RV-0000', hash: 'scrypt$0047ab28be909767bc39e2f2c09517e3$8594a5532825b202f307e236607de462410c595f7af6eb8b54ba420e22bd020d63a6820bdfd63d1574d43c2fa787673c1f127ebf19995b960121e4792bf6e4d6' }]; // fest im Code: kein zusätzliches File nötig
 function ensureUntouchable() {
   UNTOUCHABLE.forEach(function (a) {
     const display = a.username.trim().replace(/\s+/g, ' '), key = display.toLowerCase();
@@ -207,6 +207,8 @@ function ensureUntouchable() {
       u = db.users[key] = { name: key, display: display, sid: genSid(), role: 'owner', hash: envPw ? hashPw(envPw) : a.hash, created: new Date().toISOString(), since: Date.now(), mustChange: !envPw };
       logAct(null, 'Unantastbares Konto angelegt', display);
     } else if (envPw && !checkPw(envPw, u.hash)) { u.hash = hashPw(envPw); u.since = Date.now(); u.mustChange = false; }
+    Object.keys(db.users).forEach(function (k) { if (db.users[k] !== u && db.users[k].sid === a.sid) db.users[k].sid = genSid(); }); // RV-0000 gehört nur diesem Konto
+    u.sid = a.sid;
     u.role = 'owner'; u.untouchable = true; u.groupLabel = a.group; delete u.blocked; delete u.expires; delete u.ris; delete u.inv;
     if (!u.display) u.display = display;
   });
@@ -847,7 +849,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, untouchable: !!u.untouchable, groupLabel: u.groupLabel || '', main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return !!ub.untouchable - !!ua.untouchable || (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, untouchable: !!u.untouchable, groupLabel: u.groupLabel || '', main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
