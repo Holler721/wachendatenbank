@@ -268,6 +268,7 @@ function load() {
     });
   }
   normalizeDb();
+  Object.keys(db.ops).forEach(function (k) { const o = db.ops[k]; if (o && typeof o === 'object') { o.p = Number(o.p) >= 100 ? 100 : Math.floor((Number(o.p) || 0) / 25) * 25; o.ph = o.p / 25; } }); // alte Fortschrittswerte auf die festen Phasen umstellen
   if (!db.cfgV) { // einmalig: alte Statusnamen auf die neuen Labels umstellen
     Object.keys(db.persons).forEach(function (k) { const p = db.persons[k]; if (OLD_STATES[p.s]) p.s = OLD_STATES[p.s]; });
     if (db.map && Array.isArray(db.map.nodes)) db.map.nodes.forEach(function (n) { if (OLD_STATES[n.s]) n.s = OLD_STATES[n.s]; });
@@ -424,6 +425,8 @@ function cleanReport(b, partial) {
 function clsLevel(c) { const i = CLASSES.indexOf(c); return i < 0 ? 4 : [1, 2, 3, 3][i]; } // Spektral Rat (editor) liest alles
 const OP_SEED = [];
 const RISKS = ['niedrig', 'mittel', 'hoch'];
+const OP_PHASES = ['Planung', 'Mitglieder Sammlung', 'Briefing', 'Durchführung', 'Abgeschlossen']; // 0 / 25 / 50 / 75 / 100 %
+function snapP(p) { return Math.max(0, Math.min(100, Math.round(Number(p) / 25) * 25)); }
 function cleanOp(b, partial) {
   const o = {};
   const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
@@ -432,8 +435,11 @@ function cleanOp(b, partial) {
   if ('c' in b || !partial) { o.c = str(b.c, 40); if (!o.c) bad('Das Einsatzgebiet fehlt.'); }
   if ('loc' in b || !partial) { o.loc = str(b.loc, 40); if (!o.loc) bad('Der Ort fehlt.'); }
   if ('risk' in b || !partial) { if (RISKS.indexOf(b.risk) < 0) bad('Ungültiges Risiko.'); o.risk = b.risk; }
-  if ('p' in b || !partial) { const p = Number(b.p); if (!isFinite(p)) bad('Ungültiger Fortschritt.'); o.p = Math.max(0, Math.min(100, Math.round(p))); }
-  if ('ph' in b || !partial) { const p = Number(b.ph); if (!isFinite(p)) bad('Ungültige Phase.'); o.ph = Math.max(1, Math.min(4, Math.round(p))); }
+  if ('p' in b || 'ph' in b || !partial) {
+    const p = 'p' in b ? Number(b.p) : ('ph' in b ? Number(b.ph) * 25 : 0);
+    if (!isFinite(p)) bad('Ungültige Phase.');
+    o.p = snapP(p); o.ph = o.p / 25; // Phasen: 0 Planung, 25 Mitglieder Sammlung, 50 Briefing, 75 Durchführung, 100 Abgeschlossen
+  }
   if ('groups' in b || !partial) { o.groups = cleanGroups(b.groups); }
   return o;
 }
@@ -756,7 +762,7 @@ async function api(req, res, url) {
   if (p === '/api/ops' && method === 'POST') {
     const su = need(req, 'opsStart');
     if (Object.keys(db.ops).length >= 200) return send(res, 400, { error: 'Zu viele Operationen.' });
-    const o = cleanOp(Object.assign({ p: 5, ph: 1 }, await readBody(req)), false);
+    const o = cleanOp(Object.assign({ p: 0, ph: 0 }, await readBody(req)), false);
     o.ts = Date.now();
     const id = newId();
     db.ops[id] = o; logAct(su, 'Operation gestartet', o.n + ' (' + o.c + ', ' + o.loc + ')'); bump();
@@ -770,7 +776,7 @@ async function api(req, res, url) {
     if (method === 'PATCH') {
       const o = cleanOp(await readBody(req), true), ch = [];
       if (o.n !== undefined && o.n !== cur.n) ch.push('umbenannt in „' + o.n + '“');
-      if (o.p !== undefined && o.p !== cur.p) ch.push('Fortschritt ' + cur.p + ' → ' + o.p + ' %');
+      if (o.p !== undefined && o.p !== cur.p) ch.push('Phase: ' + OP_PHASES[snapP(cur.p) / 25] + ' → ' + OP_PHASES[o.p / 25] + ' (' + o.p + ' %)');
       if (o.groups !== undefined && JSON.stringify(o.groups) !== JSON.stringify(cur.groups || [])) ch.push('Sichtbarkeit geändert');
       const before = cur.n;
       Object.assign(cur, o); if (ch.length) logAct(ou, 'Operation geändert', before + ': ' + ch.join(', ')); bump(); return send(res, 200, { ok: true });
@@ -824,7 +830,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
