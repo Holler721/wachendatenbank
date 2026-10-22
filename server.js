@@ -25,6 +25,8 @@ const ALLP = {}; PERMS.forEach(function (x) { ALLP[x] = true; });
 const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen' };
 const WRITE_PERMS = ['persons', 'files', 'reports', 'opsStart'];            // früher „Schreiben“
 const MANAGE_PERMS = ['opsManage', 'map', 'others', 'config', 'lockdown'];  // früher „Verwalten“
+const RANK_MAX = 10, RANK_OWNER = 11, BUILTIN_RANK = { viewer: 1, agent: 2, editor: 3, owner: RANK_OWNER };
+function cleanRank(x, def) { const n = Math.round(Number(x)); return isFinite(n) && n >= 1 && n <= RANK_MAX ? n : def; }
 const BUILTIN = {
   viewer: { label: 'Schatten', perms: { open: true } },
   agent: { label: 'Phantom', perms: { persons: true, files: true, reports: true, opsStart: true, open: true, intern: true } },
@@ -64,21 +66,22 @@ const DEFAULT_CONFIG = {
 const OLD_STATES = { 'Verbündet': 'Republik', 'Dunkel': 'KUS', 'Unklar': 'Neutral' };
 function rolePerms(u) { if (!u) return {}; if (u.role === 'owner') return ALLP; const r = db.roles[u.role]; return (r && r.perms) || {}; }
 /* Konten- und Gruppenverwaltung ohne Schatten Leitung: nur innerhalb der eigenen Rechte (keine Rechte-Erhöhung) */
+function rankOf(key) { const r = db.roles[key]; return r ? (r.rank || 1) : 0; }
 function permsSubset(pm, mine) { return PERMS.every(function (x) { return !pm || !pm[x] || !!mine[x]; }); }
 function canAssign(me, key) {
   const r = db.roles[key]; if (!r) return false;
   if (key === 'owner') return me.name === MAIN;
-  return me.role === 'owner' || permsSubset(r.perms, rolePerms(me));
+  return me.role === 'owner' || (rankOf(key) < rankOf(me.role) && permsSubset(r.perms, rolePerms(me)));
 }
 function canTouch(me, u) { // darf me das Konto u verwalten?
   if (u.name === MAIN) return me.name === MAIN;
   if (u.role === 'owner') return me.name === MAIN;
   if (me.role === 'owner') return true;
-  return u.name !== me.name && permsSubset((db.roles[u.role] || {}).perms, rolePerms(me));
+  return u.name !== me.name && rankOf(u.role) < rankOf(me.role) && permsSubset((db.roles[u.role] || {}).perms, rolePerms(me));
 }
 function can(u, perm) { return !!rolePerms(u)[perm]; }
 function canRead(u, cls) { return cls === 'Offen' ? can(u, 'open') : (cls === 'Intern' ? can(u, 'intern') : can(u, 'secret')); }
-function rolesList() { return Object.keys(db.roles).map(function (k) { return { key: k, label: db.roles[k].label, builtin: !!BUILTIN[k], perms: k === 'owner' ? ALLP : db.roles[k].perms }; }); }
+function rolesList() { return Object.keys(db.roles).map(function (k) { return { key: k, label: db.roles[k].label, builtin: !!BUILTIN[k], rank: db.roles[k].rank || 1, perms: k === 'owner' ? ALLP : db.roles[k].perms }; }); }
 /* Sichtbarkeit: leere Liste = alle Gruppen, sonst nur die genannten Gruppen (Schatten Leitung sieht immer alles) */
 function canSee(u, it) { return !it || !Array.isArray(it.groups) || !it.groups.length || !!(u && (u.role === 'owner' || it.groups.indexOf(u.role) >= 0)); }
 function cleanGroups(v) {
@@ -231,7 +234,7 @@ function normalizeDb() {
   const rr = isObj(db.roles) ? db.roles : {}, roles = {};
   Object.keys(BUILTIN).forEach(function (k) { roles[k] = { label: str(rr[k] && rr[k].label, 30) || BUILTIN[k].label, perms: isObj(rr[k]) && isObj(rr[k].perms) ? upgradePerms(rr[k].perms) : Object.assign({}, BUILTIN[k].perms) }; });
   Object.keys(rr).forEach(function (k) { if (!roles[k] && /^r[a-f0-9]{6,12}$/.test(k) && isObj(rr[k]) && str(rr[k].label, 30)) roles[k] = { label: str(rr[k].label, 30), perms: isObj(rr[k].perms) ? upgradePerms(rr[k].perms) : {} }; });
-  Object.keys(roles).forEach(function (k) { const o = {}; PERMS.forEach(function (x) { o[x] = k === 'owner' ? true : !!roles[k].perms[x]; }); roles[k].perms = o; });
+  Object.keys(roles).forEach(function (k) { const o = {}; PERMS.forEach(function (x) { o[x] = k === 'owner' ? true : !!roles[k].perms[x]; }); roles[k].perms = o; roles[k].rank = k === 'owner' ? RANK_OWNER : cleanRank(isObj(rr[k]) ? rr[k].rank : undefined, BUILTIN_RANK[k] || 1); });
   db.roles = roles;
   Object.keys(db.users).forEach(function (k) {
     const u = db.users[k];
@@ -499,7 +502,7 @@ function need(req, perm) {
   return u;
 }
 let MAIN = '';
-function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: (db.roles[u.role] || {}).label || u.role, perms: rolePerms(u), main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
+function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: (db.roles[u.role] || {}).label || u.role, perms: rolePerms(u), rank: rankOf(u.role), main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
 function cleanUntil(x) {
   const n = Number(x), now = Date.now();
   if (!isFinite(n) || n < now + 60000 || n > now + 400 * 86400000) { const e = new Error('Das Ablaufdatum muss zwischen 1 Minute und 400 Tagen in der Zukunft liegen.'); e.status = 400; throw e; }
@@ -621,7 +624,7 @@ async function api(req, res, url) {
       let key = typeof r.key === 'string' && db.roles[r.key] ? r.key : 'r' + crypto.randomBytes(4).toString('hex');
       if (out[key]) bad('Gruppe doppelt.');
       const perms = {}; PERMS.forEach(function (x) { perms[x] = key === 'owner' ? true : !!(r.perms && r.perms[x]); });
-      out[key] = { label: label, perms: perms };
+      out[key] = { label: label, perms: perms, rank: key === 'owner' ? RANK_OWNER : cleanRank(r.rank, db.roles[key] ? db.roles[key].rank : 1) };
     });
     Object.keys(db.roles).forEach(function (k) {
       if (out[k]) return;
@@ -634,11 +637,12 @@ async function api(req, res, url) {
       Object.keys(out).forEach(function (k) {
         const old = db.roles[k];
         const pmChanged = PERMS.some(function (x) { return !!out[k].perms[x] !== !!(old && old.perms[x]); });
-        const lblChanged = !old || old.label !== out[k].label;
+        const lblChanged = !old || old.label !== out[k].label || old.rank !== out[k].rank;
+        if (lblChanged && (out[k].rank >= rankOf(ru.role) || (old && old.rank >= rankOf(ru.role)))) bad('Du kannst nur Gruppen mit niedrigerem Rang als deinem eigenen (Rang ' + rankOf(ru.role) + ') anlegen oder ändern. „' + out[k].label + '“ ist nicht niedriger.');
         PERMS.forEach(function (x) { if (!!out[k].perms[x] !== !!(old && old.perms[x]) && !mine[x]) bad('Du kannst nur Rechte vergeben oder entziehen, die du selbst hast („' + PERM_LBL[x] + '“ nicht).'); });
         if (old && (pmChanged || lblChanged) && !permsSubset(old.perms, mine)) bad('Die Gruppe „' + old.label + '“ hat mehr Rechte als du und lässt sich nur von der Schatten Leitung ändern.');
       });
-      Object.keys(db.roles).forEach(function (k) { if (!out[k] && !permsSubset(db.roles[k].perms, mine)) bad('Die Gruppe „' + db.roles[k].label + '“ hat mehr Rechte als du und lässt sich nur von der Schatten Leitung entfernen.'); });
+      Object.keys(db.roles).forEach(function (k) { if (!out[k] && (db.roles[k].rank >= rankOf(ru.role) || !permsSubset(db.roles[k].perms, mine))) bad('Die Gruppe „' + db.roles[k].label + '“ hat mehr Rechte als du und lässt sich nur von der Schatten Leitung entfernen.'); });
     }
     db.roles = out;
     const fix = function (it) {
