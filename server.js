@@ -197,11 +197,9 @@ function ensureOwner() {
 }
 
 /* Unantastbare Konten (untouchable.json): Schatten Leitung, nicht änderbar, nicht sperrbar, nicht löschbar, Passwort nur durch das Konto selbst */
+const UNTOUCHABLE = [{ username: 'Mace Windu', group: 'Jedi Ratsvorsitz', hash: 'scrypt$0047ab28be909767bc39e2f2c09517e3$8594a5532825b202f307e236607de462410c595f7af6eb8b54ba420e22bd020d63a6820bdfd63d1574d43c2fa787673c1f127ebf19995b960121e4792bf6e4d6' }]; // fest im Code: kein zusätzliches File nötig
 function ensureUntouchable() {
-  let cfg = { accounts: [] };
-  try { cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'untouchable.json'), 'utf8')); } catch (e) { return; }
-  (Array.isArray(cfg.accounts) ? cfg.accounts : []).forEach(function (a) {
-    if (!a || typeof a.username !== 'string' || typeof a.hash !== 'string') return;
+  UNTOUCHABLE.forEach(function (a) {
     const display = a.username.trim().replace(/\s+/g, ' '), key = display.toLowerCase();
     const envPw = process.env[('UNTOUCHABLE_PASSWORD_' + key.replace(/[^a-z0-9]+/g, '_')).toUpperCase()];
     let u = db.users[key];
@@ -209,7 +207,7 @@ function ensureUntouchable() {
       u = db.users[key] = { name: key, display: display, sid: genSid(), role: 'owner', hash: envPw ? hashPw(envPw) : a.hash, created: new Date().toISOString(), since: Date.now(), mustChange: !envPw };
       logAct(null, 'Unantastbares Konto angelegt', display);
     } else if (envPw && !checkPw(envPw, u.hash)) { u.hash = hashPw(envPw); u.since = Date.now(); u.mustChange = false; }
-    u.role = 'owner'; u.untouchable = true; delete u.blocked; delete u.expires; delete u.ris; delete u.inv;
+    u.role = 'owner'; u.untouchable = true; u.groupLabel = a.group; delete u.blocked; delete u.expires; delete u.ris; delete u.inv;
     if (!u.display) u.display = display;
   });
 }
@@ -573,7 +571,7 @@ function need(req, perm) {
   return u;
 }
 let MAIN = '';
-function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
+function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
 function cleanUntil(x) {
   const n = Number(x), now = Date.now();
   if (!isFinite(n) || n < now + 60000 || n > now + 400 * 86400000) { const e = new Error('Das Ablaufdatum muss zwischen 1 Minute und 400 Tagen in der Zukunft liegen.'); e.status = 400; throw e; }
@@ -849,7 +847,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, untouchable: !!u.untouchable, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, untouchable: !!u.untouchable, groupLabel: u.groupLabel || '', main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
