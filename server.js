@@ -404,21 +404,37 @@ function cleanInv(kind, b) {
   });
   return o;
 }
-/* Archiv: Machtfähigkeiten und Aufgaben (lesen alle normalen Konten, schreiben mit dem Recht „Archiv“) */
+/* Archiv: Machtfähigkeiten und Prüfungen (lesen alle normalen Konten, schreiben mit dem Recht „Archiv“) */
 const ARC_ICON_MAX = 60000; // Zeichen des Data-URL-Icons (die Seite verkleinert Bilder vorher auf 128x128)
 const ARC_SPEC = {
   powers: { one: 'Machtfähigkeit', f: [
     { k: 'icon', l: 'Icon', icon: 1 },
     { k: 'n', l: 'Name', max: 80, req: 1 },
     { k: 'desc', l: 'Beschreibung', max: 4000 }] },
-  tasks: { one: 'Aufgabe', f: [
-    { k: 'ti', l: 'Aufgabenname', max: 120, req: 1 },
-    { k: 'desc', l: 'Aufgabenbeschreibung', max: 4000 }] }
+  tasks: { one: 'Prüfung', f: [
+    { k: 'ti', l: 'Prüfungsname', max: 120, req: 1 },
+    { k: 'leaders', l: 'Prüfungs Leiter', leaders: 1 },
+    { k: 'desc', l: 'Prüfungsbeschreibung', max: 4000 }] }
 };
-function cleanArc(kind, b, partial) {
+function cleanArc(kind, b, au) {
   const o = {};
   if (!b || typeof b !== 'object') { const e = new Error('Ungültige Daten.'); e.status = 400; throw e; }
   ARC_SPEC[kind].f.forEach(function (f) {
+    if (f.leaders) {
+      if (!(f.k in b)) return; // nicht mitgeschickt: vorhandene Leiter bleiben
+      if (!Array.isArray(b[f.k]) || b[f.k].length > 30) { const e = new Error('Ungültige Prüfungs Leiter.'); e.status = 400; throw e; }
+      const seen = {}, out = [];
+      b[f.k].forEach(function (x) {
+        const t = x && x.t, id = x && typeof x.id === 'string' ? x.id : '';
+        let n = '';
+        if (t === 'p' && db.persons[id] && canSee(au, db.persons[id])) n = db.persons[id].n;
+        else if (t === 'u' && db.users[id]) n = dispName(db.users[id]);
+        else { const e = new Error('Ein gewählter Leiter existiert nicht (mehr).'); e.status = 400; throw e; }
+        if (seen[t + id]) return;
+        seen[t + id] = 1; out.push({ t: t, id: id, n: str(n, 80) });
+      });
+      o[f.k] = out; return;
+    }
     if (f.icon) {
       if (!(f.k in b)) return; // nicht mitgeschickt: vorhandenes Icon bleibt
       const v = typeof b[f.k] === 'string' ? b[f.k] : '';
@@ -942,13 +958,24 @@ async function api(req, res, url) {
       return send(res, 200, { ok: true });
     }
   }
-  /* Archiv: Machtfähigkeiten und Aufgaben */
+  /* Archiv: Machtfähigkeiten und Prüfungen */
   if (p === '/api/archive' && method === 'GET') {
     const au = need(req, 'viewer');
     const out = { write: can(au, 'archive'), others: can(au, 'others') };
     Object.keys(ARC_SPEC).forEach(function (k) {
-      out[k] = Object.keys(db.archive[k]).map(function (id) { return Object.assign({ id: id }, db.archive[k][id]); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+      out[k] = Object.keys(db.archive[k]).map(function (id) {
+        const it = Object.assign({ id: id }, db.archive[k][id]);
+        if (Array.isArray(it.leaders)) it.leaders = it.leaders.map(function (l) { // aktuellen Namen verwenden, sonst den gespeicherten
+          const cur = l.t === 'p' ? db.persons[l.id] : db.users[l.id];
+          return { t: l.t, id: l.id, n: cur ? (l.t === 'p' ? cur.n : dispName(cur)) : l.n, gone: !cur };
+        });
+        return it;
+      }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     });
+    if (out.write) out.cand = {
+      persons: Object.keys(db.persons).filter(function (id) { return canSee(au, db.persons[id]); }).map(function (id) { return { t: 'p', id: id, n: db.persons[id].n }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); }),
+      users: Object.keys(db.users).map(function (id) { return { t: 'u', id: id, n: dispName(db.users[id]) }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); })
+    };
     return send(res, 200, out);
   }
   m = /^\/api\/archive\/(powers|tasks)(?:\/([a-f0-9]{6,20}))?$/.exec(p);
@@ -956,7 +983,7 @@ async function api(req, res, url) {
     const au = need(req, 'archive'), kind = m[1], one = ARC_SPEC[kind].one, tkey = kind === 'powers' ? 'n' : 'ti';
     if (!m[2] && method === 'POST') {
       if (Object.keys(db.archive[kind]).length >= 300) return send(res, 400, { error: 'Zu viele Einträge.' });
-      const o = cleanArc(kind, await readBody(req)), id = newId();
+      const o = cleanArc(kind, await readBody(req), au), id = newId();
       Object.assign(o, { ts: Date.now(), by: dispName(au), bk: au.name });
       db.archive[kind][id] = o;
       logAct(au, 'Archiv: ' + one + ' angelegt', o[tkey]); bump();
@@ -967,7 +994,7 @@ async function api(req, res, url) {
     if (cur && (method === 'PATCH' || method === 'DELETE')) {
       if (cur.bk !== au.name && !can(au, 'others')) return send(res, 403, { error: 'Fremde Einträge ändern nur Konten mit dem Recht „Fremde Inhalte“.' });
       if (method === 'PATCH') {
-        Object.assign(cur, cleanArc(kind, await readBody(req)), { edited: Date.now() });
+        Object.assign(cur, cleanArc(kind, await readBody(req), au), { edited: Date.now() });
         logAct(au, 'Archiv: ' + one + ' geändert', cur[tkey]); bump();
         return send(res, 200, { ok: true });
       }
