@@ -307,6 +307,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       <button data-nav="berichte"><span>Berichte</span><small>SR-02</small></button>
       <button data-nav="karte"><span>Galaxis Karte</span><small>SR-04</small></button>
       <button data-nav="ops"><span>Operationen</span><small>SR-03</small></button>
+      <button data-nav="ermittler" id="navInv" hidden><span>Jedi Ermittler</span><small>SR-JE</small></button>
       <button data-nav="logs" id="navLogs" hidden><span>Logs</span><small>SR-LG</small></button>
       <button data-nav="konto" id="navKonto" hidden><span>Konto</span><small>SR-KT</small></button>
     </nav>
@@ -473,10 +474,20 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
           <div class="field"><label for="nuName">NAME (Z. B. NARIO ZEYSCHO)</label><input id="nuName" type="text" autocomplete="off" required minlength="3" maxlength="40"></div>
           <div class="field"><label for="nuSid">SCHATTEN ID (LEER = AUTOMATISCH)</label><input id="nuSid" type="text" autocomplete="off" maxlength="20"></div>
           <div class="field"><label for="nuRole">ROLLE</label><select id="nuRole"></select></div>
+          <div class="field" id="nuInvF" hidden><label for="nuInv">JEDI ERMITTLER</label><select id="nuInv"><option value="">Nein</option><option value="1">Ja: Ermittler-Reiter freigeben</option></select></div>
           <div class="field"><label for="nuDur">KONTO-DAUER</label><select id="nuDur"><option value="">Unbefristet</option><option value="1h">Temporär: 1 Stunde</option><option value="6h">Temporär: 6 Stunden</option><option value="24h">Temporär: 24 Stunden</option><option value="3d">Temporär: 3 Tage</option><option value="7d">Temporär: 7 Tage</option><option value="30d">Temporär: 30 Tage</option><option value="custom">Temporär: bis Datum und Uhrzeit …</option></select><input id="nuUntil" type="datetime-local" hidden aria-label="Ablaufdatum"></div>
           <div><button class="btn" type="submit">Konto anlegen und Passwort erzeugen</button></div>
         </form>
         <div class="panel cred" id="credBox" hidden aria-live="polite"></div>
+      </section>
+    </section>
+
+    <!-- JEDI ERMITTLER -->
+    <section class="view" id="v-ermittler" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SR-JE · NUR MIT FREIGABE „JEDI ERMITTLER“</div><h1 class="sm" data-t="Jedi Ermittler">Jedi Ermittler</h1><p class="lead">Tarnidentitäten, Informanten und Gespräche. Dieser Bereich ist nur für Konten mit der Ermittler-Freigabe sichtbar. In den Logs steht nur, dass etwas eingetragen wurde, nie der Inhalt.</p></div><button class="btn" id="invRefresh">Aktualisieren</button></header>
+      <section class="panel">
+        <div class="tabs" id="invTabs" role="tablist"></div>
+        <div id="invBody" style="display:grid;gap:10px"></div>
       </section>
     </section>
 
@@ -739,6 +750,7 @@ requestAnimationFrame(loop);
 function applyRights(){
   $('#whoPill').textContent=S.hosted?(S.whoName||S.who)+(S.sid?' · '+S.sid:''):'Schatten '+S.who;
   $('#rolePill').textContent='Zugriff: '+S.role;
+  $('#navInv').hidden=!(S.hosted&&H.user&&H.user.inv);if(S.view==='ermittler'&&$('#navInv').hidden)go('dashboard');
   $('#navLogs').hidden=!(S.hosted&&P('logs'));if(S.view==='logs'&&!(S.hosted&&P('logs')))go('dashboard');
   $('#addP').hidden=!P('persons');$('#rNew').hidden=!P('reports');
   syncMap();renderCards();renderRegister();renderReports();renderDash();
@@ -1181,14 +1193,61 @@ function setPhase(p){
 $('#umBtn').addEventListener('click',function(){umbraTo(S.phase===0?1:(S.phase===1?2:0))});
 $('#umCancel').addEventListener('click',function(){setPhase(0)});
 
-var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1};
+var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1,ermittler:1};
+/* ---------- Jedi Ermittler ---------- */
+var INV={tab:'covers',data:{covers:[],informants:[],talks:[]},edit:null};
+var INVK={
+ covers:{t:'Tarnidentitäten',one:'Tarnidentität',f:[['n','Tarnname','text',60,1],['st','Status','sel',['Aktiv','Ruhend','Verbrannt']],['loc','Einsatzort','text',60],['bg','Legende (Hintergrundgeschichte)','area',2000],['note','Notiz','area',1000]]},
+ informants:{t:'Informanten',one:'Informant',f:[['n','Name oder Deckname','text',60,1],['rel','Zuverlässigkeit','sel',['Unbekannt','Gering','Mittel','Hoch']],['st','Status','sel',['Aktiv','Inaktiv','Abgeschaltet']],['src','Zugang / Quelle','text',120],['contact','Kontaktweg','text',120],['loc','Ort','text',60],['note','Notiz','area',1000]]},
+ talks:{t:'Gespräche',one:'Gespräch',f:[['ti','Betreff','text',120,1],['when','Zeitpunkt','dt',30],['with','Gesprächspartner','text',80],['cov','Tarnidentität','selc'],['inf','Informant','seli'],['loc','Ort','text',60],['text','Gesprächsprotokoll','area',8000,1]]}
+};
+function invOpts(kind,cur){var l=(INV.data[kind]||[]).map(function(x){return x.n});if(cur&&l.indexOf(cur)<0)l.push(cur);return '<option value="">–</option>'+l.map(function(n){return '<option'+(n===cur?' selected':'')+'>'+esc(n)+'</option>'}).join('')}
+function invField(f,val){
+  var id='iv_'+f[0],lab='<label for="'+id+'">'+esc(f[1]).toUpperCase()+(f[4]?' *':'')+'</label>',v=val||'';
+  if(f[2]==='text')return '<div class="field">'+lab+'<input id="'+id+'" type="text" maxlength="'+f[3]+'" value="'+esc(v)+'"></div>';
+  if(f[2]==='area')return '<div class="field">'+lab+'<textarea id="'+id+'" rows="'+(f[3]>2000?8:3)+'" maxlength="'+f[3]+'">'+esc(v)+'</textarea></div>';
+  if(f[2]==='dt')return '<div class="field">'+lab+'<input id="'+id+'" type="datetime-local" value="'+esc(v)+'"></div>';
+  if(f[2]==='sel')return '<div class="field">'+lab+'<select id="'+id+'">'+f[3].map(function(o){return '<option'+((v||f[3][0])===o?' selected':'')+'>'+esc(o)+'</option>'}).join('')+'</select></div>';
+  return '<div class="field">'+lab+'<select id="'+id+'">'+invOpts(f[2]==='selc'?'covers':'informants',v)+'</select></div>';
+}
+function invCanEdit(it){return it.bk===S.who||P('others')||(H.user&&H.user.key===it.bk)}
+function renderInv(){
+  $('#invTabs').innerHTML=Object.keys(INVK).map(function(k){return '<button data-invtab="'+k+'" aria-pressed="'+(INV.tab===k)+'">'+INVK[k].t+' ('+(INV.data[k]||[]).length+')</button>'}).join('');
+  var K=INVK[INV.tab],list=INV.data[INV.tab]||[],h='';
+  var form=function(it){return '<form class="fl" id="invForm" style="padding:12px;display:grid;gap:8px"><h3 style="margin:0;font-size:14px">'+(it?K.one+' bearbeiten':'Neue/r '+K.one)+'</h3>'+K.f.map(function(f){return invField(f,it?it[f[0]]:'')}).join('')+'<div style="display:flex;gap:8px"><button class="btn sm" type="submit">Speichern</button><button class="btn sm ghost" type="button" data-invact="cancel">Abbrechen</button></div></form>'};
+  h+=INV.edit==='new'?form(null):'<div><button class="btn sm" data-invact="new">+ '+esc(K.one)+' eintragen</button></div>';
+  h+=list.map(function(it){
+    if(INV.edit===it.id)return form(it);
+    var title=INV.tab==='talks'?it.ti:it.n,chips=INV.tab==='talks'?'':'<span class="chip vio">'+esc(it.st||'')+'</span>'+(it.rel?' <span class="chip amber">Zuverlässigkeit: '+esc(it.rel)+'</span>':'');
+    return '<details class="fl"><summary><span><b>'+esc(title)+'</b> '+chips+'</span><span class="muted">'+esc(fDate(it.ts))+' · '+esc(it.by||'')+'</span></summary><div class="fb"><dl class="kv">'+K.f.filter(function(f){return f[0]!=='n'&&f[0]!=='ti'&&it[f[0]]}).map(function(f){return '<dt>'+esc(f[1])+'</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(f[2]==='dt'?String(it[f[0]]).replace('T',' '):it[f[0]])+'</dd>'}).join('')+'</dl>'+(it.edited?'<span class="muted" style="font-size:11px">Bearbeitet am '+esc(fDate(it.edited))+'</span>':'')+(invCanEdit(it)?'<div style="display:flex;gap:8px"><button class="btn sm ghost" data-invact="edit" data-id="'+esc(it.id)+'">Bearbeiten</button><button class="btn sm danger" data-invact="del" data-id="'+esc(it.id)+'">Löschen</button></div>':'')+'</div></details>'}).join('');
+  if(!list.length)h+='<p class="muted" style="margin:0">Noch keine Einträge.</p>';
+  $('#invBody').innerHTML=h;
+}
+function loadInv(){api('GET','/api/inv').then(function(j){INV.data=j;if(!INV.edit)renderInv();else{var a=document.activeElement;if(!a||!a.closest||!a.closest('#invForm'))renderInv()}}).catch(function(err){apiErr(err);if(err&&err.status===403)go('dashboard')})}
+$('#invTabs').addEventListener('click',function(e){var b=e.target.closest('[data-invtab]');if(b){INV.tab=b.dataset.invtab;INV.edit=null;renderInv()}});
+$('#invRefresh').addEventListener('click',loadInv);
+$('#invBody').addEventListener('click',function(e){
+  var b=e.target.closest('[data-invact]');if(!b)return;var a=b.dataset.invact,base='/api/inv/'+INV.tab;
+  if(a==='new'){INV.edit='new';renderInv();return}
+  if(a==='cancel'){INV.edit=null;renderInv();return}
+  if(a==='edit'){INV.edit=b.dataset.id;renderInv();return}
+  if(a==='del'){if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich löschen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Löschen'}},4000);return}
+    api('DELETE',base+'/'+encodeURIComponent(b.dataset.id)).then(function(){toast('Eintrag gelöscht.','red');loadInv()}).catch(apiErr)}
+});
+$('#invBody').addEventListener('submit',function(e){
+  if(e.target.id!=='invForm')return;e.preventDefault();
+  var K=INVK[INV.tab],d={};K.f.forEach(function(f){d[f[0]]=$('#iv_'+f[0]).value.trim()});
+  var req=K.f.filter(function(f){return f[4]&&!d[f[0]]})[0];if(req){toast('„'+req[1]+'“ fehlt.','red');return}
+  var isNew=INV.edit==='new';
+  api(isNew?'POST':'PATCH',isNew?'/api/inv/'+INV.tab:'/api/inv/'+INV.tab+'/'+encodeURIComponent(INV.edit),d).then(function(){INV.edit=null;toast('Gespeichert.','cyan');loadInv()}).catch(apiErr);
+});
 
 /* ---------- Palette ---------- */
 function acts(){
   var a=[
    {l:'Dashboard',k:'Ansicht',f:function(){go('dashboard')}},{l:'Personenregister',k:'Ansicht',f:function(){go('register')}},
    {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Galaxis Karte',k:'Ansicht',f:function(){go('karte')}},
-   {l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
+   {l:'Jedi Ermittler',k:'Ansicht',f:function(){if(S.hosted&&H.user&&H.user.inv)go('ermittler');else toast('Dafür fehlt die Freigabe „Jedi Ermittler“.','red')}},{l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
    {l:'UMBRA auslösen',k:'Aktion',f:function(){umbraTo(2)}},{l:'UMBRA beenden',k:'Aktion',f:function(){umbraTo(0)}}];
   if(P('persons'))a.push({l:'Person hinzufügen',k:'Aktion',f:function(){go('register');$('#addP').click()}});
   if(P('map'))a.push({l:'Karte bearbeiten',k:'Aktion',f:function(){go('karte');enterEdit()}});
@@ -1220,7 +1279,7 @@ function go(v){
   if(!VIEWS[v])v='dashboard';S.view=v;
   $$('.view').forEach(function(s){s.hidden=s.id!=='v-'+v});
   $$('#nav button').forEach(function(b){b.setAttribute('aria-current',b.dataset.nav===v?'page':'false')});
-  if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();if(v==='logs'){if(!(S.hosted&&P('logs'))){go('dashboard');return}loadLogs()}
+  if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();if(v==='logs'){if(!(S.hosted&&P('logs'))){go('dashboard');return}loadLogs()}if(v==='ermittler'){if(!(S.hosted&&H.user&&H.user.inv)){go('dashboard');return}INV.edit=null;renderInv();loadInv()}
   if(v==='dashboard'){renderDash();renderCards()}
   if(location.hash!=='#'+v){try{location.hash=v}catch(e){}}
   window.scrollTo(0,0);
@@ -1374,7 +1433,7 @@ function showLogin(){
   clearInterval(H.timer);hideLock();
   S.canWrite=false;S.canMap=false;S.role='Nur Lesen';S.persons=[];S.reports=[];ops=[];S.rep=null;S.repEdit=null;S.selP=null;H.rev=0;
   if(S.editing)leaveEdit();
-  $('#login').hidden=false;$('#logoutBtn').hidden=true;$('#navKonto').hidden=true;$('#navLogs').hidden=true;
+  $('#login').hidden=false;$('#logoutBtn').hidden=true;$('#navInv').hidden=true;INV.data={covers:[],informants:[],talks:[]};$('#navKonto').hidden=true;$('#navLogs').hidden=true;
   if(S.view==='konto')go('dashboard');
   applyRights();
 }
@@ -1458,7 +1517,7 @@ $('#cfgSave').addEventListener('click',function(){
 function renderKonto(){
   if(!H.user)return;
   renderCfg();
-  var own=P('accounts'),grp=P('groups');
+  var own=P('accounts'),grp=P('groups');$('#nuInvF').hidden=H.user.role!=='owner';
   $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Schatten ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'.'+(H.user.expires?' Dein Konto ist befristet bis '+expTxt(H.user.expires)+'.':'');
   renderRoles();$('#usersPanel').hidden=!own;
   if(!own&&!grp)return;
@@ -1474,15 +1533,15 @@ function renderKonto(){
         nm='<input type="text" class="udisp" maxlength="40" value="'+esc(dn)+'" aria-label="Name von '+esc(dn)+'" title="Nur Groß- und Kleinschreibung änderbar">',
         sid='<input type="text" class="usid mono" maxlength="20" value="'+esc(u.sid||'')+'" aria-label="Schatten ID von '+esc(dn)+'">',
         sv='<button class="btn sm" data-uact="save">Speichern</button>';
-      if(u.main)return '<tr data-u="'+esc(u.name)+'">'+(isMain?'<td>'+nm+'</td><td>'+sid+'</td>':'<td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td>')+'<td><span class="chip vio">Haupt-Owner</span></td><td class="muted">über „Passwort ändern“</td><td>'+(isMain?'<div class="acts">'+sv+'</div>':'<span class="muted">nicht änderbar</span>')+'</td></tr>';
+      if(u.main)return '<tr data-u="'+esc(u.name)+'" data-i="'+(u.inv?'1':'')+'">'+(isMain?'<td>'+nm+'</td><td>'+sid+'</td>':'<td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td>')+'<td><span class="chip vio">Haupt-Owner</span></td><td class="muted">über „Passwort ändern“</td><td>'+(isMain?'<div class="acts">'+sv+'<button class="btn sm ghost" data-uact="inv">'+(u.inv?'Ermittler entziehen':'Jedi Ermittler')+'</button></div>':'<span class="muted">nicht änderbar</span>')+'</td></tr>';
       if(u.name===H.user.name&&H.user.role!=='owner')return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td>'+esc(RN(u.role))+'</td><td class="muted">dein Konto</td><td class="muted">nicht änderbar</td></tr>';
       if(H.user.role!=='owner'&&u.role!=='owner'&&!canAssignC(u.role))return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td>'+esc(RN(u.role))+'</td><td class="muted">höhere Rechte</td><td class="muted">nur Schatten Leitung</td></tr>';
       if(u.role==='owner'&&!isMain)return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td><span class="chip vio">'+RN('owner')+'</span></td><td class="muted">nur Haupt-Owner</td><td class="muted">nur Haupt-Owner</td></tr>';
       var opts=roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+RN(r)+'</option>'}).join('');
-      return '<tr data-u="'+esc(u.name)+'" data-b="'+(u.blocked?'1':'')+'"><td>'+nm+'</td><td>'+sid+'</td>'+
+      return '<tr data-u="'+esc(u.name)+'" data-b="'+(u.blocked?'1':'')+'" data-i="'+(u.inv?'1':'')+'"><td>'+nm+'</td><td>'+sid+'</td>'+
        '<td><select class="urole" aria-label="Rolle von '+esc(dn)+'">'+opts+'</select></td>'+
-       '<td class="muted">'+(u.mustChange?'wartet auf erste Anmeldung':'selbst gewählt')+(u.blocked?'<div style="margin-top:4px"><span class="chip red">Gesperrt</span></div>':'')+(u.expires?'<div style="margin-top:4px"><span class="chip '+(u.expires<=Date.now()?'red':'vio')+'">'+(u.expires<=Date.now()?'abgelaufen seit ':'Temporär bis ')+esc(expTxt(u.expires))+'</span></div>':'')+'<select class="uexp" aria-label="Gültigkeit ändern" style="margin-top:6px"><option value="">Gültigkeit ändern …</option><option value="none">Unbefristet</option><option value="1h">1 Stunde ab jetzt</option><option value="24h">24 Stunden ab jetzt</option><option value="7d">7 Tage ab jetzt</option><option value="30d">30 Tage ab jetzt</option></select></td>'+
-       '<td><div class="acts">'+sv+'<button class="btn sm ghost" data-uact="block">'+(u.blocked?'Entsperren':'Sperren')+'</button><button class="btn sm" data-uact="pw">Neues Passwort erzeugen</button><button class="btn sm danger" data-uact="del">Löschen</button></div></td></tr>';
+       '<td class="muted">'+(u.mustChange?'wartet auf erste Anmeldung':'selbst gewählt')+(u.inv?'<div style="margin-top:4px"><span class="chip cyan">Jedi Ermittler</span></div>':'')+(u.blocked?'<div style="margin-top:4px"><span class="chip red">Gesperrt</span></div>':'')+(u.expires?'<div style="margin-top:4px"><span class="chip '+(u.expires<=Date.now()?'red':'vio')+'">'+(u.expires<=Date.now()?'abgelaufen seit ':'Temporär bis ')+esc(expTxt(u.expires))+'</span></div>':'')+'<select class="uexp" aria-label="Gültigkeit ändern" style="margin-top:6px"><option value="">Gültigkeit ändern …</option><option value="none">Unbefristet</option><option value="1h">1 Stunde ab jetzt</option><option value="24h">24 Stunden ab jetzt</option><option value="7d">7 Tage ab jetzt</option><option value="30d">30 Tage ab jetzt</option></select></td>'+
+       '<td><div class="acts">'+sv+''+(H.user.role==='owner'?'<button class="btn sm ghost" data-uact="inv">'+(u.inv?'Ermittler entziehen':'Jedi Ermittler')+'</button>':'')+'<button class="btn sm ghost" data-uact="block">'+(u.blocked?'Entsperren':'Sperren')+'</button><button class="btn sm" data-uact="pw">Neues Passwort erzeugen</button><button class="btn sm danger" data-uact="del">Löschen</button></div></td></tr>';
     }).join('');
   }).catch(apiErr);
 }
@@ -1498,6 +1557,7 @@ $('#uBody').addEventListener('click',function(e){
     api('PATCH','/api/users/'+encodeURIComponent(name),{display:$('.udisp',tr).value.trim(),sid:$('.usid',tr).value.trim()}).then(function(){toast('Konto gespeichert.','cyan');renderKonto();if(H.user&&H.user.name===name)loadData(true)}).catch(apiErr);
     return;
   }
+  if(a==='inv'){var ni=tr.dataset.i!=='1';api('PATCH','/api/users/'+encodeURIComponent(name),{inv:ni}).then(function(){toast(ni?'Ermittler-Freigabe erteilt.':'Ermittler-Freigabe entzogen.',ni?'cyan':'red');renderKonto();if(H.user&&H.user.name===name)loadData(true)}).catch(apiErr);return}
   if(a==='block'){var nb=tr.dataset.b!=='1';api('PATCH','/api/users/'+encodeURIComponent(name),{blocked:nb}).then(function(){toast(nb?'Konto gesperrt. Aktive Sitzungen sind beendet.':'Konto entsperrt.',nb?'red':'cyan');renderKonto()}).catch(apiErr);return}
   if(a==='pw'){
     api('PATCH','/api/users/'+encodeURIComponent(name),{reset:true}).then(function(j){showCred(j.username,j.password,'Neues Passwort erzeugt');renderKonto()}).catch(apiErr);
@@ -1527,7 +1587,7 @@ function expTxt(t){return new Date(t).toLocaleString('de-DE',{day:'2-digit',mont
 $('#nuDur').addEventListener('change',function(){$('#nuUntil').hidden=this.value!=='custom'});
 $('#newUserForm').addEventListener('submit',function(e){
   e.preventDefault();var f=this;
-  var nb={username:$('#nuName').value.trim(),role:$('#nuRole').value};var ut=untilFrom($('#nuDur').value,$('#nuUntil').value);if(ut===false){toast('Bitte ein Ablaufdatum wählen.','red');return}if(ut)nb.until=ut;if($('#nuSid').value.trim())nb.sid=$('#nuSid').value.trim();
+  var nb={username:$('#nuName').value.trim(),role:$('#nuRole').value};if($('#nuInv').value)nb.inv=true;var ut=untilFrom($('#nuDur').value,$('#nuUntil').value);if(ut===false){toast('Bitte ein Ablaufdatum wählen.','red');return}if(ut)nb.until=ut;if($('#nuSid').value.trim())nb.sid=$('#nuSid').value.trim();
   api('POST','/api/users',nb).then(function(j){
     f.reset();$('#nuUntil').hidden=true;showCred(j.username,j.password,'Konto angelegt',j.sid);renderKonto();
   }).catch(apiErr);
