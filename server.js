@@ -298,6 +298,7 @@ function sessionUser(req) {
   if (!t || t.exp < Date.now()) return null;
   const u = db.users[t.u];
   if (!u || t.iat < (u.since || 0)) return null;
+  if (u.expires && u.expires <= Date.now()) return null; // temporäres Konto abgelaufen
   return u;
 }
 function isHttps(req) {
@@ -498,7 +499,13 @@ function need(req, perm) {
   return u;
 }
 let MAIN = '';
-function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: (db.roles[u.role] || {}).label || u.role, perms: rolePerms(u), main: u.name === MAIN, mustChange: !!u.mustChange }; }
+function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: (db.roles[u.role] || {}).label || u.role, perms: rolePerms(u), main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
+function cleanUntil(x) {
+  const n = Number(x), now = Date.now();
+  if (!isFinite(n) || n < now + 60000 || n > now + 400 * 86400000) { const e = new Error('Das Ablaufdatum muss zwischen 1 Minute und 400 Tagen in der Zukunft liegen.'); e.status = 400; throw e; }
+  return Math.round(n);
+}
+function untilTxt(t) { return new Date(t).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function newId() { return crypto.randomBytes(6).toString('hex'); }
 function validPassword(p) {
   if (typeof p !== 'string' || p.length < 5 || p.length > 200 || !/\p{L}/u.test(p) || !/[0-9]/.test(p)) {
@@ -540,6 +547,7 @@ async function api(req, res, url) {
     const u = db.users[name];
     const ok = u ? checkPw(String(b.password || ''), u.hash) : (checkPw('x', 'scrypt$00$00'), false);
     if (!ok) { fail('ip:' + ip); fail('u:' + name); logAct(u || null, 'Anmeldung fehlgeschlagen', u ? '' : 'Name: ' + name); save(); return send(res, 401, { error: 'Benutzername oder Passwort stimmt nicht.' }); }
+    if (u.expires && u.expires <= Date.now()) { logAct(u, 'Anmeldung abgelehnt', 'Temporäres Konto abgelaufen'); save(); return send(res, 401, { error: 'Dieses temporäre Konto ist abgelaufen. Bitte die Schatten Leitung um eine Verlängerung.' }); }
     fails.delete('ip:' + ip); fails.delete('u:' + name);
     setCookie(res, req, makeToken(u.name), Math.floor(SESSION_MS / 1000));
     logAct(u, 'Anmeldung', ''); save();
@@ -761,7 +769,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
@@ -772,10 +780,13 @@ async function api(req, res, url) {
     if (!db.roles[b.role]) return send(res, 400, { error: 'Ungültige Rolle.' });
     if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
     if (!canAssign(me, b.role)) return send(res, 403, { error: 'Du kannst nur Gruppen vergeben, deren Rechte du selbst hast.' });
+    let until = 0;
+    if (b.until) { if (b.role === 'owner') return send(res, 400, { error: 'Schatten-Leitungs-Konten können nicht befristet werden.' }); until = cleanUntil(b.until); }
     const pw = genPassword();
     const sid = b.sid ? cleanSid(b.sid, null) : genSid();
     db.users[name] = { name: name, display: display, sid: sid, role: b.role, hash: hashPw(pw), created: new Date().toISOString(), since: Date.now(), mustChange: true };
-    logAct(me, 'Konto angelegt', display + ' (' + sid + ', ' + ((db.roles[b.role] || {}).label || b.role) + ')');
+    if (until) db.users[name].expires = until;
+    logAct(me, 'Konto angelegt', display + ' (' + sid + ', ' + ((db.roles[b.role] || {}).label || b.role) + (until ? ', befristet bis ' + untilTxt(until) : '') + ')');
     save();
     return send(res, 200, { ok: true, username: display, sid: sid, password: pw });
   }
@@ -807,6 +818,13 @@ async function api(req, res, url) {
         if (!canAssign(me, b.role)) return send(res, 403, { error: 'Du kannst nur Gruppen vergeben, deren Rechte du selbst hast.' });
         if (b.role !== u.role) uch.push('Gruppe: ' + ((db.roles[u.role] || {}).label || u.role) + ' → ' + ((db.roles[b.role] || {}).label || b.role));
         u.role = b.role;
+      }
+      if ('until' in b && u.name !== MAIN) {
+        if (!b.until) { if (u.expires) { delete u.expires; uch.push('unbefristet'); } }
+        else {
+          if (u.role === 'owner' || b.role === 'owner') return send(res, 400, { error: 'Schatten-Leitungs-Konten können nicht befristet werden.' });
+          u.expires = cleanUntil(b.until); uch.push('befristet bis ' + untilTxt(u.expires));
+        }
       }
       let pw = null;
       if (b.reset === true && u.name !== MAIN) { pw = genPassword(); u.hash = hashPw(pw); u.since = Date.now(); u.mustChange = true; uch.push('neues Passwort erzeugt'); }
