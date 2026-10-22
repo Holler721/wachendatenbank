@@ -487,7 +487,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
 
     <!-- ARCHIV -->
     <section class="view" id="v-archiv" hidden>
-      <header class="head"><div class="t"><div class="eyebrow">SR-AR · ARCHIV</div><h1 class="sm" data-t="Archiv">Archiv</h1><p class="lead" id="arLead">Machtfähigkeiten und Aufgaben.</p></div><button class="btn" id="arRefresh">Aktualisieren</button></header>
+      <header class="head"><div class="t"><div class="eyebrow">SR-AR · ARCHIV</div><h1 class="sm" data-t="Archiv">Archiv</h1><p class="lead" id="arLead">Machtfähigkeiten mit Icon, Name und Beschreibung sowie Aufgaben mit Name und Beschreibung.</p></div><button class="btn" id="arRefresh">Aktualisieren</button></header>
       <section class="panel">
         <div class="tabs" id="arTabs" role="tablist"></div>
         <div class="toolbar"><div class="field"><label for="arQ">SUCHE</label><input id="arQ" type="search" placeholder="Im aktuellen Bereich suchen" autocomplete="off"></div></div>
@@ -1297,54 +1297,86 @@ $('#invBody').addEventListener('submit',function(e){
 });
 
 /* ---------- Archiv: Machtfähigkeiten und Aufgaben ---------- */
-var AR={tab:'powers',data:{powers:[],tasks:[],write:false,others:false},edit:null,q:''};
+var AR={tab:'powers',data:{powers:[],tasks:[],write:false,others:false},edit:null,q:'',icon:'',iconDirty:false};
 var ARK={
- powers:{t:'Machtfähigkeiten',one:'Machtfähigkeit',tk:'n',f:[['n','Name','text',80,1],['cat','Art (z. B. Telekinese, Heilung, Geist)','text',40],['lvl','Schwierigkeit','sel',['Unbekannt','Einfach','Fortgeschritten','Meister','Verboten']],['desc','Beschreibung','area',4000],['users','Bekannte Anwender','text',300],['note','Notiz','area',1000]]},
- tasks:{t:'Aufgaben',one:'Aufgabe',tk:'ti',f:[['ti','Titel','text',80+40,1],['st','Status','sel',['Offen','In Arbeit','Erledigt','Abgebrochen']],['prio','Priorität','sel',['Niedrig','Normal','Hoch','Dringend']],['who','Zuständig','text',80],['due','Frist','text',30],['desc','Beschreibung','area',4000]]}
+ powers:{t:'Machtfähigkeiten',one:'Machtfähigkeit',tk:'n',nl:'Name'},
+ tasks:{t:'Aufgaben',one:'Aufgabe',tk:'ti',nl:'Aufgabenname'}
 };
-function arField(f,val){
-  var id='ar_'+f[0],lab='<label for="'+id+'">'+esc(f[1]).toUpperCase()+(f[4]?' *':'')+'</label>',v=val||'';
-  if(f[2]==='text')return '<div class="field">'+lab+'<input id="'+id+'" type="text" maxlength="'+f[3]+'" value="'+esc(v)+'"></div>';
-  if(f[2]==='area')return '<div class="field">'+lab+'<textarea id="'+id+'" rows="'+(f[3]>2000?8:3)+'" maxlength="'+f[3]+'">'+esc(v)+'</textarea></div>';
-  return '<div class="field">'+lab+'<select id="'+id+'">'+f[3].map(function(o){return '<option'+((v||f[3][0])===o?' selected':'')+'>'+esc(o)+'</option>'}).join('')+'</select></div>';
-}
 function arCanEdit(it){return !!AR.data.write&&(it.bk===(H.user&&H.user.name)||!!AR.data.others)}
-function arChips(it){
-  if(AR.tab==='powers')return (it.cat?'<span class="chip vio">'+esc(it.cat)+'</span> ':'')+(it.lvl&&it.lvl!=='Unbekannt'?'<span class="chip '+(it.lvl==='Verboten'?'red':'amber')+'">'+esc(it.lvl)+'</span>':'');
-  var sc=it.st==='Erledigt'?'cyan':(it.st==='Abgebrochen'?'vio':'amber');
-  return '<span class="chip '+sc+'">'+esc(it.st||'')+'</span> <span class="chip '+(it.prio==='Dringend'||it.prio==='Hoch'?'red':'vio')+'">Priorität: '+esc(it.prio||'')+'</span>'+(it.due?' <span class="chip vio">Frist: '+esc(it.due)+'</span>':'');
+function arIconBox(src){return src?'<img src="'+esc(src)+'" alt="" style="width:96px;height:96px;object-fit:contain">':'<span class="muted" style="font-size:34px;line-height:1" aria-hidden="true">✦</span>'}
+function arForm(it){
+  var K=ARK[AR.tab],isP=AR.tab==='powers';
+  return '<form class="fl arCard" id="arForm" style="padding:12px;display:grid;gap:8px;'+(isP?'':'grid-column:1/-1;')+'">'+
+   '<h3 style="margin:0;font-size:14px">'+(it?K.one+' bearbeiten':'Neue '+K.one)+'</h3>'+
+   (isP?'<div class="field"><label for="ar_file">ICON (BILD HOCHLADEN)</label><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div id="arPrev" style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--line2);border-radius:8px">'+arIconBox(AR.icon)+'</div><div style="display:grid;gap:6px"><input id="ar_file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button class="btn sm ghost" type="button" data-aract="noicon">Icon entfernen</button></div></div></div>':'')+
+   '<div class="field"><label for="ar_n">'+esc(K.nl).toUpperCase()+' *</label><input id="ar_n" type="text" maxlength="'+(isP?80:120)+'" value="'+esc(it?it[K.tk]:'')+'"></div>'+
+   '<div class="field"><label for="ar_desc">'+(isP?'BESCHREIBUNG DER FÄHIGKEIT':'AUFGABENBESCHREIBUNG')+'</label><textarea id="ar_desc" rows="'+(isP?6:8)+'" maxlength="4000">'+esc(it?it.desc||'':'')+'</textarea></div>'+
+   '<div style="display:flex;gap:8px"><button class="btn sm" type="submit">Speichern</button><button class="btn sm ghost" type="button" data-aract="cancel">Abbrechen</button></div></form>';
+}
+function arCard(it){
+  var isP=AR.tab==='powers',K=ARK[AR.tab];
+  var acts=arCanEdit(it)?'<div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)"><button class="btn sm ghost" data-aract="edit" data-id="'+esc(it.id)+'">Bearbeiten</button><button class="btn sm danger" data-aract="del" data-id="'+esc(it.id)+'">Löschen</button></div>':'';
+  var meta='<div class="muted" style="font-size:11px;padding:0 12px 10px">'+esc(fDate(it.ts))+' · '+esc(it.by||'')+(it.edited?' · bearbeitet '+esc(fDate(it.edited)):'')+'</div>';
+  if(isP)return '<article class="arCard" style="border:2px solid var(--line2);border-radius:10px;display:flex;flex-direction:column;background:var(--panel);overflow:hidden">'+
+    '<div style="height:130px;display:flex;align-items:center;justify-content:center;border-bottom:2px solid var(--line2)">'+arIconBox(it.icon)+'</div>'+
+    '<h3 style="margin:0;padding:10px 12px;text-align:center;font-size:16px;border-bottom:2px solid var(--line2);overflow-wrap:anywhere">'+esc(it.n)+'</h3>'+
+    '<div style="padding:12px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;flex:1;min-height:80px">'+esc(it.desc||'')+'</div>'+meta+acts+'</article>';
+  return '<article class="arCard" style="border:2px solid var(--line2);border-radius:10px;display:flex;flex-direction:column;background:var(--panel);overflow:hidden">'+
+    '<h3 style="margin:0;padding:10px 14px;font-size:15px;border-bottom:2px solid var(--line2);overflow-wrap:anywhere">'+esc(it.ti)+'</h3>'+
+    '<div style="padding:14px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;flex:1;min-height:90px">'+esc(it.desc||'')+'</div>'+meta+acts+'</article>';
 }
 function renderAr(){
-  var D=AR.data;
+  var D=AR.data,K=ARK[AR.tab],isP=AR.tab==='powers';
   $('#arTabs').innerHTML=Object.keys(ARK).map(function(k){return '<button data-artab="'+k+'" aria-pressed="'+(AR.tab===k)+'">'+ARK[k].t+' ('+(D[k]||[]).length+')</button>'}).join('');
-  var K=ARK[AR.tab],q=AR.q.toLowerCase(),all=D[AR.tab]||[];
-  var list=q?all.filter(function(it){return K.f.some(function(f){return String(it[f[0]]||'').toLowerCase().indexOf(q)>=0})}):all;
-  var form=function(it){return '<form class="fl" id="arForm" style="padding:12px;display:grid;gap:8px"><h3 style="margin:0;font-size:14px">'+(it?K.one+' bearbeiten':'Neue '+K.one)+'</h3>'+K.f.map(function(f){return arField(f,it?it[f[0]]:'')}).join('')+'<div style="display:flex;gap:8px"><button class="btn sm" type="submit">Speichern</button><button class="btn sm ghost" type="button" data-aract="cancel">Abbrechen</button></div></form>'};
+  var q=AR.q.toLowerCase(),all=D[AR.tab]||[];
+  var list=q?all.filter(function(it){return (String(it[K.tk]||'')+' '+String(it.desc||'')).toLowerCase().indexOf(q)>=0}):all;
   var h='';
-  if(D.write)h+=AR.edit==='new'?form(null):'<div><button class="btn sm" data-aract="new">+ '+esc(K.one)+' eintragen</button></div>';
+  if(D.write)h+=AR.edit==='new'?'':'<div><button class="btn sm" data-aract="new">+ '+esc(K.one)+' eintragen</button></div>';
   else h+='<p class="muted" style="margin:0;font-size:12px">Nur lesen: Dir fehlt das Recht „Archiv“.</p>';
-  h+=list.map(function(it){
-    if(AR.edit===it.id)return form(it);
-    return '<details class="fl"><summary><span><b>'+esc(it[K.tk])+'</b> '+arChips(it)+'</span><span class="muted">'+esc(fDate(it.ts))+' · '+esc(it.by||'')+'</span></summary><div class="fb"><dl class="kv">'+K.f.filter(function(f){return f[0]!==K.tk&&it[f[0]]}).map(function(f){return '<dt>'+esc(f[1].replace(/ \(.*\)$/,''))+'</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(it[f[0]])+'</dd>'}).join('')+'</dl>'+(it.edited?'<span class="muted" style="font-size:11px">Bearbeitet am '+esc(fDate(it.edited))+'</span>':'')+(arCanEdit(it)?'<div style="display:flex;gap:8px"><button class="btn sm ghost" data-aract="edit" data-id="'+esc(it.id)+'">Bearbeiten</button><button class="btn sm danger" data-aract="del" data-id="'+esc(it.id)+'">Löschen</button></div>':'')+'</div></details>'}).join('');
-  if(!list.length)h+='<p class="muted" style="margin:0">'+(all.length?'Keine Treffer.':'Noch keine Einträge.')+'</p>';
+  var cards=(AR.edit==='new'?arForm(null):'')+list.map(function(it){return AR.edit===it.id?arForm(it):arCard(it)}).join('');
+  if(!list.length&&AR.edit!=='new')cards='<p class="muted" style="margin:0">'+(all.length?'Keine Treffer.':'Noch keine Einträge.')+'</p>';
+  h+='<div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax('+(isP?'220px':'min(100%,340px)')+',1fr));align-items:stretch">'+cards+'</div>';
   $('#arBody').innerHTML=h;
+}
+function arResize(file){
+  return new Promise(function(res,rej){
+    if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))return rej(new Error('Bitte ein Bild (PNG, JPEG, WebP oder GIF) wählen.'));
+    var fr=new FileReader();fr.onerror=function(){rej(new Error('Das Bild konnte nicht gelesen werden.'))};
+    fr.onload=function(){var im=new Image();im.onerror=function(){rej(new Error('Das Bild konnte nicht gelesen werden.'))};
+      im.onload=function(){
+        var sizes=[128,96,64],types=[['image/png'],['image/webp',.85],['image/jpeg',.8]];
+        for(var i=0;i<sizes.length;i++){
+          var n=sizes[i],c=document.createElement('canvas');c.width=n;c.height=n;var x=c.getContext('2d');
+          var sc=Math.max(n/im.width,n/im.height),w=im.width*sc,h=im.height*sc;x.drawImage(im,(n-w)/2,(n-h)/2,w,h);
+          for(var j=0;j<types.length;j++){var d=c.toDataURL(types[j][0],types[j][1]);if(d.indexOf('data:'+types[j][0])===0&&d.length<=55000)return res(d)}
+        }
+        rej(new Error('Das Bild ist nach dem Verkleinern noch zu groß. Bitte ein einfacheres Bild wählen.'));
+      };im.src=fr.result};
+    fr.readAsDataURL(file);
+  });
 }
 function loadAr(){api('GET','/api/archive').then(function(j){AR.data=j;var a=document.activeElement;if(!AR.edit||!a||!a.closest||!a.closest('#arForm'))renderAr()}).catch(function(err){if(!(err&&err.code==='lockdown'))apiErr(err)})}
 $('#arTabs').addEventListener('click',function(e){var b=e.target.closest('[data-artab]');if(b){AR.tab=b.dataset.artab;AR.edit=null;renderAr()}});
 $('#arRefresh').addEventListener('click',loadAr);
 $('#arQ').addEventListener('input',function(){AR.q=this.value.trim();AR.edit=null;renderAr()});
+$('#arBody').addEventListener('change',function(e){
+  if(e.target.id!=='ar_file'||!e.target.files[0])return;
+  arResize(e.target.files[0]).then(function(d){AR.icon=d;AR.iconDirty=true;$('#arPrev').innerHTML=arIconBox(d)}).catch(function(err){toast(err.message,'red');e.target.value=''});
+});
 $('#arBody').addEventListener('click',function(e){
   var b=e.target.closest('[data-aract]');if(!b)return;var a=b.dataset.aract,base='/api/archive/'+AR.tab;
-  if(a==='new'){AR.edit='new';renderAr();return}
+  if(a==='new'){AR.edit='new';AR.icon='';AR.iconDirty=false;renderAr();return}
   if(a==='cancel'){AR.edit=null;renderAr();return}
-  if(a==='edit'){AR.edit=b.dataset.id;renderAr();return}
+  if(a==='edit'){var cur=(AR.data[AR.tab]||[]).filter(function(x){return x.id===b.dataset.id})[0];AR.edit=b.dataset.id;AR.icon=cur&&cur.icon||'';AR.iconDirty=false;renderAr();return}
+  if(a==='noicon'){AR.icon='';AR.iconDirty=true;var f=$('#ar_file');if(f)f.value='';$('#arPrev').innerHTML=arIconBox('');return}
   if(a==='del'){if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich löschen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Löschen'}},4000);return}
     api('DELETE',base+'/'+encodeURIComponent(b.dataset.id)).then(function(){toast('Eintrag gelöscht.','red');loadAr()}).catch(apiErr)}
 });
 $('#arBody').addEventListener('submit',function(e){
   if(e.target.id!=='arForm')return;e.preventDefault();
-  var K=ARK[AR.tab],d={};K.f.forEach(function(f){d[f[0]]=$('#ar_'+f[0]).value.trim()});
-  var req=K.f.filter(function(f){return f[4]&&!d[f[0]]})[0];if(req){toast('„'+req[1]+'“ fehlt.','red');return}
+  var K=ARK[AR.tab],d={};d[K.tk]=$('#ar_n').value.trim();d.desc=$('#ar_desc').value.trim();
+  if(AR.tab==='powers'&&(AR.iconDirty||AR.edit==='new'))d.icon=AR.icon||'';
+  if(!d[K.tk]){toast('„'+K.nl+'“ fehlt.','red');return}
   var isNew=AR.edit==='new';
   api(isNew?'POST':'PATCH',isNew?'/api/archive/'+AR.tab:'/api/archive/'+AR.tab+'/'+encodeURIComponent(AR.edit),d).then(function(){AR.edit=null;toast('Gespeichert.','cyan');loadAr()}).catch(apiErr);
 });
