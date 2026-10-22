@@ -108,3 +108,6 @@ Lesen dürfen alle normalen Konten (RIS-Konten nicht). Eintragen, ändern und l�
 
 ## RIS Kooperation: Akten und Berichte anhängen
 Auf der Wächter-Seite („Berichts Austausch Wachen“) kann man beim Schreiben oder Bearbeiten eines Berichts bis zu 10 Akten (Personen aus dem Register) und Berichte von der Website anhängen. Die Auswahl erfolgt über eine Liste; angezeigt werden nur Akten und Berichte, die das schreibende Konto selbst sehen bzw. lesen darf. Der Server übernimmt beim Speichern eine Kopie (bei Akten Rang, Status, Gefahrenlevel, Ort, Aussehen, Notiz, weitere Felder und alle sichtbaren Akteneinträge, bei Berichten Text und Anhänge), damit auch RIS-Konten sie lesen können, ohne sonst Zugriff auf die Website zu haben. Spätere Änderungen an der Original-Akte erscheinen nicht in der Kopie. Der Berichtstext darf leer bleiben, wenn mindestens ein Anhang vorhanden ist. Das Anhängen steht im Log (Bereich „RIS“).
+
+## KoS (Kill on Sight)
+Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Personen“, mit Bestätigung) oder über das Häkchen „KoS“ im Formular als Kill on Sight markieren, „KoS aufheben“ nimmt es zurück. KoS-Personen erscheinen mit rotem „KoS“-Label und dunkelroter Zeile in der Liste, mit rotem Banner in der Detailansicht und als Zähler im Dashboard. Setzen und Aufheben stehen im Log.
