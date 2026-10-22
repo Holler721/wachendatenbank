@@ -70,3 +70,6 @@ Im Personenregister heißt das frühere „Status“ jetzt „Zugehörigkeit“.
 
 ## Rechte „Konten“ und „Gruppen“
 Unter „Gruppen und Rechte“ gibt es zwei neue Rechte. „Konten“: Konten anlegen, Gruppe zuweisen, Passwort zurücksetzen, löschen. „Gruppen“: Gruppen und ihre Rechte verwalten. Standardmäßig hat sie nur die Schatten Leitung. Wer sie ohne Schatten Leitung bekommt, kann keine Rechte erhöhen: Es lassen sich nur Gruppen vergeben, deren Rechte man selbst hat, nur eigene Rechte an Gruppen vergeben oder entziehen, und Konten oder Gruppen mit höheren Rechten, das eigene Konto sowie Schatten-Leitungs-Konten bleiben tabu. Schatten-Leitungs-Konten legt weiterhin nur das Haupt-Owner-Konto an.
+
+## Temporäre Konten
+Beim Anlegen eines Kontos (Recht „Konten“) lässt sich unter „Konto-Dauer“ eine Befristung wählen (1 Stunde bis 30 Tage oder ein eigenes Datum mit Uhrzeit). Nach Ablauf ist das Konto sofort gesperrt: bestehende Sitzungen enden, die Anmeldung zeigt „Konto abgelaufen“. Das Konto bleibt in der Liste (mit Label „abgelaufen“) und seine Einträge und Logs bleiben erhalten. In der Kontenliste lässt sich die Gültigkeit jederzeit verlängern oder auf „Unbefristet“ setzen, oder das Konto löschen. Schatten-Leitungs-Konten sind nicht befristbar. Das Anlegen, Verlängern und Entfristen steht im Log.
