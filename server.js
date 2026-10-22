@@ -20,9 +20,9 @@ const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
 // Einzelrechte, pro Gruppe auf der Website (Konto -> Gruppen und Rechte) vergebbar
-const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs'];
+const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs', 'accounts', 'groups'];
 const ALLP = {}; PERMS.forEach(function (x) { ALLP[x] = true; });
-const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs' };
+const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen' };
 const WRITE_PERMS = ['persons', 'files', 'reports', 'opsStart'];            // früher „Schreiben“
 const MANAGE_PERMS = ['opsManage', 'map', 'others', 'config', 'lockdown'];  // früher „Verwalten“
 const BUILTIN = {
@@ -63,6 +63,19 @@ const DEFAULT_CONFIG = {
 };
 const OLD_STATES = { 'Verbündet': 'Republik', 'Dunkel': 'KUS', 'Unklar': 'Neutral' };
 function rolePerms(u) { if (!u) return {}; if (u.role === 'owner') return ALLP; const r = db.roles[u.role]; return (r && r.perms) || {}; }
+/* Konten- und Gruppenverwaltung ohne Schatten Leitung: nur innerhalb der eigenen Rechte (keine Rechte-Erhöhung) */
+function permsSubset(pm, mine) { return PERMS.every(function (x) { return !pm || !pm[x] || !!mine[x]; }); }
+function canAssign(me, key) {
+  const r = db.roles[key]; if (!r) return false;
+  if (key === 'owner') return me.name === MAIN;
+  return me.role === 'owner' || permsSubset(r.perms, rolePerms(me));
+}
+function canTouch(me, u) { // darf me das Konto u verwalten?
+  if (u.name === MAIN) return me.name === MAIN;
+  if (u.role === 'owner') return me.name === MAIN;
+  if (me.role === 'owner') return true;
+  return u.name !== me.name && permsSubset((db.roles[u.role] || {}).perms, rolePerms(me));
+}
 function can(u, perm) { return !!rolePerms(u)[perm]; }
 function canRead(u, cls) { return cls === 'Offen' ? can(u, 'open') : (cls === 'Intern' ? can(u, 'intern') : can(u, 'secret')); }
 function rolesList() { return Object.keys(db.roles).map(function (k) { return { key: k, label: db.roles[k].label, builtin: !!BUILTIN[k], perms: k === 'owner' ? ALLP : db.roles[k].perms }; }); }
@@ -587,7 +600,7 @@ async function api(req, res, url) {
     if (method === 'DELETE') { par.files = par.files.filter(function (x) { return x !== f; }); logAct(u, W.one + ' gelöscht', parName + ': ' + f.title); bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/roles' && method === 'PUT') {
-    const ru = need(req, 'owner');
+    const ru = need(req, 'groups');
     const b = await readBody(req);
     const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
     if (!b || !Array.isArray(b.roles) || b.roles.length > 20) bad('Ungültige Gruppen (maximal 20).');
@@ -608,6 +621,17 @@ async function api(req, res, url) {
       const n = Object.keys(db.users).filter(function (x) { return db.users[x].role === k; }).length;
       if (n) bad('Die Gruppe „' + db.roles[k].label + '“ hat noch ' + n + ' Konto/Konten. Weise ihnen zuerst eine andere Gruppe zu.');
     });
+    if (ru.role !== 'owner') {
+      const mine = rolePerms(ru);
+      Object.keys(out).forEach(function (k) {
+        const old = db.roles[k];
+        const pmChanged = PERMS.some(function (x) { return !!out[k].perms[x] !== !!(old && old.perms[x]); });
+        const lblChanged = !old || old.label !== out[k].label;
+        PERMS.forEach(function (x) { if (!!out[k].perms[x] !== !!(old && old.perms[x]) && !mine[x]) bad('Du kannst nur Rechte vergeben oder entziehen, die du selbst hast („' + PERM_LBL[x] + '“ nicht).'); });
+        if (old && (pmChanged || lblChanged) && !permsSubset(old.perms, mine)) bad('Die Gruppe „' + old.label + '“ hat mehr Rechte als du und lässt sich nur von der Schatten Leitung ändern.');
+      });
+      Object.keys(db.roles).forEach(function (k) { if (!out[k] && !permsSubset(db.roles[k].perms, mine)) bad('Die Gruppe „' + db.roles[k].label + '“ hat mehr Rechte als du und lässt sich nur von der Schatten Leitung entfernen.'); });
+    }
     db.roles = out;
     const fix = function (it) {
       if (!it || !Array.isArray(it.groups) || !it.groups.length) return;
@@ -628,7 +652,7 @@ async function api(req, res, url) {
     if (!cur || !canSee(pu, cur)) return send(res, 404, { error: 'Akte nicht gefunden.' });
     if (method === 'PATCH') {
       const o = cleanPerson(await readBody(req), true);
-      const LBL = { n: 'Name', r: 'Rang', s: 'Status', p: 'Gefahrenlevel', l: 'Ort', note: 'Notiz', watch: 'Beschattung', groups: 'Sichtbarkeit', sp: 'Spezies', look: 'Aussehen', extra: 'Weitere Felder' };
+      const LBL = { n: 'Name', r: 'Rang', s: 'Zugehörigkeit', p: 'Gefahrenlevel', l: 'Ort', note: 'Notiz', watch: 'Beschattung', groups: 'Sichtbarkeit', sp: 'Spezies', look: 'Aussehen', extra: 'Weitere Felder' };
       const ch = [];
       Object.keys(o).forEach(function (k) {
         if (JSON.stringify(o[k]) === JSON.stringify(cur[k])) return;
@@ -735,17 +759,19 @@ async function api(req, res, url) {
     return send(res, 200, { total: db.logs.length, logs: db.logs.slice(-lim).reverse() });
   }
   if (p === '/api/users' && method === 'GET') {
-    need(req, 'owner');
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    const lu = need(req, 'viewer');
+    if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
-    const me = need(req, 'owner');
+    const me = need(req, 'accounts');
     const b = await readBody(req);
     const display = cleanDisplay(b.username);
     const name = userKey(display);
     if (db.users[name]) return send(res, 400, { error: 'Diesen Namen gibt es schon.' });
     if (!db.roles[b.role]) return send(res, 400, { error: 'Ungültige Rolle.' });
     if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
+    if (!canAssign(me, b.role)) return send(res, 403, { error: 'Du kannst nur Gruppen vergeben, deren Rechte du selbst hast.' });
     const pw = genPassword();
     const sid = b.sid ? cleanSid(b.sid, null) : genSid();
     db.users[name] = { name: name, display: display, sid: sid, role: b.role, hash: hashPw(pw), created: new Date().toISOString(), since: Date.now(), mustChange: true };
@@ -755,12 +781,13 @@ async function api(req, res, url) {
   }
   m = /^\/api\/users\/([^/]{1,200})$/.exec(p);
   if (m) {
-    const me = need(req, 'owner');
+    const me = need(req, 'accounts');
     let key = '';
     try { key = userKey(decodeURIComponent(m[1])); } catch (e) { return send(res, 400, { error: 'Ungültiger Name.' }); }
     const u = db.users[key];
     if (!u) return send(res, 404, { error: 'Konto nicht gefunden.' });
     if (u.role === 'owner' && u.name !== MAIN && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten verwaltet nur das Haupt-Owner-Konto.' });
+    if (u.name !== MAIN && !canTouch(me, u)) return send(res, 403, { error: 'Dieses Konto hat mehr Rechte als du oder ist dein eigenes. Es lässt sich nur von der Schatten Leitung verwalten.' });
     // Haupt-Owner: nur Schreibweise des Namens und Schatten ID, und nur durch sich selbst
     if (u.name === MAIN && (method !== 'PATCH' || me.name !== MAIN)) return send(res, 400, { error: 'Das Haupt-Owner-Konto kann hier nicht geändert werden.' });
     if (method === 'PATCH') {
@@ -777,6 +804,7 @@ async function api(req, res, url) {
       if ('role' in b && u.name !== MAIN) {
         if (!db.roles[b.role]) return send(res, 400, { error: 'Ungültige Rolle.' });
         if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
+        if (!canAssign(me, b.role)) return send(res, 403, { error: 'Du kannst nur Gruppen vergeben, deren Rechte du selbst hast.' });
         if (b.role !== u.role) uch.push('Gruppe: ' + ((db.roles[u.role] || {}).label || u.role) + ' → ' + ((db.roles[b.role] || {}).label || b.role));
         u.role = b.role;
       }
