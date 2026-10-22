@@ -1276,23 +1276,24 @@ async function initAccess(){
 var ROLE_NAMES={viewer:'Schatten',agent:'Phantom',editor:'Spektral Rat',owner:'Schatten Leitung'};
 function RN(k){var r=(H.roles||[]).filter(function(x){return x.key===k})[0];return r?r.label:(ROLE_NAMES[k]||k)}
 function applyUser(u){S.whoName=u.display||u.name;S.sid=u.sid||'';var ai=$('#agentId');if(ai&&S.sid)ai.value=S.sid;S.canWrite=!!(u.perms&&(u.perms.persons||u.perms.files||u.perms.reports||u.perms.opsStart));S.canMap=!!(u.perms&&u.perms.map);S.role=u.label||RN(u.role)}
+function myRank(){var r=(H.roles||[]).filter(function(x){return x.key===(H.user&&H.user.role)})[0];return r?r.rank:(H.user&&H.user.rank)||1}
 function subsetMine(pm){var m=(H.user&&H.user.perms)||{};return PL.every(function(x){return !pm||!pm[x[0]]||!!m[x[0]]})}
-function canAssignC(key){var r=(H.roles||[]).filter(function(x){return x.key===key})[0];if(!r)return false;if(key==='owner')return !!H.user.main;return H.user.role==='owner'||subsetMine(r.perms)}
+function canAssignC(key){var r=(H.roles||[]).filter(function(x){return x.key===key})[0];if(!r)return false;if(key==='owner')return !!H.user.main;return H.user.role==='owner'||(r.rank<myRank()&&subsetMine(r.perms))}
 function renderRoles(){
   var pan=$('#rolesPanel');pan.hidden=!P('groups');if(pan.hidden)return;
-  $('#rHead').innerHTML='<th>Gruppe</th>'+PL.map(function(x){return '<th title="'+esc(x[2])+'">'+esc(x[1])+'</th>'}).join('')+'<th></th>';
+  $('#rHead').innerHTML='<th>Gruppe</th><th title="Rang 1 bis 10: Gruppen verwalten nur Gruppen und Konten mit niedrigerem Rang">Rang</th>'+PL.map(function(x){return '<th title="'+esc(x[2])+'">'+esc(x[1])+'</th>'}).join('')+'<th></th>';
   if(!H.roles||!H.roles.length){$('#rBody').innerHTML='<tr><td colspan="6" class="muted">Gruppen werden geladen …</td></tr>';return}
   if(!H.rdraft||!H.rdraft.length)H.rdraft=clone(H.roles);
   var meOwner=H.user.role==='owner';
-  $('#rBody').innerHTML=H.rdraft.map(function(r,i){var o=r.key==='owner';var lock=!meOwner&&!o&&r.key&&!subsetMine(r.perms);
-    return '<tr data-i="'+i+'"><td><input type="text" class="rl" maxlength="30" value="'+esc(r.label)+'" aria-label="Gruppenname"></td>'+PL.map(function(x){return '<td><input type="checkbox" class="rp" data-p="'+x[0]+'"'+((o||r.perms[x[0]])?' checked':'')+((o||lock||(!meOwner&&!P(x[0])))?' disabled':'')+' aria-label="'+x[1]+'"></td>'}).join('')+'<td>'+(lock?'<span class="muted">höhere Rechte</span>':r.builtin?'<span class="muted">Grundgruppe</span>':'<button type="button" class="btn sm danger rdel">Entfernen</button>')+'</td></tr>'}).join('')}
-$('#rBody').addEventListener('input',function(e){var tr=e.target.closest('tr');if(!tr||!H.rdraft)return;var r=H.rdraft[+tr.dataset.i];if(e.target.classList.contains('rl'))r.label=e.target.value});
+  $('#rBody').innerHTML=H.rdraft.map(function(r,i){var o=r.key==='owner';var lock=!meOwner&&!o&&r.key&&(!subsetMine(r.perms)||(r.rank||1)>=myRank());
+    return '<tr data-i="'+i+'"><td><input type="text" class="rl" maxlength="30" value="'+esc(r.label)+'" aria-label="Gruppenname"></td><td>'+(o?'<span class="muted" title="Die Schatten Leitung steht über allen Rängen">Leitung</span>':'<input type="number" class="rk" min="1" max="10" step="1" style="width:64px" value="'+(r.rank||1)+'" aria-label="Rang"'+(lock?' disabled':'')+'>')+'</td>'+PL.map(function(x){return '<td><input type="checkbox" class="rp" data-p="'+x[0]+'"'+((o||r.perms[x[0]])?' checked':'')+((o||lock||(!meOwner&&!P(x[0])))?' disabled':'')+' aria-label="'+x[1]+'"></td>'}).join('')+'<td>'+(lock?'<span class="muted">höhere Rechte</span>':r.builtin?'<span class="muted">Grundgruppe</span>':'<button type="button" class="btn sm danger rdel">Entfernen</button>')+'</td></tr>'}).join('')}
+$('#rBody').addEventListener('input',function(e){var tr=e.target.closest('tr');if(!tr||!H.rdraft)return;var r=H.rdraft[+tr.dataset.i];if(e.target.classList.contains('rl'))r.label=e.target.value;if(e.target.classList.contains('rk'))r.rank=Math.max(1,Math.min(10,Math.round(+e.target.value)||1))});
 $('#rBody').addEventListener('change',function(e){var tr=e.target.closest('tr');if(!tr||!H.rdraft||!e.target.classList.contains('rp'))return;H.rdraft[+tr.dataset.i].perms[e.target.dataset.p]=e.target.checked});
 $('#rBody').addEventListener('click',function(e){var b=e.target.closest('.rdel');if(!b)return;H.rdraft.splice(+b.closest('tr').dataset.i,1);renderRoles()});
-$('#rAdd').addEventListener('click',function(){if(!H.rdraft)return;H.rdraft.push({key:null,label:'',builtin:false,perms:{open:true}});renderRoles();var i=$$('#rBody .rl');if(i.length)i[i.length-1].focus()});
+$('#rAdd').addEventListener('click',function(){if(!H.rdraft)return;H.rdraft.push({key:null,label:'',builtin:false,rank:1,perms:{open:true}});renderRoles();var i=$$('#rBody .rl');if(i.length)i[i.length-1].focus()});
 $('#rReset').addEventListener('click',function(){H.rdraft=null;renderRoles()});
 $('#rSave').addEventListener('click',function(){if(!H.rdraft)return;
-  api('PUT','/api/roles',{roles:H.rdraft.map(function(r){return {key:r.key,label:r.label.trim(),perms:r.perms}})}).then(function(j){H.roles=j.roles;H.rdraft=null;renderRoles();renderKonto();toast('Gruppen und Rechte gespeichert.','cyan')}).catch(apiErr)});
+  api('PUT','/api/roles',{roles:H.rdraft.map(function(r){return {key:r.key,label:r.label.trim(),perms:r.perms,rank:r.rank||1}})}).then(function(j){H.roles=j.roles;H.rdraft=null;renderRoles();renderKonto();toast('Gruppen und Rechte gespeichert.','cyan')}).catch(apiErr)});
 /* ---------- Eigenes Hosting: Anmeldung über den Server ---------- */
 var H={user:null,rev:0,timer:null};
 function api(method,url,body){
@@ -1475,7 +1476,7 @@ function renderKonto(){
         sv='<button class="btn sm" data-uact="save">Speichern</button>';
       if(u.main)return '<tr data-u="'+esc(u.name)+'">'+(isMain?'<td>'+nm+'</td><td>'+sid+'</td>':'<td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td>')+'<td><span class="chip vio">Haupt-Owner</span></td><td class="muted">über „Passwort ändern“</td><td>'+(isMain?'<div class="acts">'+sv+'</div>':'<span class="muted">nicht änderbar</span>')+'</td></tr>';
       if(u.name===H.user.name&&H.user.role!=='owner')return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td>'+esc(RN(u.role))+'</td><td class="muted">dein Konto</td><td class="muted">nicht änderbar</td></tr>';
-      if(H.user.role!=='owner'&&u.role!=='owner'&&!subsetMine(((H.roles||[]).filter(function(x){return x.key===u.role})[0]||{}).perms))return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td>'+esc(RN(u.role))+'</td><td class="muted">höhere Rechte</td><td class="muted">nur Schatten Leitung</td></tr>';
+      if(H.user.role!=='owner'&&u.role!=='owner'&&!canAssignC(u.role))return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td>'+esc(RN(u.role))+'</td><td class="muted">höhere Rechte</td><td class="muted">nur Schatten Leitung</td></tr>';
       if(u.role==='owner'&&!isMain)return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td><span class="chip vio">'+RN('owner')+'</span></td><td class="muted">nur Haupt-Owner</td><td class="muted">nur Haupt-Owner</td></tr>';
       var opts=roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+RN(r)+'</option>'}).join('');
       return '<tr data-u="'+esc(u.name)+'"><td>'+nm+'</td><td>'+sid+'</td>'+
