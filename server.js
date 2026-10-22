@@ -332,6 +332,19 @@ function cleanPerson(b, partial) {
   if ('seen' in b || !partial) { o.seen = /^\d{2}\.\d{2}\.$/.test(b.seen) ? b.seen : today(); }
   if ('watch' in b || !partial) { o.watch = !!b.watch; }
   if ('groups' in b || !partial) { o.groups = cleanGroups(b.groups); }
+  if ('sp' in b || !partial) { o.sp = str(b.sp, 60); }
+  if ('look' in b || !partial) { o.look = str(b.look, 2000); }
+  if ('extra' in b || !partial) {
+    const ex = Array.isArray(b.extra) ? b.extra : [];
+    if (ex.length > 20) bad('Höchstens 20 weitere Felder.');
+    o.extra = [];
+    ex.forEach(function (x) {
+      if (!x || typeof x !== 'object') return;
+      const k = str(x.k, 40), val = str(x.v, 1000);
+      if (!k && !val) return;
+      o.extra.push({ k: k || 'Feld', v: val });
+    });
+  }
   return o;
 }
 function fullDate() { const d = new Date(); return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear(); }
@@ -615,7 +628,7 @@ async function api(req, res, url) {
     if (!cur || !canSee(pu, cur)) return send(res, 404, { error: 'Akte nicht gefunden.' });
     if (method === 'PATCH') {
       const o = cleanPerson(await readBody(req), true);
-      const LBL = { n: 'Name', r: 'Rang', s: 'Status', p: 'Gefahrenlevel', l: 'Ort', note: 'Notiz', watch: 'Beschattung', groups: 'Sichtbarkeit' };
+      const LBL = { n: 'Name', r: 'Rang', s: 'Status', p: 'Gefahrenlevel', l: 'Ort', note: 'Notiz', watch: 'Beschattung', groups: 'Sichtbarkeit', sp: 'Spezies', look: 'Aussehen', extra: 'Weitere Felder' };
       const ch = [];
       Object.keys(o).forEach(function (k) {
         if (JSON.stringify(o[k]) === JSON.stringify(cur[k])) return;
