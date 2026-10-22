@@ -1,6 +1,6 @@
 'use strict';
 /*
- * Schatten Datenbank: Server
+ * Wächter Datenbank: Server
  * Keine externen Pakete. Läuft mit Node.js 18 oder neuer.
  *   node server.js                 startet den Server
  *   node server.js --hash "pw"     erzeugt einen Passwort-Hash für owner.json
@@ -20,9 +20,9 @@ const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
 // Einzelrechte, pro Gruppe auf der Website (Konto -> Gruppen und Rechte) vergebbar
-const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs', 'accounts', 'groups'];
+const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs', 'accounts', 'groups', 'ris'];
 const ALLP = {}; PERMS.forEach(function (x) { ALLP[x] = true; });
-const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen' };
+const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen', ris: 'RIS Kooperation' };
 const WRITE_PERMS = ['persons', 'files', 'reports', 'opsStart'];            // früher „Schreiben“
 const MANAGE_PERMS = ['opsManage', 'map', 'others', 'config', 'lockdown'];  // früher „Verwalten“
 const RANK_MAX = 10, RANK_OWNER = 11, BUILTIN_RANK = { viewer: 1, agent: 2, editor: 3, owner: RANK_OWNER };
@@ -245,6 +245,8 @@ function normalizeDb() {
   if (!isObj(db.lockdown)) db.lockdown = { active: false };
   if (!isObj(db.inv)) db.inv = {};
   ['covers', 'informants', 'talks'].forEach(function (k) { if (!isObj(db.inv[k])) db.inv[k] = {}; });
+  if (!isObj(db.ris)) db.ris = {};
+  ['wachen', 'ris'].forEach(function (k) { if (!isObj(db.ris[k])) db.ris[k] = {}; });
   if (!Array.isArray(db.logs)) db.logs = [];
   if (!isObj(db.map)) db.map = { nodes: [], edges: [], rev: 1 };
   const keys = {};
@@ -546,7 +548,7 @@ function need(req, perm) {
   return u;
 }
 let MAIN = '';
-function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: (db.roles[u.role] || {}).label || u.role, perms: rolePerms(u), rank: rankOf(u.role), inv: !!u.inv, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
+function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
 function cleanUntil(x) {
   const n = Number(x), now = Date.now();
   if (!isFinite(n) || n < now + 60000 || n > now + 400 * 86400000) { const e = new Error('Das Ablaufdatum muss zwischen 1 Minute und 400 Tagen in der Zukunft liegen.'); e.status = 400; throw e; }
@@ -578,6 +580,10 @@ async function api(req, res, url) {
   if (db.lockdown.active && ['/api/session', '/api/login', '/api/logout'].indexOf(p) < 0) {
     const lu = sessionUser(req);
     if (lu && !can(lu, 'lockdown')) return send(res, 403, { error: 'Notfall: Die Seite ist für dein Konto gesperrt.', code: 'lockdown' });
+  }
+  if (['/api/session', '/api/login', '/api/logout', '/api/password'].indexOf(p) < 0 && !/^\/api\/ris(\/|$)/.test(p)) {
+    const ru0 = sessionUser(req);
+    if (ru0 && ru0.ris) return send(res, 403, { error: 'Dieses Konto hat nur Zugriff auf „RIS Kooperation“.', code: 'ris_only' });
   }
   if (['/api/session', '/api/login', '/api/logout', '/api/password'].indexOf(p) < 0) {
     const cu = sessionUser(req);
@@ -818,7 +824,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
@@ -828,8 +834,11 @@ async function api(req, res, url) {
     if (db.users[name]) return send(res, 400, { error: 'Diesen Namen gibt es schon.' });
     if (!db.roles[b.role]) return send(res, 400, { error: 'Ungültige Rolle.' });
     if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
-    if (!canAssign(me, b.role)) return send(res, 403, { error: 'Du kannst nur Gruppen vergeben, deren Rechte du selbst hast.' });
+    if (!b.ris && !canAssign(me, b.role)) return send(res, 403, { error: 'Du kannst nur Gruppen vergeben, deren Rechte du selbst hast.' });
     if (b.inv && me.role !== 'owner') return send(res, 403, { error: 'Die Ermittler-Freigabe vergibt nur die Schatten Leitung.' });
+    const isRis = !!b.ris;
+    if (isRis && b.inv) return send(res, 400, { error: 'RIS-Konten können keine Jedi Ermittler sein.' });
+    if (isRis) b.role = 'viewer';
     let until = 0;
     if (b.until) { if (b.role === 'owner') return send(res, 400, { error: 'Schatten-Leitungs-Konten können nicht befristet werden.' }); until = cleanUntil(b.until); }
     const pw = genPassword();
@@ -837,7 +846,8 @@ async function api(req, res, url) {
     db.users[name] = { name: name, display: display, sid: sid, role: b.role, hash: hashPw(pw), created: new Date().toISOString(), since: Date.now(), mustChange: true };
     if (until) db.users[name].expires = until;
     if (b.inv) db.users[name].inv = true;
-    logAct(me, 'Konto angelegt', display + ' (' + sid + ', ' + ((db.roles[b.role] || {}).label || b.role) + (until ? ', befristet bis ' + untilTxt(until) : '') + (b.inv ? ', Jedi Ermittler' : '') + ')');
+    if (isRis) db.users[name].ris = true;
+    logAct(me, 'Konto angelegt', display + ' (' + sid + ', ' + ((db.roles[b.role] || {}).label || b.role) + (until ? ', befristet bis ' + untilTxt(until) : '') + (b.inv ? ', Jedi Ermittler' : '') + (isRis ? ', RIS-Konto' : '') + ')');
     save();
     return send(res, 200, { ok: true, username: display, sid: sid, password: pw });
   }
@@ -873,6 +883,53 @@ async function api(req, res, url) {
       }
       delete db.inv[kind][m[2]];
       logAct(iu, 'Ermittler: ' + one + ' gelöscht', ''); bump();
+      return send(res, 200, { ok: true });
+    }
+  }
+  /* RIS Kooperation: Berichtsaustausch zwischen Wächtern und RIS */
+  const RIS_BOARDS = { wachen: 'Berichts Austausch Wachen', ris: 'Berichts Austausch RIS' };
+  const risSide = function (u) { return u.ris ? 'ris' : (can(u, 'ris') ? 'intern' : null); };
+  const risWrite = function (u, board) { return board === 'ris' ? !!u.ris : (!u.ris && can(u, 'ris')); };
+  if (p === '/api/ris' && method === 'GET') {
+    const ru = need(req, 'viewer'), side = risSide(ru);
+    if (!side) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
+    const out = { side: side, write: { wachen: risWrite(ru, 'wachen'), ris: risWrite(ru, 'ris') }, others: side === 'intern' && can(ru, 'others') };
+    Object.keys(RIS_BOARDS).forEach(function (k) {
+      out[k] = Object.keys(db.ris[k]).map(function (id) { return Object.assign({ id: id }, db.ris[k][id]); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    });
+    return send(res, 200, out);
+  }
+  m = /^\/api\/ris\/(wachen|ris)(?:\/([a-f0-9]{6,20}))?$/.exec(p);
+  if (m) {
+    const ru = need(req, 'viewer'), board = m[1], bname = RIS_BOARDS[board];
+    if (!risSide(ru)) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
+    const clean = function (b) {
+      if (!b || typeof b !== 'object') { const e = new Error('Ungültige Daten.'); e.status = 400; throw e; }
+      const o = { ti: str(b.ti, 120), ref: str(b.ref, 60), text: str(b.text, 8000) };
+      if (!o.ti) { const e = new Error('Der Titel fehlt.'); e.status = 400; throw e; }
+      if (!o.text) { const e = new Error('Der Berichtstext fehlt.'); e.status = 400; throw e; }
+      return o;
+    };
+    if (!m[2] && method === 'POST') {
+      if (!risWrite(ru, board)) return send(res, 403, { error: 'In „' + bname + '“ darf dein Konto nicht schreiben.' });
+      if (Object.keys(db.ris[board]).length >= 1000) return send(res, 400, { error: 'Zu viele Berichte.' });
+      const o = clean(await readBody(req)), id = newId();
+      Object.assign(o, { ts: Date.now(), by: dispName(ru), bk: ru.name });
+      db.ris[board][id] = o;
+      logAct(ru, 'RIS: Bericht angelegt', bname + ': ' + o.ti); bump();
+      return send(res, 200, { ok: true, id: id });
+    }
+    const cur = m[2] ? db.ris[board][m[2]] : null;
+    if (m[2] && !cur) return send(res, 404, { error: 'Bericht nicht gefunden.' });
+    if (cur && (method === 'PATCH' || method === 'DELETE')) {
+      if (cur.bk !== ru.name && !(!ru.ris && can(ru, 'ris') && can(ru, 'others'))) return send(res, 403, { error: 'Fremde Berichte ändern nur Konten mit den Rechten „RIS Kooperation“ und „Fremde Inhalte“.' });
+      if (method === 'PATCH') {
+        Object.assign(cur, clean(await readBody(req)), { edited: Date.now() });
+        logAct(ru, 'RIS: Bericht geändert', bname + ': ' + cur.ti); bump();
+        return send(res, 200, { ok: true });
+      }
+      logAct(ru, 'RIS: Bericht gelöscht', bname + ': ' + cur.ti);
+      delete db.ris[board][m[2]]; bump();
       return send(res, 200, { ok: true });
     }
   }
@@ -920,6 +977,7 @@ async function api(req, res, url) {
       if ('inv' in b) {
         if (me.role !== 'owner') return send(res, 403, { error: 'Die Ermittler-Freigabe vergibt nur die Schatten Leitung.' });
         const ni = !!b.inv;
+        if (ni && u.ris) return send(res, 400, { error: 'RIS-Konten können keine Jedi Ermittler sein.' });
         if (ni !== !!u.inv) { if (ni) u.inv = true; else delete u.inv; uch.push(ni ? 'Jedi Ermittler freigegeben' : 'Ermittler-Freigabe entzogen'); }
       }
       let pw = null;
@@ -960,6 +1018,6 @@ const server = http.createServer(function (req, res) {
 remotePull().then(function () {
   load();
   server.listen(PORT, '0.0.0.0', function () {
-    console.log('Schatten Datenbank läuft auf Port ' + PORT + ' (Daten: ' + DATA_DIR + (REMOTE ? ', Dauerspeicher aktiv' : ', FLÜCHTIG: ohne Dauerspeicher gehen Änderungen beim Neustart verloren') + ')');
+    console.log('Wächter Datenbank läuft auf Port ' + PORT + ' (Daten: ' + DATA_DIR + (REMOTE ? ', Dauerspeicher aktiv' : ', FLÜCHTIG: ohne Dauerspeicher gehen Änderungen beim Neustart verloren') + ')');
   });
 });
