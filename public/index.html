@@ -12,6 +12,8 @@ fieldset.vis{border:1px solid var(--line);border-radius:10px;padding:10px 12px;m
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
+.watchbar{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--red);border-radius:8px;background:rgba(251,77,109,.1);color:var(--red);font-weight:600;letter-spacing:.04em}
+#pBody tr.watched td:first-child{box-shadow:inset 3px 0 0 var(--red)}
 /* Layout: schwebende Seitenleiste links, die Ansichten rechts, Sternenfeld und Radar als Atmosphäre */
 :root{
   --bg:#000000; --bg2:#050505; --panel:#0a0a0a; --panel2:#111111; --line:#242424; --line2:#3a3a3a;
@@ -392,11 +394,11 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
         <div class="a panel">
           <div class="toolbar">
             <div class="field"><label for="q">SUCHE</label><input id="q" type="search" placeholder="Name, Ort oder Rang" autocomplete="off"></div>
-            <div class="field"><label for="fs">STATUS</label><select id="fs"><option value="">Alle</option></select></div>
+            <div class="field"><label for="fs">ZUGEHÖRIGKEIT</label><select id="fs"><option value="">Alle</option></select></div>
             <div class="field"><label for="so">SORTIERUNG</label><select id="so"><option value="rank" title="Nach Rang (Reihenfolge aus der Anpassung), innerhalb eines Rangs das neueste zuletzt">Rang</option><option value="name">Name</option><option value="power">Gefahrenlevel absteigend</option><option value="last">Zuletzt gesehen</option></select></div>
             <div class="field" style="flex:0 0 auto"><button class="btn" id="addP" hidden>+ Person hinzufügen</button></div>
           </div>
-          <div class="tbl"><table><thead><tr><th>Name</th><th>Rang</th><th>Status</th><th>Gefahrenlevel</th><th>Ort</th></tr></thead><tbody id="pBody"></tbody></table></div>
+          <div class="tbl"><table><thead><tr><th>Name</th><th>Rang</th><th>Zugehörigkeit</th><th>Gefahrenlevel</th><th>Ort</th></tr></thead><tbody id="pBody"></tbody></table></div>
           <div class="dt" id="pCount"></div>
         </div>
         <aside class="b panel" id="pDetail" aria-live="polite"></aside>
@@ -566,7 +568,7 @@ function clone(o){return JSON.parse(JSON.stringify(o))}
 function num(v,d){v=+v;return isFinite(v)?v:d}
 
 /* ---------- Einzelrechte ---------- */
-var PL=[['persons','Personen','Personen anlegen, ändern, entfernen'],['files','Akten','Akten bei Personen schreiben'],['reports','Berichte','Berichte schreiben und Anhänge hinzufügen'],['opsStart','Op. starten','Operationen starten'],['opsManage','Op. steuern','Operationen vorantreiben, umbenennen, Sichtbarkeit, abbrechen, archivieren'],['map','Karte','Galaxis Karte bearbeiten'],['others','Fremde Inhalte','Fremde Berichte, Akten und Anhänge ändern, deklassifizieren'],['config','Anpassung','Ränge, Labels und Berichtsarten ändern'],['lockdown','Notfall','UMBRA auslösen/beenden; bleibt bei UMBRA freigeschaltet'],['open','Offen lesen','Berichte der Stufe Offen lesen'],['intern','Intern lesen','Berichte der Stufe Intern lesen'],['secret','Vertraulich lesen','Berichte der Stufen Vertraulich und Geheim lesen'],['logs','Logs','Protokoll sehen: wer hat wann was gemacht']];
+var PL=[['persons','Personen','Personen anlegen, ändern, entfernen'],['files','Akten','Akten bei Personen schreiben'],['reports','Berichte','Berichte schreiben und Anhänge hinzufügen'],['opsStart','Op. starten','Operationen starten'],['opsManage','Op. steuern','Operationen vorantreiben, umbenennen, Sichtbarkeit, abbrechen, archivieren'],['map','Karte','Galaxis Karte bearbeiten'],['others','Fremde Inhalte','Fremde Berichte, Akten und Anhänge ändern, deklassifizieren'],['config','Anpassung','Ränge, Labels und Berichtsarten ändern'],['lockdown','Notfall','UMBRA auslösen/beenden; bleibt bei UMBRA freigeschaltet'],['open','Offen lesen','Berichte der Stufe Offen lesen'],['intern','Intern lesen','Berichte der Stufe Intern lesen'],['secret','Vertraulich lesen','Berichte der Stufen Vertraulich und Geheim lesen'],['logs','Logs','Protokoll sehen: wer hat wann was gemacht'],['accounts','Konten','Konten anlegen, Gruppe zuweisen, Passwort zurücksetzen, löschen (nur mit Gruppen, deren Rechte man selbst hat)'],['groups','Gruppen','Gruppen und Rechte verwalten (nur Rechte, die man selbst hat)']];
 var WRITE_P={persons:1,files:1,reports:1,opsStart:1},MANAGE_P={opsManage:1,map:1,others:1,config:1,lockdown:1};
 function P(k){if(S.hosted&&H.user)return !!(H.user.perms&&H.user.perms[k]);return WRITE_P[k]?!!S.canWrite:MANAGE_P[k]?!!S.canMap:false}
 
@@ -805,7 +807,7 @@ function renderRegister(){
   var l=filtered();
   if(!S.add&&(S.selP===null||!find(S.selP)))S.selP=l.length?l[0].id:null;
   $('#pBody').innerHTML=l.map(function(p){var c=stCol(p.s)||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
-    return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b>'+(p.groups&&p.groups.length?' <span class="muted" style="font-size:11px" title="'+esc(visText(p.groups))+'">eingeschränkt</span>':'')+'</td><td>'+esc(p.r)+'</td><td><span class="chip '+(stChip(p.s)||'amber')+'">'+esc(p.s)+'</span></td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Akten gefunden.</td></tr>';
+    return '<tr data-p="'+esc(p.id)+'" class="'+(S.selP===p.id&&!S.add?'sel':'')+(p.watch?' watched':'')+'" tabindex="0"><td><b>'+esc(p.n)+'</b>'+(p.watch?' <span class="chip red" title="Wird beschattet">● Beschattet</span>':'')+(p.groups&&p.groups.length?' <span class="muted" style="font-size:11px" title="'+esc(visText(p.groups))+'">eingeschränkt</span>':'')+'</td><td>'+esc(p.r)+'</td><td><span class="chip '+(stChip(p.s)||'amber')+'">'+esc(p.s)+'</span></td><td><span class="mini"><i style="width:'+pw+'%;background:'+c+'"></i></span><span class="mono" style="font-size:11px">'+pw+'</span></td><td>'+esc(p.l)+'</td></tr>'}).join('')||'<tr><td colspan="5" class="muted">Keine Akten gefunden.</td></tr>';
   $('#pCount').textContent=l.length+' von '+S.persons.length+' Akten';
   $('#regLead').textContent=P('persons')?'Du kannst Akten hinzufügen, ändern und entfernen. Änderungen sehen alle sofort.':'Du hast Lesezugriff. Akten ändern dürfen nur Gruppen mit dem Recht „Personen“.';
   renderDetail();
@@ -837,7 +839,7 @@ function renderDetail(){
     el.innerHTML='<h2>'+(e?'Akte bearbeiten':'Neue Akte')+'</h2><form id="addForm" class="addf" autocomplete="off">'+
      '<div class="field"><label for="nName">NAME</label><input id="nName" type="text" maxlength="40" required value="'+esc(pv.n)+'"></div>'+
      '<div class="field"><label for="nRank">RANG</label><select id="nRank">'+CFG.ranks.map(function(r){return '<option'+(r===pv.r?' selected':'')+'>'+esc(r)+'</option>'}).join('')+'</select></div>'+
-     '<div class="field"><label for="nState">STATUS</label><select id="nState">'+stNames().map(function(r){return '<option'+(r===pv.s?' selected':'')+'>'+esc(r)+'</option>'}).join('')+'</select></div>'+
+     '<div class="field"><label for="nState">ZUGEHÖRIGKEIT</label><select id="nState">'+stNames().map(function(r){return '<option'+(r===pv.s?' selected':'')+'>'+esc(r)+'</option>'}).join('')+'</select></div>'+
      '<div class="field"><label for="nPow">GEFAHRENLEVEL <b id="nPowV" class="mono" style="color:var(--cyan)">'+num(pv.p,50)+'</b></label><input id="nPow" type="range" min="0" max="100" value="'+num(pv.p,50)+'"></div>'+
      '<div class="field"><label for="nLoc">ORT</label><input id="nLoc" type="text" maxlength="40" list="locs" placeholder="System wählen oder eintippen" value="'+esc(e?pv.l:'')+'"></div>'+
      '<div class="field"><label for="nSp">SPEZIES</label><input id="nSp" type="text" maxlength="60" placeholder="z. B. Mensch, Twi\'lek, Zabrak" value="'+esc(e?(pv.sp||''):'')+'"></div>'+
@@ -855,9 +857,9 @@ function renderDetail(){
   }
   var ini=String(p.n||'?').replace('Dr. ','').split(' ').map(function(x){return x[0]||''}).join('').slice(0,3),col=stCol(p.s)||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
   el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2><span class="chip '+(stChip(p.s)||'amber')+'" style="margin-top:6px">'+esc(p.s)+'</span>'+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+visChip(p.groups,'margin-top:6px')+'</div></div>'+
-   '<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd>'+(p.sp?'<dt>Spezies</dt><dd style="overflow-wrap:anywhere">'+esc(p.sp)+'</dd>':'')+(p.look?'<dt>Aussehen</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(p.look)+'</dd>':'')+(p.extra||[]).map(function(x){return '<dt>'+esc(x.k)+'</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(x.v)+'</dd>'}).join('')+'<dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
+   ''+(p.watch?'<div class="watchbar" role="status"><span class="dot"></span> Diese Person wird beschattet</div>':'')+'<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd>'+(p.sp?'<dt>Spezies</dt><dd style="overflow-wrap:anywhere">'+esc(p.sp)+'</dd>':'')+(p.look?'<dt>Aussehen</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(p.look)+'</dd>':'')+(p.extra||[]).map(function(x){return '<dt>'+esc(x.k)+'</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(x.v)+'</dd>'}).join('')+'<dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
    '<div class="gauge"><div class="l"><span>Gefahrenlevel</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
-   (P('persons')?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="edit">Bearbeiten</button><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm ghost" data-act="contact">Kontakt aufnehmen</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
+   (P('persons')?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="edit">Bearbeiten</button><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
    '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Dir fehlt das Recht „Personen“.</p>')+filesHtml(p);
 }
 ['q','fs','so'].forEach(function(id){$('#'+id).addEventListener('input',renderRegister)});
@@ -885,7 +887,6 @@ $('#pDetail').addEventListener('click',function(e){
   if(a==='seed'){seedDefaults();return}
   var p=find(S.selP);if(!p||!S.db||!P('persons'))return;var ref=S.db.collection('persons').doc(p.id);
   if(a==='watch')ref.update({watch:!p.watch}).then(function(){toast(!p.watch?p.n+' wird beschattet.':'Beschattung von '+p.n+' beendet.','cyan')}).catch(writeErr);
-  if(a==='contact')toast('Verschlüsselte Anfrage an '+p.n+' gesendet.');
   if(a==='flag')ref.update({s:firstThreat()}).then(function(){toast(p.n+' als Gefahr markiert ('+firstThreat()+').','red')}).catch(writeErr);
   if(a==='remove'){
     if(S.confirmDel!==p.id){S.confirmDel=p.id;renderDetail();setTimeout(function(){if(S.confirmDel===p.id){S.confirmDel=null;renderDetail()}},4000);return}
@@ -1274,13 +1275,16 @@ async function initAccess(){
 var ROLE_NAMES={viewer:'Schatten',agent:'Phantom',editor:'Spektral Rat',owner:'Schatten Leitung'};
 function RN(k){var r=(H.roles||[]).filter(function(x){return x.key===k})[0];return r?r.label:(ROLE_NAMES[k]||k)}
 function applyUser(u){S.whoName=u.display||u.name;S.sid=u.sid||'';var ai=$('#agentId');if(ai&&S.sid)ai.value=S.sid;S.canWrite=!!(u.perms&&(u.perms.persons||u.perms.files||u.perms.reports||u.perms.opsStart));S.canMap=!!(u.perms&&u.perms.map);S.role=u.label||RN(u.role)}
+function subsetMine(pm){var m=(H.user&&H.user.perms)||{};return PL.every(function(x){return !pm||!pm[x[0]]||!!m[x[0]]})}
+function canAssignC(key){var r=(H.roles||[]).filter(function(x){return x.key===key})[0];if(!r)return false;if(key==='owner')return !!H.user.main;return H.user.role==='owner'||subsetMine(r.perms)}
 function renderRoles(){
-  var pan=$('#rolesPanel');pan.hidden=!(H.user&&H.user.role==='owner');if(pan.hidden)return;
+  var pan=$('#rolesPanel');pan.hidden=!P('groups');if(pan.hidden)return;
   $('#rHead').innerHTML='<th>Gruppe</th>'+PL.map(function(x){return '<th title="'+esc(x[2])+'">'+esc(x[1])+'</th>'}).join('')+'<th></th>';
   if(!H.roles||!H.roles.length){$('#rBody').innerHTML='<tr><td colspan="6" class="muted">Gruppen werden geladen …</td></tr>';return}
   if(!H.rdraft||!H.rdraft.length)H.rdraft=clone(H.roles);
-  $('#rBody').innerHTML=H.rdraft.map(function(r,i){var o=r.key==='owner';
-    return '<tr data-i="'+i+'"><td><input type="text" class="rl" maxlength="30" value="'+esc(r.label)+'" aria-label="Gruppenname"></td>'+PL.map(function(x){return '<td><input type="checkbox" class="rp" data-p="'+x[0]+'"'+((o||r.perms[x[0]])?' checked':'')+(o?' disabled':'')+' aria-label="'+x[1]+'"></td>'}).join('')+'<td>'+(r.builtin?'<span class="muted">Grundgruppe</span>':'<button type="button" class="btn sm danger rdel">Entfernen</button>')+'</td></tr>'}).join('')}
+  var meOwner=H.user.role==='owner';
+  $('#rBody').innerHTML=H.rdraft.map(function(r,i){var o=r.key==='owner';var lock=!meOwner&&!o&&r.key&&!subsetMine(r.perms);
+    return '<tr data-i="'+i+'"><td><input type="text" class="rl" maxlength="30" value="'+esc(r.label)+'" aria-label="Gruppenname"></td>'+PL.map(function(x){return '<td><input type="checkbox" class="rp" data-p="'+x[0]+'"'+((o||r.perms[x[0]])?' checked':'')+((o||lock||(!meOwner&&!P(x[0])))?' disabled':'')+' aria-label="'+x[1]+'"></td>'}).join('')+'<td>'+(lock?'<span class="muted">höhere Rechte</span>':r.builtin?'<span class="muted">Grundgruppe</span>':'<button type="button" class="btn sm danger rdel">Entfernen</button>')+'</td></tr>'}).join('')}
 $('#rBody').addEventListener('input',function(e){var tr=e.target.closest('tr');if(!tr||!H.rdraft)return;var r=H.rdraft[+tr.dataset.i];if(e.target.classList.contains('rl'))r.label=e.target.value});
 $('#rBody').addEventListener('change',function(e){var tr=e.target.closest('tr');if(!tr||!H.rdraft||!e.target.classList.contains('rp'))return;H.rdraft[+tr.dataset.i].perms[e.target.dataset.p]=e.target.checked});
 $('#rBody').addEventListener('click',function(e){var b=e.target.closest('.rdel');if(!b)return;H.rdraft.splice(+b.closest('tr').dataset.i,1);renderRoles()});
@@ -1428,7 +1432,7 @@ function renderCfg(){
         '<button type="button" class="btn sm ghost" data-cfg="up" title="Nach oben" aria-label="Nach oben">▲</button><button type="button" class="btn sm ghost" data-cfg="down" title="Nach unten" aria-label="Nach unten">▼</button><button type="button" class="btn sm danger" data-cfg="del">Entfernen</button></div>'}).join('')+
       '<div><button type="button" class="btn sm" data-cfg="add" data-k="'+k+'">+ Hinzufügen</button></div></div>';
   }
-  $('#cfgBody').innerHTML=col('ranks','Ränge',false)+col('states','Labels (Status)',true)+col('rtypes','Berichtsarten',false);
+  $('#cfgBody').innerHTML=col('ranks','Ränge',false)+col('states','Labels (Zugehörigkeit)',true)+col('rtypes','Berichtsarten',false);
 }
 function cfgRow(e){var r=e.target.closest('.cfgrow');return r?{k:r.dataset.k,i:+r.dataset.i}:null}
 $('#cfgBody').addEventListener('input',function(e){var r=cfgRow(e);if(!r||!S.cfgDraft)return;if(e.target.classList.contains('cfn'))S.cfgDraft[r.k][r.i].n=e.target.value});
@@ -1452,14 +1456,15 @@ $('#cfgSave').addEventListener('click',function(){
 function renderKonto(){
   if(!H.user)return;
   renderCfg();
-  var own=H.user.role==='owner';
+  var own=P('accounts'),grp=P('groups');
   $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Schatten ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'.';
   renderRoles();$('#usersPanel').hidden=!own;
-  if(!own)return;
+  if(!own&&!grp)return;
   api('GET','/api/users').then(function(j){
     var st=j.storage==='remote'?'Speicher: dauerhaft (Änderungen bleiben nach Neustarts erhalten).':j.storage==='remote-error'?'Speicher: Dauerspeicher antwortet gerade nicht, Änderungen werden nachgeholt.':'Speicher: FLÜCHTIG. Bei jedem Neustart gehen Konten, Personen und Berichte verloren (siehe README, Dauerspeicher).';
     $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Schatten ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'. '+st;
-    var isMain=!!H.user.main,roles=(H.roles=j.roles||[],renderRoles(),H.roles).map(function(x){return x.key}).filter(function(k){return isMain||k!=='owner'});
+    var isMain=!!H.user.main,roles=(H.roles=j.roles||[],renderRoles(),H.roles).map(function(x){return x.key}).filter(function(k){return canAssignC(k)});
+    if(!own)return;
     var cur=$('#nuRole').value||'agent';
     $('#nuRole').innerHTML=roles.map(function(r){return '<option value="'+r+'"'+(r===cur?' selected':'')+'>'+RN(r)+'</option>'}).join('');
     $('#uBody').innerHTML=j.users.map(function(u){
@@ -1468,6 +1473,8 @@ function renderKonto(){
         sid='<input type="text" class="usid mono" maxlength="20" value="'+esc(u.sid||'')+'" aria-label="Schatten ID von '+esc(dn)+'">',
         sv='<button class="btn sm" data-uact="save">Speichern</button>';
       if(u.main)return '<tr data-u="'+esc(u.name)+'">'+(isMain?'<td>'+nm+'</td><td>'+sid+'</td>':'<td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td>')+'<td><span class="chip vio">Haupt-Owner</span></td><td class="muted">über „Passwort ändern“</td><td>'+(isMain?'<div class="acts">'+sv+'</div>':'<span class="muted">nicht änderbar</span>')+'</td></tr>';
+      if(u.name===H.user.name&&H.user.role!=='owner')return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td>'+esc(RN(u.role))+'</td><td class="muted">dein Konto</td><td class="muted">nicht änderbar</td></tr>';
+      if(H.user.role!=='owner'&&u.role!=='owner'&&!subsetMine(((H.roles||[]).filter(function(x){return x.key===u.role})[0]||{}).perms))return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td>'+esc(RN(u.role))+'</td><td class="muted">höhere Rechte</td><td class="muted">nur Schatten Leitung</td></tr>';
       if(u.role==='owner'&&!isMain)return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td><span class="chip vio">'+RN('owner')+'</span></td><td class="muted">nur Haupt-Owner</td><td class="muted">nur Haupt-Owner</td></tr>';
       var opts=roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+RN(r)+'</option>'}).join('');
       return '<tr data-u="'+esc(u.name)+'"><td>'+nm+'</td><td>'+sid+'</td>'+
