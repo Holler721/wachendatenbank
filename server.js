@@ -405,26 +405,26 @@ function cleanInv(kind, b) {
   return o;
 }
 /* Archiv: Machtfähigkeiten und Aufgaben (lesen alle normalen Konten, schreiben mit dem Recht „Archiv“) */
+const ARC_ICON_MAX = 60000; // Zeichen des Data-URL-Icons (die Seite verkleinert Bilder vorher auf 128x128)
 const ARC_SPEC = {
   powers: { one: 'Machtfähigkeit', f: [
+    { k: 'icon', l: 'Icon', icon: 1 },
     { k: 'n', l: 'Name', max: 80, req: 1 },
-    { k: 'cat', l: 'Art', max: 40 },
-    { k: 'lvl', l: 'Schwierigkeit', max: 20, en: ['Unbekannt', 'Einfach', 'Fortgeschritten', 'Meister', 'Verboten'], def: 'Unbekannt' },
-    { k: 'desc', l: 'Beschreibung', max: 4000 },
-    { k: 'users', l: 'Bekannte Anwender', max: 300 },
-    { k: 'note', l: 'Notiz', max: 1000 }] },
+    { k: 'desc', l: 'Beschreibung', max: 4000 }] },
   tasks: { one: 'Aufgabe', f: [
-    { k: 'ti', l: 'Titel', max: 120, req: 1 },
-    { k: 'st', l: 'Status', max: 20, en: ['Offen', 'In Arbeit', 'Erledigt', 'Abgebrochen'], def: 'Offen' },
-    { k: 'prio', l: 'Priorität', max: 20, en: ['Niedrig', 'Normal', 'Hoch', 'Dringend'], def: 'Normal' },
-    { k: 'who', l: 'Zuständig', max: 80 },
-    { k: 'due', l: 'Frist', max: 30 },
-    { k: 'desc', l: 'Beschreibung', max: 4000 }] }
+    { k: 'ti', l: 'Aufgabenname', max: 120, req: 1 },
+    { k: 'desc', l: 'Aufgabenbeschreibung', max: 4000 }] }
 };
-function cleanArc(kind, b) {
+function cleanArc(kind, b, partial) {
   const o = {};
   if (!b || typeof b !== 'object') { const e = new Error('Ungültige Daten.'); e.status = 400; throw e; }
   ARC_SPEC[kind].f.forEach(function (f) {
+    if (f.icon) {
+      if (!(f.k in b)) return; // nicht mitgeschickt: vorhandenes Icon bleibt
+      const v = typeof b[f.k] === 'string' ? b[f.k] : '';
+      if (v && (v.length > ARC_ICON_MAX || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/]+=*$/.test(v))) { const e = new Error('Das Icon ist ungültig oder zu groß (PNG, JPEG oder WebP).'); e.status = 400; throw e; }
+      o[f.k] = v; return;
+    }
     let x = str(b[f.k], f.max);
     if (f.en) { if (x && f.en.indexOf(x) < 0) { const e = new Error('Ungültiger Wert bei „' + f.l + '“.'); e.status = 400; throw e; } if (!x) x = f.def; }
     if (f.req && !x) { const e = new Error('„' + f.l + '“ fehlt.'); e.status = 400; throw e; }
@@ -955,7 +955,7 @@ async function api(req, res, url) {
   if (m) {
     const au = need(req, 'archive'), kind = m[1], one = ARC_SPEC[kind].one, tkey = kind === 'powers' ? 'n' : 'ti';
     if (!m[2] && method === 'POST') {
-      if (Object.keys(db.archive[kind]).length >= 1000) return send(res, 400, { error: 'Zu viele Einträge.' });
+      if (Object.keys(db.archive[kind]).length >= 300) return send(res, 400, { error: 'Zu viele Einträge.' });
       const o = cleanArc(kind, await readBody(req)), id = newId();
       Object.assign(o, { ts: Date.now(), by: dispName(au), bk: au.name });
       db.archive[kind][id] = o;
