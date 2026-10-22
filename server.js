@@ -461,6 +461,7 @@ function cleanPerson(b, partial) {
   if ('note' in b || !partial) { o.note = str(b.note, 300) || 'Keine Notiz.'; }
   if ('seen' in b || !partial) { o.seen = /^\d{2}\.\d{2}\.$/.test(b.seen) ? b.seen : today(); }
   if ('watch' in b || !partial) { o.watch = !!b.watch; }
+  if ('kos' in b || !partial) { o.kos = !!b.kos; }
   if ('groups' in b || !partial) { o.groups = cleanGroups(b.groups); }
   if ('sp' in b || !partial) { o.sp = str(b.sp, 60); }
   if ('look' in b || !partial) { o.look = str(b.look, 2000); }
@@ -787,12 +788,13 @@ async function api(req, res, url) {
     if (!cur || !canSee(pu, cur)) return send(res, 404, { error: 'Akte nicht gefunden.' });
     if (method === 'PATCH') {
       const o = cleanPerson(await readBody(req), true);
-      const LBL = { n: 'Name', r: 'Rang', s: 'Zugehörigkeit', p: 'Gefahrenlevel', l: 'Ort', note: 'Notiz', watch: 'Beschattung', groups: 'Sichtbarkeit', sp: 'Spezies', look: 'Aussehen', extra: 'Weitere Felder' };
+      const LBL = { n: 'Name', r: 'Rang', s: 'Zugehörigkeit', p: 'Gefahrenlevel', l: 'Ort', note: 'Notiz', watch: 'Beschattung', kos: 'KoS', groups: 'Sichtbarkeit', sp: 'Spezies', look: 'Aussehen', extra: 'Weitere Felder' };
       const ch = [];
       Object.keys(o).forEach(function (k) {
         if (JSON.stringify(o[k]) === JSON.stringify(cur[k])) return;
         if (k === 'r' || k === 's' || k === 'p' || k === 'n' || k === 'l') ch.push(LBL[k] + ': ' + cur[k] + ' → ' + o[k]);
         else if (k === 'watch') ch.push(o.watch ? 'Beschattung gestartet' : 'Beschattung beendet');
+        else if (k === 'kos') ch.push(o.kos ? 'KoS (Kill on Sight) gesetzt' : 'KoS aufgehoben');
         else if (LBL[k]) ch.push(LBL[k] + ' geändert');
       });
       const before = cur.n;
