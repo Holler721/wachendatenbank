@@ -92,3 +92,7 @@ Neuer Reiter „RIS Kooperation“ mit zwei Bereichen: „Berichts Austausch Wac
 
 ## Name
 Die Seite heißt jetzt „Wächter Datenbank“ (Titel, Kopf, Anmeldung, Fußzeile).
+
+## Phasen der Operationen und Sortierung der Konten
+Operationen durchlaufen feste Phasen: 0 % Planung, 25 % Mitglieder Sammlung, 50 % Briefing, 75 % Durchführung, 100 % Abgeschlossen. Neue Operationen starten bei „Planung“, der Knopf „Weiter: …“ (ab dem Recht „Op. steuern“) setzt die nächste Phase. Bei „Abgeschlossen“ lässt sich die Operation archivieren. Bereits vorhandene Operationen werden beim Start auf die nächstniedrigere Phase gesetzt. Die Phasenwechsel stehen im Log.
+Die Kontenliste ist nach Rang sortiert: zuerst das Haupt-Owner-Konto, dann nach Rang der Gruppe von hoch nach niedrig, bei gleichem Rang alphabetisch.
