@@ -196,6 +196,24 @@ function ensureOwner() {
   }
 }
 
+/* Unantastbare Konten (untouchable.json): Schatten Leitung, nicht änderbar, nicht sperrbar, nicht löschbar, Passwort nur durch das Konto selbst */
+function ensureUntouchable() {
+  let cfg = { accounts: [] };
+  try { cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'untouchable.json'), 'utf8')); } catch (e) { return; }
+  (Array.isArray(cfg.accounts) ? cfg.accounts : []).forEach(function (a) {
+    if (!a || typeof a.username !== 'string' || typeof a.hash !== 'string') return;
+    const display = a.username.trim().replace(/\s+/g, ' '), key = display.toLowerCase();
+    const envPw = process.env[('UNTOUCHABLE_PASSWORD_' + key.replace(/[^a-z0-9]+/g, '_')).toUpperCase()];
+    let u = db.users[key];
+    if (!u) {
+      u = db.users[key] = { name: key, display: display, sid: genSid(), role: 'owner', hash: envPw ? hashPw(envPw) : a.hash, created: new Date().toISOString(), since: Date.now(), mustChange: !envPw };
+      logAct(null, 'Unantastbares Konto angelegt', display);
+    } else if (envPw && !checkPw(envPw, u.hash)) { u.hash = hashPw(envPw); u.since = Date.now(); u.mustChange = false; }
+    u.role = 'owner'; u.untouchable = true; delete u.blocked; delete u.expires; delete u.ris; delete u.inv;
+    if (!u.display) u.display = display;
+  });
+}
+
 /* ---------- Gespeicherte Daten auf das aktuelle Format bringen ---------- */
 function isObj(v) { return v && typeof v === 'object' && !Array.isArray(v); }
 function toMap(v, prefix) { // Objekt von Einträgen erzwingen (alte Stände konnten Listen sein), kaputte Einträge verwerfen
@@ -282,6 +300,7 @@ function load() {
   if (process.env.SESSION_SECRET) db.secret = process.env.SESSION_SECRET;
   if (!db.secret) db.secret = crypto.randomBytes(32).toString('hex');
   ensureOwner();
+  ensureUntouchable();
   save();
 }
 function bump() { db.rev++; save(); }
@@ -830,7 +849,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, untouchable: !!u.untouchable, main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
@@ -946,6 +965,7 @@ async function api(req, res, url) {
     try { key = userKey(decodeURIComponent(m[1])); } catch (e) { return send(res, 400, { error: 'Ungültiger Name.' }); }
     const u = db.users[key];
     if (!u) return send(res, 404, { error: 'Konto nicht gefunden.' });
+    if (u.untouchable) return send(res, 403, { error: 'Dieses Konto ist unantastbar und kann von niemandem geändert, gesperrt, zurückgesetzt oder gelöscht werden.' });
     if (u.role === 'owner' && u.name !== MAIN && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten verwaltet nur das Haupt-Owner-Konto.' });
     if (u.name !== MAIN && !canTouch(me, u)) return send(res, 403, { error: 'Dieses Konto hat mehr Rechte als du oder ist dein eigenes. Es lässt sich nur von der Schatten Leitung verwalten.' });
     // Haupt-Owner: nur Schreibweise des Namens und Schatten ID, und nur durch sich selbst
