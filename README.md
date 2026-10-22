@@ -1,4 +1,4 @@
-# Schatten Datenbank
+# Wächter Datenbank
 
 Node.js, keine Abhängigkeiten. Start: `node server.js` (Port aus `PORT`).
 
@@ -83,3 +83,12 @@ Konten lassen sich in der Kontenliste mit „Sperren“ deaktivieren (Recht „K
 
 ## Jedi Ermittler
 Die Schatten Leitung kann Konten zu „Jedi Ermittler“ machen (beim Anlegen unter „Jedi Ermittler“ oder in der Kontenliste mit „Jedi Ermittler“ / „Ermittler entziehen“; das Haupt-Owner-Konto kann sich selbst freigeben). Nur diese Konten sehen den Reiter „Jedi Ermittler“, auch die Schatten Leitung nicht ohne Freigabe. Der Server liefert die Daten ausschließlich an freigegebene Konten und nie über die normalen Datenabfragen aus. Dort tragen sie ein: Tarnidentitäten (Tarnname, Status, Einsatzort, Legende, Notiz), Informanten (Name, Zuverlässigkeit, Status, Quelle, Kontaktweg, Ort, Notiz) und Gespräche (Betreff, Zeitpunkt, Gesprächspartner, Tarnidentität, Informant, Ort, Protokoll). Alle Ermittler sehen alle Einträge; eigene Einträge bearbeitet und löscht man selbst, fremde nur mit dem Recht „Fremde Inhalte“. Im Log steht nur, dass ein Eintrag angelegt, geändert oder gelöscht wurde, nie der Inhalt. Wird die Freigabe entzogen, ist der Reiter sofort weg; die Einträge bleiben erhalten.
+
+## RIS Kooperation
+Neuer Reiter „RIS Kooperation“ mit zwei Bereichen: „Berichts Austausch Wachen“ (Berichte der Wächter an das RIS) und „Berichts Austausch RIS“ (Berichte des RIS an die Wachen). Beide Seiten lesen beide Bereiche, schreiben aber nur in ihren eigenen. Berichte haben Titel, optional ein Aktenzeichen und den Text; eigene Berichte lassen sich bearbeiten und löschen.
+- **RIS-Konten:** Beim Anlegen eines Kontos unter „Konto-Typ“ „RIS-Konto“ wählen (Recht „Konten“). Ein RIS-Konto sieht und erreicht nur den Reiter „RIS Kooperation“ (plus Passwort ändern unter „Konto“). Der Server lehnt alle anderen Abfragen für dieses Konto ab (Personen, Berichte, Karte, Logs, Ermittler …). Es schreibt nur in „Berichts Austausch RIS“.
+- **Wächter-Seite:** Neues Gruppenrecht „RIS Kooperation“ (unter „Gruppen und Rechte“): die Gruppe sieht den Reiter und schreibt in „Berichts Austausch Wachen“. Fremde Berichte ändern nur Gruppen mit „RIS Kooperation“ und „Fremde Inhalte“. Die Schatten Leitung hat das Recht immer.
+- Anlegen, Ändern und Löschen stehen im Log (mit Titel). Bei UMBRA sind auch RIS-Konten gesperrt.
+
+## Name
+Die Seite heißt jetzt „Wächter Datenbank“ (Titel, Kopf, Anmeldung, Fußzeile).
