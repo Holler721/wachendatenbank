@@ -1004,6 +1004,45 @@ async function api(req, res, url) {
     }
   }
   /* RIS Kooperation: Berichtsaustausch zwischen Wächtern und RIS */
+  const risFilesText = function (u, par) {
+    const fl = (Array.isArray(par.files) ? par.files : []).filter(function (f) { return canSee(u, f); });
+    if (!fl.length) return '';
+    return '\n\n— EINTRÄGE —\n' + fl.map(function (f) { return '\n[' + (f.title || 'Eintrag') + '] ' + (f.byName || f.by || '') + '\n' + (f.text || ''); }).join('\n');
+  };
+  const risSnap = function (u, x) { // Kopie einer Akte (Person) oder eines Berichts von der Website, mit den Rechten des Schreibenden
+    const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
+    const id = x && typeof x.src === 'string' ? x.src : '';
+    let a;
+    if (x && x.k === 'person') {
+      const q = db.persons[id];
+      if (!q || !canSee(u, q)) bad('Eine gewählte Akte existiert nicht (mehr) oder ist für dich nicht sichtbar.');
+      const L = ['Rang: ' + q.r, 'Status: ' + q.s, 'Gefahrenlevel: ' + q.p + ' %'];
+      if (q.sp) L.push('Spezies: ' + q.sp);
+      if (q.l) L.push('Letzter Ort: ' + q.l);
+      if (q.seen) L.push('Zuletzt gesehen: ' + q.seen);
+      if (q.look) L.push('Aussehen: ' + q.look);
+      if (q.note) L.push('Notiz: ' + q.note);
+      (Array.isArray(q.extra) ? q.extra : []).forEach(function (e) { L.push(e.k + ': ' + e.v); });
+      a = { k: 'person', ti: 'Akte: ' + q.n, sub: q.r + ' · ' + q.s, text: L.join('\n') + risFilesText(u, q) };
+    } else if (x && x.k === 'report') {
+      const q = db.reports[id];
+      if (!q || !canRead(u, q.cls)) bad('Ein gewählter Bericht existiert nicht (mehr) oder ist für dich nicht lesbar.');
+      a = { k: 'report', ti: 'Bericht: ' + q.ti, sub: q.t + ' · ' + q.cls, text: (q.body || '') + risFilesText(u, q) };
+    } else bad('Ungültiger Anhang.');
+    a.text = a.text.slice(0, 30000); a.src = id; a.id = newId(); a.ts = Date.now();
+    return a;
+  };
+  const risAtt = function (u, b, cur) { // Anhänge aus der Anfrage: {id} behält vorhandene, {k, src} kopiert neu
+    if (!('att' in b)) return null;
+    if (!Array.isArray(b.att) || b.att.length > 10) { const e = new Error('Höchstens 10 Anhänge.'); e.status = 400; throw e; }
+    const old = {}; ((cur && cur.att) || []).forEach(function (a) { old[a.id] = a; });
+    const seen = {};
+    return b.att.map(function (x) {
+      if (x && typeof x.id === 'string' && old[x.id]) return old[x.id];
+      const a = risSnap(u, x);
+      return a;
+    }).filter(function (a) { const key = a.k + a.src; if (seen[key]) return false; seen[key] = 1; return true; });
+  };
   const RIS_BOARDS = { wachen: 'Berichts Austausch Wachen', ris: 'Berichts Austausch RIS' };
   const risSide = function (u) { return u.ris ? 'ris' : (can(u, 'ris') ? 'intern' : null); };
   const risWrite = function (u, board) { return board === 'ris' ? !!u.ris : (!u.ris && can(u, 'ris')); };
@@ -1014,26 +1053,32 @@ async function api(req, res, url) {
     Object.keys(RIS_BOARDS).forEach(function (k) {
       out[k] = Object.keys(db.ris[k]).map(function (id) { return Object.assign({ id: id }, db.ris[k][id]); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     });
+    if (out.write.wachen) out.src = {
+      persons: Object.keys(db.persons).filter(function (id) { return canSee(ru, db.persons[id]); }).map(function (id) { return { id: id, n: db.persons[id].n }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); }),
+      reports: Object.keys(db.reports).filter(function (id) { return canRead(ru, db.reports[id].cls); }).map(function (id) { return { id: id, n: db.reports[id].ti, t: db.reports[id].t }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); })
+    };
     return send(res, 200, out);
   }
   m = /^\/api\/ris\/(wachen|ris)(?:\/([a-f0-9]{6,20}))?$/.exec(p);
   if (m) {
     const ru = need(req, 'viewer'), board = m[1], bname = RIS_BOARDS[board];
     if (!risSide(ru)) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    const clean = function (b) {
+    const clean = function (b, cur) {
       if (!b || typeof b !== 'object') { const e = new Error('Ungültige Daten.'); e.status = 400; throw e; }
       const o = { ti: str(b.ti, 120), ref: str(b.ref, 60), text: str(b.text, 8000) };
+      if (board === 'wachen') { const at = risAtt(ru, b, cur); if (at) o.att = at; }
+      const natt = (o.att || (cur && cur.att) || []).length;
       if (!o.ti) { const e = new Error('Der Titel fehlt.'); e.status = 400; throw e; }
-      if (!o.text) { const e = new Error('Der Berichtstext fehlt.'); e.status = 400; throw e; }
+      if (!o.text && !natt) { const e = new Error('Der Berichtstext fehlt (oder hänge eine Akte bzw. einen Bericht an).'); e.status = 400; throw e; }
       return o;
     };
     if (!m[2] && method === 'POST') {
       if (!risWrite(ru, board)) return send(res, 403, { error: 'In „' + bname + '“ darf dein Konto nicht schreiben.' });
       if (Object.keys(db.ris[board]).length >= 1000) return send(res, 400, { error: 'Zu viele Berichte.' });
-      const o = clean(await readBody(req)), id = newId();
+      const o = clean(await readBody(req), null), id = newId();
       Object.assign(o, { ts: Date.now(), by: dispName(ru), bk: ru.name });
       db.ris[board][id] = o;
-      logAct(ru, 'RIS: Bericht angelegt', bname + ': ' + o.ti); bump();
+      logAct(ru, 'RIS: Bericht angelegt', bname + ': ' + o.ti + (o.att && o.att.length ? ' (' + o.att.length + ' Anhänge von der Website)' : '')); bump();
       return send(res, 200, { ok: true, id: id });
     }
     const cur = m[2] ? db.ris[board][m[2]] : null;
@@ -1041,7 +1086,7 @@ async function api(req, res, url) {
     if (cur && (method === 'PATCH' || method === 'DELETE')) {
       if (!risWrite(ru, board)) return send(res, 403, { error: board === 'ris' ? '„' + bname + '“ bearbeiten nur RIS-Konten.' : '„' + bname + '“ bearbeiten nur Konten der Wächter-Seite mit dem Recht „RIS Kooperation“.' });
       if (method === 'PATCH') {
-        Object.assign(cur, clean(await readBody(req)), { edited: Date.now() });
+        Object.assign(cur, clean(await readBody(req), cur), { edited: Date.now() });
         logAct(ru, 'RIS: Bericht geändert', bname + ': ' + cur.ti); bump();
         return send(res, 200, { ok: true });
       }
