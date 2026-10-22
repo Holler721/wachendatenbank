@@ -811,9 +811,11 @@ function renderDash(){
   $('#dashDocs').innerHTML=S.reports.length?S.reports.slice(0,5).map(function(d){return docItem(d,d.id)}).join(''):'<p class="muted" style="padding:14px">Noch keine Berichte vorhanden.</p>';
   renderOpsMini();
 }
+var OPH=['Planung','Mitglieder Sammlung','Briefing','Durchführung','Abgeschlossen'];
+function opPh(o){return Math.max(0,Math.min(4,Math.floor((Number(o.p)||0)/25)))}
 function renderOpsMini(){
   $('#dashOps').innerHTML=ops.map(function(o){var col=o.p>=100?'#a4a4a4':(o.p>80?'#b0b0b0':(o.p>50?'#c2c2c2':'#909090'));
-    return '<div class="item"><div class="r1"><span class="ti">'+esc(o.n)+'</span><span class="mono" style="font-size:11px;color:'+col+'">'+Math.min(o.p,100)+'%</span></div><div class="bar" style="height:6px"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div><div class="by">'+esc(o.c)+' · '+esc(o.loc)+'</div></div>'}).join('')||'<div class="muted">Keine Operationen aktiv.</div>';
+    return '<div class="item"><div class="r1"><span class="ti">'+esc(o.n)+'</span><span class="mono" style="font-size:11px;color:'+col+'">'+Math.min(o.p,100)+'%</span></div><div class="bar" style="height:6px"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div><div class="by">'+esc(OPH[opPh(o)])+' · '+esc(o.c)+' · '+esc(o.loc)+'</div></div>'}).join('')||'<div class="muted">Keine Operationen aktiv.</div>';
 }
 
 /* ---------- Register ---------- */
@@ -1129,7 +1131,7 @@ mapO.el.addEventListener('click',function(e){if(S.editing)return;S.selN=nodeAt(e
 var cells=['Einsatzgebiet Eins','Einsatzgebiet Zwei','Einsatzgebiet Drei','Einsatzgebiet Vier','Einsatzgebiet Fünf'],opNames=['Falkenauge','Aschenwind','Schwarzglas','Morgenrot','Stummer Ruf','Nebelpfad'];
 function newOp(n,name,cell,groups){
   if(ops.some(function(o){return o.loc===n.id&&o.p<100})){toast('In '+n.id+' läuft bereits eine Operation.','red');return}
-  var o={n:name,c:cell||cells[0],loc:n.id,p:5,ph:1,risk:isThreat(n.s)?'hoch':'mittel'};if(groups!==undefined)o.groups=groups;
+  var o={n:name,c:cell||cells[0],loc:n.id,p:0,ph:0,risk:isThreat(n.s)?'hoch':'mittel'};if(groups!==undefined)o.groups=groups;
   var done=function(){S.opDraft=null;renderNode();toast('„'+name+'“ gestartet. Einsatz in '+n.id+' angeordnet.','cyan')};
   if(S.hosted){
     if(!P('opsStart')){toast('Dir fehlt das Recht „Operationen starten“.','red');return}
@@ -1149,9 +1151,9 @@ function renderOps(){
   $('#opsGrid').innerHTML=ops.map(function(o,i){
     var done=o.p>=100,col=done?'#a4a4a4':(o.risk==='hoch'?'#fb4d6d':'#c2c2c2');
     return '<div class="op"><div class="ph"><span class="nm">'+(S.opEdit===opKey(o,i)?'<input id="opRen" type="text" maxlength="60" value="'+esc(o.n)+'" aria-label="Neuer Name der Operation">':esc(o.n))+'</span><span class="chip '+(done?'cyan':(o.risk==='hoch'?'red':'vio'))+'">'+(done?'Abgeschlossen':'Risiko '+o.risk)+'</span></div>'+
-     '<div class="meta">'+esc(o.c)+' · '+esc(o.loc)+visChip(o.groups)+'</div><div class="phases" aria-hidden="true">'+[1,2,3,4].map(function(k){return '<i class="'+(k<=o.ph?'on':'')+'"></i>'}).join('')+'</div>'+
-     '<div class="gauge"><div class="l"><span>Fortschritt · Phase '+Math.min(o.ph,4)+' von 4</span><b style="color:'+col+'">'+Math.min(o.p,100)+'%</b></div><div class="bar"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
-     (S.opVis===opKey(o,i)?visPicker('opv',o.groups)+'<div class="acts"><button class="btn sm" data-op="'+i+'" data-a="vissave">Sichtbarkeit speichern</button><button class="btn sm ghost" data-op="'+i+'" data-a="viscancel">Abbrechen</button></div>':'')+'<div class="acts">'+((S.hosted&&!P('opsManage'))?'':S.opEdit===opKey(o,i)?'<button class="btn sm" data-op="'+i+'" data-a="rensave">Name speichern</button><button class="btn sm ghost" data-op="'+i+'" data-a="rencancel">Abbrechen</button>':'<button class="btn sm ghost" data-op="'+i+'" data-a="ren">Umbenennen</button>'+(S.hosted?'<button class="btn sm ghost" data-op="'+i+'" data-a="vis">Sichtbarkeit</button>':'')+(done?'<button class="btn sm ghost" data-op="'+i+'" data-a="archive">Archivieren</button>':'<button class="btn sm" data-op="'+i+'" data-a="adv">Phase vorantreiben</button><button class="btn sm danger" data-op="'+i+'" data-a="abort">Abbrechen</button>'))+'</div></div>'}).join('')||'<div class="panel muted">Keine Operationen aktiv. Wähle auf der Galaxis Karte ein System.</div>';
+     '<div class="meta">'+esc(o.c)+' · '+esc(o.loc)+visChip(o.groups)+'</div><div class="phases" aria-hidden="true">'+[0,1,2,3,4].map(function(k){return '<i class="'+(k<=opPh(o)?'on':'')+'" title="'+OPH[k]+' ('+k*25+' %)"></i>'}).join('')+'</div>'+
+     '<div class="gauge"><div class="l"><span>Phase: '+OPH[opPh(o)]+'</span><b style="color:'+col+'">'+Math.min(o.p,100)+'%</b></div><div class="bar"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
+     (S.opVis===opKey(o,i)?visPicker('opv',o.groups)+'<div class="acts"><button class="btn sm" data-op="'+i+'" data-a="vissave">Sichtbarkeit speichern</button><button class="btn sm ghost" data-op="'+i+'" data-a="viscancel">Abbrechen</button></div>':'')+'<div class="acts">'+((S.hosted&&!P('opsManage'))?'':S.opEdit===opKey(o,i)?'<button class="btn sm" data-op="'+i+'" data-a="rensave">Name speichern</button><button class="btn sm ghost" data-op="'+i+'" data-a="rencancel">Abbrechen</button>':'<button class="btn sm ghost" data-op="'+i+'" data-a="ren">Umbenennen</button>'+(S.hosted?'<button class="btn sm ghost" data-op="'+i+'" data-a="vis">Sichtbarkeit</button>':'')+(done?'<button class="btn sm ghost" data-op="'+i+'" data-a="archive">Archivieren</button>':'<button class="btn sm" data-op="'+i+'" data-a="adv">Weiter: '+OPH[Math.min(4,opPh(o)+1)]+'</button><button class="btn sm danger" data-op="'+i+'" data-a="abort">Abbrechen</button>'))+'</div></div>'}).join('')||'<div class="panel muted">Keine Operationen aktiv. Wähle auf der Galaxis Karte ein System.</div>';
 }
 function saveRen(o){
   var f=$('#opRen'),nm=f?f.value.trim():'';if(!nm)return;
@@ -1177,12 +1179,12 @@ $('#opsGrid').addEventListener('click',function(e){
   }
   if(S.hosted){
     if(!P('opsManage')||!o)return;var a=b.dataset.a,u='/api/ops/'+encodeURIComponent(o.id),pr;
-    if(a==='adv'){var np=Math.min(100,o.p+Math.round(rnd(9,19)));pr=api('PATCH',u,{p:np,ph:Math.min(4,Math.max(o.ph,Math.ceil(np/25)))}).then(function(){if(np>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')})}
+    if(a==='adv'){var np=Math.min(100,(opPh(o)+1)*25);pr=api('PATCH',u,{p:np,ph:np/25}).then(function(){if(np>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')})}
     else if(a==='abort')pr=api('DELETE',u).then(function(){toast(o.n+' abgebrochen. Einsatzkräfte zurückbeordert.','red')});
     else if(a==='archive')pr=api('DELETE',u).then(function(){toast(o.n+' archiviert.')});
     else return;
     pr.then(function(){return loadData(true)}).catch(writeErr);return}
-  if(b.dataset.a==='adv'){o.p=Math.min(100,o.p+Math.round(rnd(9,19)));o.ph=Math.min(4,Math.max(o.ph,Math.ceil(o.p/25)));if(o.p>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')}
+  if(b.dataset.a==='adv'){o.p=Math.min(100,(opPh(o)+1)*25);o.ph=o.p/25;if(o.p>=100)toast(o.n+' erfolgreich abgeschlossen.','cyan')}
   else if(b.dataset.a==='abort'){ops.splice(i,1);toast(o.n+' abgebrochen. Einsatzkräfte zurückbeordert.','red')}
   else if(b.dataset.a==='archive'){ops.splice(i,1);toast(o.n+' archiviert.')}
   renderOps();renderOpsMini();renderCards();
