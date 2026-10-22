@@ -33,7 +33,7 @@ Eigene Berichte bearbeiten/löschen; fremde nur Spektral Rat und Schatten Leitun
 Starten ab Phantom (Name und Einsatzgebiet frei wählbar). Umbenennen, vorantreiben, abbrechen, archivieren: ab Spektral Rat.
 
 ## Anpassung (ab Spektral Rat)
-Unter "Konto" lassen sich Ränge, Labels (Status: Republik, KUS, Neutral, Dunkle Machtpräsenz, mit Farbe und "Bedrohung"-Markierung) und Berichtsarten ändern. Umbenennen zieht alle bestehenden Einträge mit. Entfernen geht nur, wenn nichts mehr damit verknüpft ist.
+Unter "Konto" lassen sich Ränge, Labels (Zugehörigkeit: Republik, KUS, Neutral, Dunkle Machtpräsenz, mit Farbe und "Bedrohung"-Markierung) und Berichtsarten ändern. Umbenennen zieht alle bestehenden Einträge mit. Entfernen geht nur, wenn nichts mehr damit verknüpft ist.
 
 ## Notfall (UMBRA)
 Spektral Rat und Schatten Leitung können das Notfallprotokoll auslösen und beenden. Solange es aktiv ist, sind alle Konten unterhalb des Spektral Rats gesperrt (Sperrbildschirm, der Server liefert keine Daten). Die Seite öffnet sich bei Ende von selbst wieder.
@@ -64,3 +64,9 @@ Standard ist „Rang“: in der Reihenfolge der Ränge unter „Anpassung“ (ob
 
 ## Personen beschreiben
 Jede Akte hat zusätzlich zu Name und Rang die Felder Spezies und Aussehen sowie beliebig viele eigene Felder (Bezeichnung + Beschreibung, bis 20, z. B. Herkunft, Waffen, Fähigkeiten). Sie stehen im Formular „Akte anlegen/bearbeiten“, erscheinen in der Detailansicht, die Spezies ist auch über die Suche findbar. Änderungen daran stehen im Log.
+
+## Zugehörigkeit und Beschattung
+Im Personenregister heißt das frühere „Status“ jetzt „Zugehörigkeit“. „Kontakt aufnehmen“ gibt es nicht mehr. Beschattete Personen sind sichtbar: rotes Label „● Beschattet“ und roter Balken in der Liste, Banner in der Detailansicht.
+
+## Rechte „Konten“ und „Gruppen“
+Unter „Gruppen und Rechte“ gibt es zwei neue Rechte. „Konten“: Konten anlegen, Gruppe zuweisen, Passwort zurücksetzen, löschen. „Gruppen“: Gruppen und ihre Rechte verwalten. Standardmäßig hat sie nur die Schatten Leitung. Wer sie ohne Schatten Leitung bekommt, kann keine Rechte erhöhen: Es lassen sich nur Gruppen vergeben, deren Rechte man selbst hat, nur eigene Rechte an Gruppen vergeben oder entziehen, und Konten oder Gruppen mit höheren Rechten, das eigene Konto sowie Schatten-Leitungs-Konten bleiben tabu. Schatten-Leitungs-Konten legt weiterhin nur das Haupt-Owner-Konto an.
