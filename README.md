@@ -61,3 +61,6 @@ Menüpunkt „Logs“ (Recht „Logs“, standardmäßig nur Schatten Leitung): 
 
 ## Sortierung im Personenregister
 Standard ist „Rang“: in der Reihenfolge der Ränge unter „Anpassung“ (oben = zuerst, mit ▲ ▼ verschiebbar), innerhalb eines Rangs das neueste zuletzt.
+
+## Personen beschreiben
+Jede Akte hat zusätzlich zu Name und Rang die Felder Spezies und Aussehen sowie beliebig viele eigene Felder (Bezeichnung + Beschreibung, bis 20, z. B. Herkunft, Waffen, Fähigkeiten). Sie stehen im Formular „Akte anlegen/bearbeiten“, erscheinen in der Detailansicht, die Spezies ist auch über die Suche findbar. Änderungen daran stehen im Log.
