@@ -20,17 +20,17 @@ const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
 // Einzelrechte, pro Gruppe auf der Website (Konto -> Gruppen und Rechte) vergebbar
-const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs', 'accounts', 'groups', 'ris'];
+const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs', 'accounts', 'groups', 'ris', 'archive'];
 const ALLP = {}; PERMS.forEach(function (x) { ALLP[x] = true; });
-const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen', ris: 'RIS Kooperation' };
+const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen', ris: 'RIS Kooperation', archive: 'Archiv' };
 const WRITE_PERMS = ['persons', 'files', 'reports', 'opsStart'];            // früher „Schreiben“
 const MANAGE_PERMS = ['opsManage', 'map', 'others', 'config', 'lockdown'];  // früher „Verwalten“
 const RANK_MAX = 10, RANK_OWNER = 11, BUILTIN_RANK = { viewer: 1, agent: 2, editor: 3, owner: RANK_OWNER };
 function cleanRank(x, def) { const n = Math.round(Number(x)); return isFinite(n) && n >= 1 && n <= RANK_MAX ? n : def; }
 const BUILTIN = {
   viewer: { label: 'Schatten', perms: { open: true } },
-  agent: { label: 'Phantom', perms: { persons: true, files: true, reports: true, opsStart: true, open: true, intern: true } },
-  editor: { label: 'Spektral Rat', perms: { persons: true, files: true, reports: true, opsStart: true, opsManage: true, map: true, others: true, config: true, lockdown: true, open: true, intern: true, secret: true } },
+  agent: { label: 'Phantom', perms: { persons: true, files: true, archive: true, reports: true, opsStart: true, open: true, intern: true } },
+  editor: { label: 'Spektral Rat', perms: { persons: true, files: true, archive: true, reports: true, opsStart: true, opsManage: true, map: true, others: true, config: true, lockdown: true, open: true, intern: true, secret: true } },
   owner: { label: 'Schatten Leitung', perms: ALLP }
 };
 function upgradePerms(pm) { // Gespeicherte Rechte älterer Versionen (write/manage) umstellen
@@ -42,6 +42,7 @@ function upgradePerms(pm) { // Gespeicherte Rechte älterer Versionen (write/man
     o.logs = false;
     pm = o;
   }
+  if (!('archive' in pm)) { pm = Object.assign({}, pm, { archive: !!pm.persons }); } // Archiv: wer Personen schreibt, darf auch ins Archiv schreiben
   if (!('open' in pm)) { pm = Object.assign({}, pm, { open: true }); } // „Offen lesen“ war früher für alle erlaubt
   return pm;
 }
@@ -265,6 +266,8 @@ function normalizeDb() {
   ['covers', 'informants', 'talks'].forEach(function (k) { if (!isObj(db.inv[k])) db.inv[k] = {}; });
   if (!isObj(db.ris)) db.ris = {};
   ['wachen', 'ris'].forEach(function (k) { if (!isObj(db.ris[k])) db.ris[k] = {}; });
+  if (!isObj(db.archive)) db.archive = {};
+  ['powers', 'tasks'].forEach(function (k) { if (!isObj(db.archive[k])) db.archive[k] = {}; });
   if (!Array.isArray(db.logs)) db.logs = [];
   if (!isObj(db.map)) db.map = { nodes: [], edges: [], rev: 1 };
   const keys = {};
@@ -394,6 +397,34 @@ function cleanInv(kind, b) {
   const o = {};
   if (!b || typeof b !== 'object') { const e = new Error('Ungültige Daten.'); e.status = 400; throw e; }
   INV_SPEC[kind].f.forEach(function (f) {
+    let x = str(b[f.k], f.max);
+    if (f.en) { if (x && f.en.indexOf(x) < 0) { const e = new Error('Ungültiger Wert bei „' + f.l + '“.'); e.status = 400; throw e; } if (!x) x = f.def; }
+    if (f.req && !x) { const e = new Error('„' + f.l + '“ fehlt.'); e.status = 400; throw e; }
+    o[f.k] = x;
+  });
+  return o;
+}
+/* Archiv: Machtfähigkeiten und Aufgaben (lesen alle normalen Konten, schreiben mit dem Recht „Archiv“) */
+const ARC_SPEC = {
+  powers: { one: 'Machtfähigkeit', f: [
+    { k: 'n', l: 'Name', max: 80, req: 1 },
+    { k: 'cat', l: 'Art', max: 40 },
+    { k: 'lvl', l: 'Schwierigkeit', max: 20, en: ['Unbekannt', 'Einfach', 'Fortgeschritten', 'Meister', 'Verboten'], def: 'Unbekannt' },
+    { k: 'desc', l: 'Beschreibung', max: 4000 },
+    { k: 'users', l: 'Bekannte Anwender', max: 300 },
+    { k: 'note', l: 'Notiz', max: 1000 }] },
+  tasks: { one: 'Aufgabe', f: [
+    { k: 'ti', l: 'Titel', max: 120, req: 1 },
+    { k: 'st', l: 'Status', max: 20, en: ['Offen', 'In Arbeit', 'Erledigt', 'Abgebrochen'], def: 'Offen' },
+    { k: 'prio', l: 'Priorität', max: 20, en: ['Niedrig', 'Normal', 'Hoch', 'Dringend'], def: 'Normal' },
+    { k: 'who', l: 'Zuständig', max: 80 },
+    { k: 'due', l: 'Frist', max: 30 },
+    { k: 'desc', l: 'Beschreibung', max: 4000 }] }
+};
+function cleanArc(kind, b) {
+  const o = {};
+  if (!b || typeof b !== 'object') { const e = new Error('Ungültige Daten.'); e.status = 400; throw e; }
+  ARC_SPEC[kind].f.forEach(function (f) {
     let x = str(b[f.k], f.max);
     if (f.en) { if (x && f.en.indexOf(x) < 0) { const e = new Error('Ungültiger Wert bei „' + f.l + '“.'); e.status = 400; throw e; } if (!x) x = f.def; }
     if (f.req && !x) { const e = new Error('„' + f.l + '“ fehlt.'); e.status = 400; throw e; }
@@ -908,6 +939,40 @@ async function api(req, res, url) {
       }
       delete db.inv[kind][m[2]];
       logAct(iu, 'Ermittler: ' + one + ' gelöscht', ''); bump();
+      return send(res, 200, { ok: true });
+    }
+  }
+  /* Archiv: Machtfähigkeiten und Aufgaben */
+  if (p === '/api/archive' && method === 'GET') {
+    const au = need(req, 'viewer');
+    const out = { write: can(au, 'archive'), others: can(au, 'others') };
+    Object.keys(ARC_SPEC).forEach(function (k) {
+      out[k] = Object.keys(db.archive[k]).map(function (id) { return Object.assign({ id: id }, db.archive[k][id]); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    });
+    return send(res, 200, out);
+  }
+  m = /^\/api\/archive\/(powers|tasks)(?:\/([a-f0-9]{6,20}))?$/.exec(p);
+  if (m) {
+    const au = need(req, 'archive'), kind = m[1], one = ARC_SPEC[kind].one, tkey = kind === 'powers' ? 'n' : 'ti';
+    if (!m[2] && method === 'POST') {
+      if (Object.keys(db.archive[kind]).length >= 1000) return send(res, 400, { error: 'Zu viele Einträge.' });
+      const o = cleanArc(kind, await readBody(req)), id = newId();
+      Object.assign(o, { ts: Date.now(), by: dispName(au), bk: au.name });
+      db.archive[kind][id] = o;
+      logAct(au, 'Archiv: ' + one + ' angelegt', o[tkey]); bump();
+      return send(res, 200, { ok: true, id: id });
+    }
+    const cur = m[2] ? db.archive[kind][m[2]] : null;
+    if (m[2] && !cur) return send(res, 404, { error: one + ' nicht gefunden.' });
+    if (cur && (method === 'PATCH' || method === 'DELETE')) {
+      if (cur.bk !== au.name && !can(au, 'others')) return send(res, 403, { error: 'Fremde Einträge ändern nur Konten mit dem Recht „Fremde Inhalte“.' });
+      if (method === 'PATCH') {
+        Object.assign(cur, cleanArc(kind, await readBody(req)), { edited: Date.now() });
+        logAct(au, 'Archiv: ' + one + ' geändert', cur[tkey]); bump();
+        return send(res, 200, { ok: true });
+      }
+      logAct(au, 'Archiv: ' + one + ' gelöscht', cur[tkey]);
+      delete db.archive[kind][m[2]]; bump();
       return send(res, 200, { ok: true });
     }
   }
