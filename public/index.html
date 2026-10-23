@@ -238,6 +238,14 @@ textarea{width:100%;background:#000000;border:1px solid var(--line2);border-radi
 input[type=range]{accent-color:var(--acc);width:100%;min-height:32px}
 .btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
 input[type=password]{min-height:42px;background:#000;border:1px solid var(--line2);border-radius:8px;padding:0 14px;color:#fff;width:100%;outline-offset:2px}
+.umod{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:24px}
+.umod[hidden]{display:none}
+.umod .box{background:var(--panel2);border:1px solid var(--line2);border-top:3px solid var(--red);border-radius:10px;padding:22px;max-width:460px;width:100%;display:grid;gap:16px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.umod .box p{margin:0;line-height:1.55}
+.umod .acts2{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.umod .cmd{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:rgba(0,0,0,.35);border:1px solid var(--line2);border-radius:6px;padding:12px;overflow-wrap:anywhere}
+.umod .cmd .pu{color:#a46bff;font-weight:700}
+.umod .cmd .rd{color:var(--red);font-weight:700}
 #login,#force,#lock{position:fixed;inset:0;z-index:110;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
 #login[hidden],#force[hidden],#lock[hidden]{display:none}
 .cfgrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
@@ -574,6 +582,9 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
     <button class="btn ghost" type="button" id="lockOut">Abmelden</button>
   </div>
 </div>
+<div class="umod" id="umM1" hidden><div class="box" role="alertdialog" aria-labelledby="umM1t"><div class="eyebrow" style="color:var(--red)">NOTFALLPROTOKOLL · UMBRA</div><p id="umM1t"><b>Achtung, um den Notfall RP-lich zu benutzen, sind Gits nötig!</b></p><div class="acts2"><button class="btn ghost" type="button" id="umM1no">Abbrechen</button><button class="btn danger" type="button" id="umM1ok">Einleiten</button></div></div></div>
+<div class="umod" id="umM2" hidden><div class="box" role="alertdialog" aria-labelledby="umM2t"><div class="eyebrow" style="color:var(--red)">BESTÄTIGUNG</div><p id="umM2t"></p><div class="acts2"><button class="btn ghost" type="button" id="umM2no">Abbrechen</button><button class="btn danger" type="button" id="umM2ok">Sicher</button></div></div></div>
+<div class="umod" id="umM3" hidden><div class="box" role="alertdialog" aria-labelledby="umM3t"><div class="eyebrow" style="color:var(--red)">NOTFALLPROTOKOLL AUSGELÖST</div><div class="cmd" id="umM3t"></div><div class="acts2"><button class="btn" type="button" id="umM3ok">Schließen</button></div></div></div>
 <datalist id="locs"></datalist>
 <div id="toasts" aria-live="polite"></div>
 
@@ -1047,7 +1058,6 @@ $('#nodeInfo').addEventListener('click',function(e){
   }
   if(a==='send'){S.opDraft=n.k;renderNode();var f=$('#opName');if(f)f.focus();return}
   if(a==='opCancel'){S.opDraft=null;renderNode();return}
-  if(a==='scan')toast('Scan von '+n.id+': '+(isThreat(n.s)?'Bedrohung bestätigt ('+n.s+').':(n.s===defState()?'Signaturen uneindeutig.':'keine Auffälligkeiten.')),isThreat(n.s)?'red':'cyan');
 });
 $('#nodeInfo').addEventListener('submit',function(e){
   if(e.target.id!=='opForm')return;e.preventDefault();
@@ -1159,7 +1169,7 @@ function nodeActs(n){
   if(S.opDraft===n.k)return '<form id="opForm" class="rform"><div class="field"><label for="opName">NAME DER OPERATION</label><input id="opName" type="text" maxlength="60" required placeholder="z. B. Operation Nachtfalter"></div>'+
     '<div class="field"><label for="opCell">EINSATZGEBIET</label><input id="opCell" type="text" maxlength="40" list="cellList" value="'+esc(cells[0])+'" required><datalist id="cellList">'+cells.map(function(c){return '<option value="'+esc(c)+'">'}).join('')+'</datalist></div>'+
     visPicker('ov',[])+'<div class="rtools"><button class="btn sm" type="submit">Operation starten</button><button class="btn sm ghost" type="button" data-act="opCancel">Abbrechen</button></div></form>';
-  return '<div style="display:flex;gap:8px;flex-wrap:wrap">'+((!S.hosted||P('opsStart'))?'<button class="btn sm" data-act="send">Operation starten</button>':'')+'<button class="btn sm ghost" data-act="scan">Scannen</button></div>';
+  return '<div style="display:flex;gap:8px;flex-wrap:wrap">'+((!S.hosted||P('opsStart'))?'<button class="btn sm" data-act="send">Operation starten</button>':'')+'</div>';
 }
 function opKey(o,i){return o.id!==undefined?o.id:i}
 function renderOps(){
@@ -1220,7 +1230,27 @@ function setPhase(p){
     $('#radTxt').textContent=alarm?'UMBRA aktiv: erhöhte Aktivität im Radius. Aktualisierung alle 4,5 Sekunden.':'Radar im Normalbetrieb. Aktualisierung alle 4,5 Sekunden.';
     toast(alarm?'UMBRA ausgelöst. Alle Konten ohne Notfall-Recht sind gesperrt.':'UMBRA beendet. Lage normalisiert.',alarm?'red':'cyan');renderGauges()}
 }
-$('#umBtn').addEventListener('click',function(){umbraTo(S.phase===0?1:(S.phase===1?2:0))});
+function umSid(){var ai=$('#agentId');return ((ai&&ai.value.trim())||S.sid||'unbekannt')}
+function umClose(){['umM1','umM2','umM3'].forEach(function(i){$('#'+i).hidden=true})}
+$('#umBtn').addEventListener('click',function(){
+  if(S.phase===2){umbraTo(0);return}
+  if(S.hosted&&!P('lockdown')){toast('Dir fehlt das Recht „Notfall“.','red');return}
+  umClose();$('#umM1').hidden=false;$('#umM1ok').focus();
+});
+$('#umM1no').addEventListener('click',umClose);
+$('#umM1ok').addEventListener('click',function(){
+  umClose();$('#umM2t').textContent='Sind Sie '+umSid()+' sicher, dass Sie das Notfallprotokoll autorisieren wollen?';
+  $('#umM2').hidden=false;$('#umM2ok').focus();
+});
+$('#umM2no').addEventListener('click',umClose);
+$('#umM2ok').addEventListener('click',function(){
+  var id=umSid();umClose();
+  var m=$('#umM3t');m.textContent='';
+  [['/git '+id+' autorisiert ',''],['Notfallprotokoll Umbra','pu'],[' und ',''],['sperrt','rd'],[' die Wächter-Datenbank für jegliches Konto unter Verschlussstufe 4.','']].forEach(function(x){
+    if(x[1]){var sp=document.createElement('span');sp.className=x[1];sp.textContent=x[0];m.appendChild(sp)}else m.appendChild(document.createTextNode(x[0]))});
+  umbraTo(2).then(function(ok){if(ok){$('#umM3').hidden=false;$('#umM3ok').focus()}});
+});
+$('#umM3ok').addEventListener('click',umClose);
 $('#umCancel').addEventListener('click',function(){setPhase(0)});
 
 var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1,ermittler:1,ris:1,archiv:1};
@@ -1420,7 +1450,7 @@ function acts(){
    {l:'Dashboard',k:'Ansicht',f:function(){go('dashboard')}},{l:'Personenregister',k:'Ansicht',f:function(){go('register')}},
    {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Galaxis Karte',k:'Ansicht',f:function(){go('karte')}},
    {l:'Archiv',k:'Ansicht',f:function(){go('archiv')}},{l:'RIS Kooperation',k:'Ansicht',f:function(){go('ris')}},{l:'Jedi Ermittler',k:'Ansicht',f:function(){if(S.hosted&&H.user&&H.user.inv)go('ermittler');else toast('Dafür fehlt die Freigabe „Jedi Ermittler“.','red')}},{l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
-   {l:'UMBRA auslösen',k:'Aktion',f:function(){umbraTo(2)}},{l:'UMBRA beenden',k:'Aktion',f:function(){umbraTo(0)}}];
+   {l:'UMBRA auslösen',k:'Aktion',f:function(){if(S.phase!==2)$('#umBtn').click()}},{l:'UMBRA beenden',k:'Aktion',f:function(){umbraTo(0)}}];
   if(P('persons'))a.push({l:'Person hinzufügen',k:'Aktion',f:function(){go('register');$('#addP').click()}});
   if(P('map'))a.push({l:'Karte bearbeiten',k:'Aktion',f:function(){go('karte');enterEdit()}});
   return a;
@@ -1585,10 +1615,10 @@ function showLock(){H.locked=true;$('#login').hidden=true;$('#force').hidden=tru
 function hideLock(){H.locked=false;$('#lock').hidden=true}
 function syncAlarm(active){if(active!==S.alarm)setPhase(active?2:0)}
 function umbraTo(next){
-  if(S.hosted&&!P('lockdown')){toast('Dir fehlt das Recht „Notfall“.','red');return}
+  if(S.hosted&&!P('lockdown')){toast('Dir fehlt das Recht „Notfall“.','red');return Promise.resolve(false)}
   if(S.hosted&&(next===2||(next===0&&S.phase===2))){
-    api('POST','/api/lockdown',{active:next===2}).then(function(){setPhase(next)}).catch(writeErr);return}
-  setPhase(next)
+    return api('POST','/api/lockdown',{active:next===2}).then(function(){setPhase(next);return true}).catch(function(e){writeErr(e);return false})}
+  setPhase(next);return Promise.resolve(true)
 }
 $('#lockOut').addEventListener('click',function(){api('POST','/api/logout').catch(function(){}).then(function(){hideLock();H.user=null;showLogin()})});
 function startHosted(u){
