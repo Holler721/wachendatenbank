@@ -119,3 +119,5 @@ Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Perso
 - Die Schatten Leitung vergibt unter Konten den Knopf „Deklassifizieren erlauben“ (Schatten Leitung darf immer).
 - Im Bericht: „Deklassifizieren“ → der Deklassifizierer legt ein Passwort (8–100 Zeichen) fest und erhält den Link `/d/<Token>`.
 - Abruf nur mit Link UND Passwort (öffentliche Seite `public/d.html`, ohne Anhänge, Schwärzungen aufgehoben, Stand eingefroren). Widerruf jederzeit; beim Löschen des Berichts erlischt der Link. Falsche Versuche werden begrenzt, bei Notfall UMBRA ist der Abruf gesperrt. Passwörter stehen nie in den Logs.
+
+**Schwärzungspflicht:** Wer nicht zur Schatten Leitung gehört, muss einen Bericht beim Deklassifizieren eigenhändig schwärzen (mindestens eine Stelle in [[doppelten Klammern]], Text sonst unverändert). Die geschwärzten Stellen erscheinen öffentlich als ████████. Nur die Schatten Leitung darf ohne Schwärzung deklassifizieren.
