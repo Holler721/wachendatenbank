@@ -123,3 +123,5 @@ Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Perso
 **Schwärzungspflicht:** Wer nicht zur Schatten Leitung gehört, muss einen Bericht beim Deklassifizieren eigenhändig schwärzen (mindestens eine Stelle in [[doppelten Klammern]], Text sonst unverändert). Die geschwärzten Stellen erscheinen öffentlich als ████████. Nur die Schatten Leitung darf ohne Schwärzung deklassifizieren.
 
 **RIS-Berichte:** „Berichts Austausch RIS“ zeigt Berichte im RIS-Dossier-Layout (Kopfzeile, Meta-Raster, nummerierte Abschnitte). Zusatzfelder: Rang, Planet / Ort, Beteiligtes Personal, Einheiten. Abschnitte im Text mit „## Überschrift“ beginnen.
+
+**Karte:** Mausrad zoomt die Galaxis Karte (bis 8x) zum Mauszeiger, mit gedrückter Maus verschiebt man den Ausschnitt, Doppelklick setzt zurück. Bei normaler Größe scrollt das Rad weiter die Seite.
