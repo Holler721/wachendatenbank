@@ -1116,7 +1116,7 @@ async function api(req, res, url) {
       if (!b || typeof b !== 'object') { const e = new Error('Ungültige Daten.'); e.status = 400; throw e; }
       const o = { ti: str(b.ti, 120), ref: str(b.ref, 60), text: str(b.text, 8000) };
       if (board === 'wachen') { const at = risAtt(ru, b, cur); if (at) o.att = at; }
-      if (board === 'ris') { o.rank = str(b.rank, 40); o.place = str(b.place, 60); o.staff = str(b.staff, 300); o.units = str(b.units, 200); }
+      if (board === 'ris') { o.lvl = str(b.lvl, 3).replace(/\D/g, '') || '1'; o.rank = str(b.rank, 40); o.place = str(b.place, 60); o.staff = str(b.staff, 300); o.units = str(b.units, 200); }
       const natt = (o.att || (cur && cur.att) || []).length;
       if (!o.ti) { const e = new Error('Der Titel fehlt.'); e.status = 400; throw e; }
       if (!o.text && !natt) { const e = new Error('Der Berichtstext fehlt (oder hänge eine Akte bzw. einen Bericht an).'); e.status = 400; throw e; }
