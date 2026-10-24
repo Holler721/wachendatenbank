@@ -125,3 +125,4 @@ Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Perso
 **RIS-Berichte:** „Berichts Austausch RIS“ zeigt Berichte im RIS-Dossier-Layout (Kopfzeile, Meta-Raster, nummerierte Abschnitte). Zusatzfelder: Rang, Planet / Ort, Beteiligtes Personal, Einheiten. Abschnitte im Text mit „## Überschrift“ beginnen.
 
 **Karte:** Mausrad zoomt die Galaxis Karte (bis 8x) zum Mauszeiger, mit gedrückter Maus verschiebt man den Ausschnitt, Doppelklick setzt zurück. Bei normaler Größe scrollt das Rad weiter die Seite.
+**Karte erweitern:** Herauszoomen (bis 0,25x) zeigt freien Raum rund um die Karte; im Bearbeitungsmodus lassen sich Systeme auch außerhalb des bisherigen Rahmens setzen (gestrichelter Rahmen = ursprünglicher Bereich).
