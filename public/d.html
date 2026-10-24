@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Deklassifizierter Bericht · Wächter Datenbank</title>
+<style>
+:root{--bg:#000;--panel:#0a0a0a;--line:#242424;--line2:#3a3a3a;--fg:#f0f0f0;--mute:#9c9c9c;--red:#fb4d6d;--mono:ui-monospace,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+main{width:100%;max-width:720px;background:var(--panel);border:1px solid var(--line2);padding:24px}
+h1{margin:0 0 4px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:600}
+h2{margin:6px 0 4px;font-size:22px}
+.muted{color:var(--mute);font-size:13px}
+label{display:block;font-size:12px;letter-spacing:.1em;color:var(--mute);margin:16px 0 6px}
+input{width:100%;padding:10px 12px;background:#000;color:var(--fg);border:1px solid var(--line2);font:inherit}
+input:focus-visible,button:focus-visible{outline:2px solid #ddd;outline-offset:2px}
+button{margin-top:14px;padding:10px 18px;background:#151515;color:var(--fg);border:1px solid #888;font:inherit;cursor:pointer}
+button:hover{background:#222}
+.err{color:var(--red);margin-top:12px;min-height:1.4em}
+.stamp{display:inline-block;border:1px solid #8f8;color:#8f8;padding:2px 8px;font-size:12px;letter-spacing:.12em;margin-bottom:10px}
+.body p{margin:0 0 12px}
+</style>
+</head>
+<body>
+<main>
+<h1>Wächter Datenbank · Archiv</h1>
+<div id="gate">
+  <h2>Deklassifizierter Bericht</h2>
+  <p class="muted">Dieser Bericht ist nur mit dem zugehörigen Passwort abrufbar.</p>
+  <form id="f">
+    <label for="pw">PASSWORT</label>
+    <input id="pw" type="password" autocomplete="off" required maxlength="100" autofocus>
+    <button type="submit">Bericht öffnen</button>
+    <div class="err" id="err" role="alert"></div>
+  </form>
+</div>
+<div id="doc" hidden></div>
+</main>
+<script>
+(function(){
+  var m=/^\/d\/([a-f0-9]{30})$/.exec(location.pathname),tok=m?m[1]:'';
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  document.getElementById('f').addEventListener('submit',function(e){
+    e.preventDefault();
+    var err=document.getElementById('err');err.textContent='';
+    fetch('/api/public/declass',{method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'shadow-net'},body:JSON.stringify({token:tok,password:document.getElementById('pw').value})})
+    .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
+    .then(function(x){
+      if(!x.ok){err.textContent=x.j.error||'Fehler.';return}
+      var j=x.j;
+      document.getElementById('gate').hidden=true;
+      var d=document.getElementById('doc');d.hidden=false;
+      d.innerHTML='<span class="stamp">DEKLASSIFIZIERT</span><h2>'+esc(j.ti)+'</h2><div class="muted">'+esc(j.t)+' · '+esc(j.d||'')+' · verfasst von '+esc(j.byName||'unbekannt')+'<br>Deklassifiziert von '+esc(j.decName)+' am '+esc(new Date(j.ts).toLocaleDateString('de-DE'))+'</div><hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="body">'+
+        String(j.body).split(/\n{2,}/).map(function(p){return '<p>'+esc(p).replace(/\n/g,'<br>')+'</p>'}).join('')+'</div>';
+      document.title=j.ti+' · Deklassifiziert';
+    }).catch(function(){err.textContent='Verbindung fehlgeschlagen.'});
+  });
+})();
+</script>
+</body>
+</html>
