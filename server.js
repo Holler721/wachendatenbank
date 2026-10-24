@@ -277,7 +277,7 @@ function normalizeDb() {
     if (!isObj(n) || typeof n.k !== 'string' || keys[n.k]) return false;
     keys[n.k] = 1; return true;
   }).map(function (n) {
-    return { k: n.k, id: str(n.id, 40) || n.k, x: isFinite(Number(n.x)) ? Math.max(0, Math.min(1, Number(n.x))) : 0.5, y: isFinite(Number(n.y)) ? Math.max(0, Math.min(1, Number(n.y))) : 0.5, s: n.s, i: str(n.i, 300) };
+    return { k: n.k, id: str(n.id, 40) || n.k, x: isFinite(Number(n.x)) ? Math.max(-1.5, Math.min(2.5, Number(n.x))) : 0.5, y: isFinite(Number(n.y)) ? Math.max(-1.5, Math.min(2.5, Number(n.y))) : 0.5, s: n.s, i: str(n.i, 300) };
   });
   db.map.edges = (Array.isArray(db.map.edges) ? db.map.edges : []).filter(function (e) { return Array.isArray(e) && e.length === 2 && keys[e[0]] && keys[e[1]] && e[0] !== e[1]; });
 }
@@ -573,7 +573,7 @@ function cleanMap(b) {
     const id = str(n.id, 40);
     if (!id) bad('Jedes System braucht einen Namen.');
     if (stateNames().indexOf(n.s) < 0) bad('Ungültiger Status.');
-    return { k: n.k, id: id, x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)), s: n.s, i: str(n.i, 300) };
+    return { k: n.k, id: id, x: Math.max(-1.5, Math.min(2.5, x)), y: Math.max(-1.5, Math.min(2.5, y)), s: n.s, i: str(n.i, 300) };
   });
   const seen = {}, edges = [];
   b.edges.forEach(function (e) {
