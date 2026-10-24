@@ -111,3 +111,11 @@ Auf der Wächter-Seite („Berichts Austausch Wachen“) kann man beim Schreiben
 
 ## KoS (Kill on Sight)
 Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Personen“, mit Bestätigung) oder über das Häkchen „KoS“ im Formular als Kill on Sight markieren, „KoS aufheben“ nimmt es zurück. KoS-Personen erscheinen mit rotem „KoS“-Label und dunkelroter Zeile in der Liste, mit rotem Banner in der Detailansicht und als Zähler im Dashboard. Setzen und Aufheben stehen im Log.
+
+## Notfall UMBRA (Dialogkette)
+„Notfall vorbereiten“ öffnet drei Fenster: Hinweis (GITs nötig) → Bestätigung mit Schatten ID → Meldung „/git <ID> autorisiert Notfallprotokoll Umbra und sperrt die Wächter Datenbank …“. Erst bei „Sicher“ wird gesperrt. Die Scan-Funktion bei den Planeten wurde entfernt.
+
+## Berichte deklassifizieren
+- Die Schatten Leitung vergibt unter Konten den Knopf „Deklassifizieren erlauben“ (Schatten Leitung darf immer).
+- Im Bericht: „Deklassifizieren“ → der Deklassifizierer legt ein Passwort (8–100 Zeichen) fest und erhält den Link `/d/<Token>`.
+- Abruf nur mit Link UND Passwort (öffentliche Seite `public/d.html`, ohne Anhänge, Schwärzungen aufgehoben, Stand eingefroren). Widerruf jederzeit; beim Löschen des Berichts erlischt der Link. Falsche Versuche werden begrenzt, bei Notfall UMBRA ist der Abruf gesperrt. Passwörter stehen nie in den Logs.
