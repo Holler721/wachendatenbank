@@ -623,6 +623,7 @@ function need(req, perm) {
   return u;
 }
 let MAIN = '';
+function sidDigits(s) { return String(s || '').replace(/\D/g, ''); }
 function canDecl(u) { return !!u && !u.ris && !u.blocked && (u.role === 'owner' || !!u.decl); }
 function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, decl: canDecl(u), ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
 function cleanUntil(x) {
@@ -661,7 +662,7 @@ async function api(req, res, url) {
     if (db.lockdown.active) return send(res, 503, { error: 'Die Wächter Datenbank ist gerade gesperrt.' });
     const e = /^[a-f0-9]{30}$/.test(tok) ? db.declass[tok] : null;
     if (!e || !pw || !checkPw(pw, e.hash)) { fail(ipk); fail(tk); return send(res, 403, { error: 'Link oder Passwort ungültig.' }); }
-    return send(res, 200, { ti: e.ti, t: e.t, d: e.d, byName: e.byName, body: e.body, decName: e.decName, ts: e.ts });
+    return send(res, 200, { ti: e.ti, t: e.t, d: e.d, byName: e.byName, body: e.body, decName: sidDigits(e.decSid) || e.decName, ts: e.ts });
   }
   if (db.lockdown.active && ['/api/session', '/api/login', '/api/logout'].indexOf(p) < 0) {
     const lu = sessionUser(req);
@@ -707,7 +708,7 @@ async function api(req, res, url) {
     const persons = Object.keys(db.persons).filter(function (id) { return canSee(me, db.persons[id]); })
       .map(function (id) { const x = db.persons[id]; return Object.assign({ id: id }, x, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
       .sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-    const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; const dcT = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === id; })[0]; return Object.assign({ id: id }, x, { dc: dcT ? { by: db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null }, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
+    const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; const dcT = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === id; })[0]; return Object.assign({ id: id }, x, { dc: dcT ? { by: sidDigits(db.declass[dcT].decSid) || db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null }, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
       .filter(function (r) { return canRead(me, r.cls); })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     return send(res, 200, { me: publicUser(me), groups: groupsList(), rev: db.rev, persons: persons, map: db.map, reports: reports, config: db.config, lockdown: !!db.lockdown.active,
@@ -842,9 +843,17 @@ async function api(req, res, url) {
       const b = await readBody(req);
       const pw = typeof b.password === 'string' ? b.password : '';
       if (pw.length < 8 || pw.length > 100) return send(res, 400, { error: 'Das Passwort muss 8 bis 100 Zeichen lang sein.' });
+      const strip = function (x) { return String(x || '').replace(/\[\[|\]\]/g, ''); };
+      let text;
+      if (typeof b.body === 'string' && b.body.trim()) {
+        if (strip(b.body).replace(/\s+/g, ' ').trim() !== strip(cur.body).replace(/\s+/g, ' ').trim()) return send(res, 400, { error: 'Beim Schwärzen darf der Text nicht verändert werden. Setze nur [[doppelte Klammern]] um die zu schwärzenden Stellen.' });
+        text = b.body.replace(/\[\[[\s\S]*?\]\]/g, '████████');
+        if (u.role !== 'owner' && text === b.body) return send(res, 400, { error: 'Du musst den Bericht eigenhändig schwärzen: Setze mindestens eine Stelle in [[doppelte Klammern]].' });
+      } else if (u.role !== 'owner') return send(res, 400, { error: 'Nur die Schatten Leitung darf ohne Schwärzung deklassifizieren. Du musst den Bericht eigenhändig schwärzen.' });
+      else text = String(cur.body || '').replace(/\[\[([\s\S]*?)\]\]/g, '$1');
       if (!old && Object.keys(db.declass).length >= 500) return send(res, 400, { error: 'Zu viele deklassifizierte Berichte.' });
       const tok = old || crypto.randomBytes(15).toString('hex');
-      db.declass[tok] = { rid: dm[1], ti: cur.ti, t: cur.t, d: cur.d, byName: cur.byName || cur.by || '', body: String(cur.body || '').replace(/\[\[([\s\S]*?)\]\]/g, '$1'),
+      db.declass[tok] = { rid: dm[1], ti: cur.ti, t: cur.t, d: cur.d, byName: cur.byName || cur.by || '', body: text,
         decName: dispName(u), decSid: u.sid || '', ts: Date.now(), hash: hashPw(pw) };
       logAct(u, old ? 'Deklassifizierung erneuert' : 'Bericht deklassifiziert', cur.ti + ' (per Link und Passwort abrufbar)'); bump();
       return send(res, 200, { token: tok });
