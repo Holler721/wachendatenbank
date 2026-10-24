@@ -115,6 +115,25 @@ h2{margin:0;font-size:18px}
 .btn{min-height:42px;border-radius:8px;padding:0 18px;font-weight:600;border:1px solid var(--line2);background:rgba(190,190,190,.14);color:#efefef;transition:background .15s,box-shadow .15s}
 .btn:hover{background:rgba(190,190,190,.3);box-shadow:0 0 22px var(--acc-glow)}
 .btn.danger{border-color:var(--red);background:rgba(251,77,109,.12);color:#ffd9e0}
+.dos{border:1px solid #3a1118;background:linear-gradient(#0b0607,#050303);padding:0 0 12px;margin:6px 0}
+.dos small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--dim)}
+.dosTop{display:flex;justify-content:space-between;padding:6px 14px;border-bottom:1px solid #3a1118;font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--red)}
+.dosHd{display:flex;gap:14px;align-items:center;padding:14px;border-bottom:2px solid var(--red);color:var(--red);flex-wrap:wrap}
+.dosHd>div:nth-child(2){flex:1;min-width:180px;color:var(--fg)}
+.dosHd b{display:block;letter-spacing:.06em;font-size:15px}
+.dosNo{text-align:right}.dosNo b{font-family:var(--mono);font-size:13px}.dosNo em{font-style:normal;font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--red)}
+.dosKick{padding:16px 14px 0;font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--red)}
+.dosTi{margin:4px 14px 12px;font-size:22px;color:var(--fg)}
+.dosMeta{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));border:1px solid var(--line);margin:0 14px 10px}
+.dosMeta>div,.dosPers>div{padding:8px 12px;border-right:1px solid var(--line)}
+.dosMeta b{display:block;font-weight:500;margin-top:2px}
+.dosPers{border:1px solid var(--line);margin:0 14px 14px}
+.dosPers>div{display:grid;grid-template-columns:140px 1fr;gap:8px;border-right:0}.dosPers>div+div{border-top:1px solid var(--line)}
+.dosSec{display:grid;grid-template-columns:36px 1fr;gap:8px;margin:10px 14px 0;padding:10px 12px;border-left:2px solid var(--red);background:rgba(251,77,109,.04)}
+.dosNr{font-family:var(--mono);color:var(--red);font-size:13px}
+.dosSec h4{margin:0 0 6px;font-size:11px;letter-spacing:.2em;border-bottom:1px solid var(--line);padding-bottom:4px}
+.dosSec p{margin:0 0 10px;font-size:14px}
+@media(max-width:560px){.dosPers>div{grid-template-columns:1fr}}
 .dlgov{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:20px}
 .dlgbox{background:var(--panel);border:1px solid var(--red);box-shadow:0 0 40px rgba(251,77,109,.25);padding:22px;max-width:520px;width:100%;display:grid;gap:16px}
 .dlgbox h3{margin:0 0 6px;font-family:var(--display);color:var(--red);letter-spacing:.06em;text-transform:uppercase;font-size:15px}
@@ -1275,7 +1294,20 @@ var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1,ermitt
 /* ---------- RIS Kooperation ---------- */
 var RIS={data:{wachen:[],ris:[],write:{},side:'',others:false},edit:null,att:[]};
 var RISB=[['wachen','Berichts Austausch Wachen','Berichte der Wachen an das RIS'],['ris','Berichts Austausch RIS','Berichte des RIS an die Wachen']];
-function risForm(board,it){return '<form class="fl risForm" data-board="'+board+'" style="padding:12px;display:grid;gap:8px"><h3 style="margin:0;font-size:14px">'+(it?'Bericht bearbeiten':'Neuer Bericht')+'</h3><div class="field"><label>TITEL *</label><input class="rti" type="text" maxlength="120" value="'+esc(it?it.ti:'')+'"></div><div class="field"><label>REFERENZ / AKTENZEICHEN</label><input class="rrf" type="text" maxlength="60" value="'+esc(it?it.ref||'':'')+'"></div>'+(board==='wachen'?'<div class="field"><label for="risSel">AKTEN &amp; BERICHTE AUS DER WEBSITE ANHÄNGEN</label><div class="ratt" style="display:flex;gap:6px;flex-wrap:wrap;min-height:26px;align-items:center"></div><select class="rsel" id="risSel"></select><span class="muted" style="font-size:11px">Die Auswahl wird als Kopie in den Austausch übernommen, damit das RIS sie lesen kann. Spätere Änderungen auf der Website erscheinen dort nicht.</span></div>':'')+'<div class="field"><label>BERICHT'+(board==='wachen'?' (leer lassen, wenn Anhänge reichen)':' *')+'</label><textarea class="rtx" rows="8" maxlength="8000">'+esc(it?it.text:'')+'</textarea></div><div style="display:flex;gap:8px"><button class="btn sm" type="submit">Speichern</button><button class="btn sm ghost" type="button" data-risact="cancel">Abbrechen</button></div></form>'}
+function risForm(board,it){return '<form class="fl risForm" data-board="'+board+'" style="padding:12px;display:grid;gap:8px"><h3 style="margin:0;font-size:14px">'+(it?'Bericht bearbeiten':'Neuer Bericht')+'</h3><div class="field"><label>TITEL *</label><input class="rti" type="text" maxlength="120" value="'+esc(it?it.ti:'')+'"></div><div class="field"><label>REFERENZ / AKTENZEICHEN</label><input class="rrf" type="text" maxlength="60" value="'+esc(it?it.ref||'':'')+'"></div>'+(board==='ris'?'<div class="field"><label>RANG</label><input class="rrk" type="text" maxlength="40" value="'+esc(it?it.rank||'':'')+'"></div><div class="field"><label>PLANET / ORT</label><input class="rpl" type="text" maxlength="60" value="'+esc(it?it.place||'':'')+'"></div><div class="field"><label>BETEILIGTES PERSONAL</label><input class="rst" type="text" maxlength="300" value="'+esc(it?it.staff||'':'')+'"></div><div class="field"><label>EINHEITEN</label><input class="run" type="text" maxlength="200" value="'+esc(it?it.units||'':'')+'"></div>':'')+(board==='wachen'?'<div class="field"><label for="risSel">AKTEN &amp; BERICHTE AUS DER WEBSITE ANHÄNGEN</label><div class="ratt" style="display:flex;gap:6px;flex-wrap:wrap;min-height:26px;align-items:center"></div><select class="rsel" id="risSel"></select><span class="muted" style="font-size:11px">Die Auswahl wird als Kopie in den Austausch übernommen, damit das RIS sie lesen kann. Spätere Änderungen auf der Website erscheinen dort nicht.</span></div>':'')+'<div class="field"><label>BERICHT'+(board==='wachen'?' (leer lassen, wenn Anhänge reichen)':' *')+'</label><textarea class="rtx" rows="8" maxlength="8000">'+esc(it?it.text:'')+'</textarea>'+(board==='ris'?'<span class="muted" style="font-size:11px">Abschnitte mit einer Zeile „## Überschrift“ beginnen (z. B. „## Analysebericht“, „## Ergebnis / Auswertung“). Leerzeile = neuer Absatz.</span>':'')+'</div><div style="display:flex;gap:8px"><button class="btn sm" type="submit">Speichern</button><button class="btn sm ghost" type="button" data-risact="cancel">Abbrechen</button></div></form>'}
+var ROM=['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX'];
+function dosSecs(t){var out=[],cur=null;String(t||'').split('\n').forEach(function(l){var m=/^##\s*(.+)$/.exec(l);if(m){cur={h:m[1].trim(),b:[]};out.push(cur)}else{if(!cur){if(!l.trim())return;cur={h:'Bericht',b:[]};out.push(cur)}cur.b.push(l)}});return out}
+function dosHtml(it){
+  var dt=new Date(it.ts),no=it.ref||('R-1-RIS-'+String(it.id||'').slice(0,8));
+  var meta=[['Autor',it.by||'–'],['Rang',it.rank||'–'],['Datum',dt.toLocaleDateString('de-DE')],['Uhrzeit',dt.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})],['Planet / Ort',it.place||'–']];
+  return '<article class="dos"><div class="dosTop"><span>CLASSIFIED</span><span>✦ 1-RIS ✦</span><span>REPORT</span></div>'+
+   '<header class="dosHd"><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="22" cy="22" r="12" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M22 2v40M2 22h40" stroke="currentColor" stroke-width="1"/></svg>'+
+   '<div><b>REPUBLIC INTELLIGENCE SERVICE</b><small>INTERNES DOKUMENT · NUR FÜR BERECHTIGTE</small></div><div class="dosNo"><small>FILE NO.</small><b>'+esc(no)+'</b><em>CLASSIFIED 1-RIS</em></div></header>'+
+   '<div class="dosKick">INTELLIGENCE REPORT</div><h3 class="dosTi">'+esc(it.ti)+'</h3>'+
+   '<div class="dosMeta">'+meta.map(function(m){return '<div><small>'+m[0].toUpperCase()+'</small><b>'+esc(m[1])+'</b></div>'}).join('')+'</div>'+
+   ((it.staff||it.units)?'<div class="dosPers">'+(it.staff?'<div><small>BETEILIGTES PERSONAL</small><span>'+esc(it.staff)+'</span></div>':'')+(it.units?'<div><small>EINHEITEN</small><span>'+esc(it.units)+'</span></div>':'')+'</div>':'')+
+   dosSecs(it.text).map(function(s,i){return '<section class="dosSec"><span class="dosNr">'+(ROM[i]||i+1)+'</span><div><h4>'+esc(s.h.toUpperCase())+'</h4>'+s.b.join('\n').split(/\n{2,}/).filter(function(p){return p.trim()}).map(function(p){return '<p>'+esc(p.trim()).replace(/\n/g,'<br>')+'</p>'}).join('')+'</div></section>'}).join('')+'</article>';
+}
 function risAttDraw(f){
   var box=$('.ratt',f),sel=$('.rsel',f);if(!box||!sel)return;
   box.innerHTML=RIS.att.length?RIS.att.map(function(a,i){return '<span class="chip vio">'+esc(a.ti)+' <button type="button" data-risact="unatt" data-i="'+i+'" aria-label="'+esc(a.ti)+' entfernen" style="background:none;border:0;color:inherit;cursor:pointer;padding:0 0 0 4px">×</button></span>'}).join(''):'<span class="muted" style="font-size:12px">Nichts angehängt.</span>';
@@ -1289,7 +1321,7 @@ function renderRis(){
      (list.map(function(it){
        if(RIS.edit===k+':'+it.id)return risForm(k,it);
        var mine=it.bk===(H.user&&H.user.name);
-       return '<details class="fl"><summary><span><b>'+esc(it.ti)+'</b>'+(it.ref?' <span class="chip vio">'+esc(it.ref)+'</span>':'')+'</span><span class="muted">'+esc(fDate(it.ts))+' · '+esc(it.by||'')+'</span></summary><div class="fb">'+(it.text?'<pre>'+esc(it.text)+'</pre>':'')+(it.att||[]).map(function(a){return '<details class="fl" style="margin:0"><summary><span><span class="chip '+(a.k==='person'?'cyan':'amber')+'">'+(a.k==='person'?'Akte':'Bericht')+'</span> <b>'+esc(a.ti.replace(/^(Akte|Bericht): /,''))+'</b></span><span class="muted">'+esc(a.sub||'')+'</span></summary><div class="fb"><pre>'+esc(a.text)+'</pre></div></details>'}).join('')+(it.edited?'<span class="muted" style="font-size:11px">Bearbeitet am '+esc(fDate(it.edited))+'</span>':'')+(w?'<div style="display:flex;gap:8px"><button class="btn sm ghost" data-risact="edit" data-board="'+k+'" data-id="'+esc(it.id)+'">Bearbeiten</button><button class="btn sm danger" data-risact="del" data-board="'+k+'" data-id="'+esc(it.id)+'">Löschen</button></div>':'')+'</div></details>'}).join('')||'<p class="muted" style="margin:0">Noch keine Berichte.</p>')+'</section>'}).join('');
+       return '<details class="fl"><summary><span><b>'+esc(it.ti)+'</b>'+(it.ref?' <span class="chip vio">'+esc(it.ref)+'</span>':'')+'</span><span class="muted">'+esc(fDate(it.ts))+' · '+esc(it.by||'')+'</span></summary><div class="fb">'+(k==='ris'?dosHtml(it):(it.text?'<pre>'+esc(it.text)+'</pre>':''))+(it.att||[]).map(function(a){return '<details class="fl" style="margin:0"><summary><span><span class="chip '+(a.k==='person'?'cyan':'amber')+'">'+(a.k==='person'?'Akte':'Bericht')+'</span> <b>'+esc(a.ti.replace(/^(Akte|Bericht): /,''))+'</b></span><span class="muted">'+esc(a.sub||'')+'</span></summary><div class="fb"><pre>'+esc(a.text)+'</pre></div></details>'}).join('')+(it.edited?'<span class="muted" style="font-size:11px">Bearbeitet am '+esc(fDate(it.edited))+'</span>':'')+(w?'<div style="display:flex;gap:8px"><button class="btn sm ghost" data-risact="edit" data-board="'+k+'" data-id="'+esc(it.id)+'">Bearbeiten</button><button class="btn sm danger" data-risact="del" data-board="'+k+'" data-id="'+esc(it.id)+'">Löschen</button></div>':'')+'</div></details>'}).join('')||'<p class="muted" style="margin:0">Noch keine Berichte.</p>')+'</section>'}).join('');
   $$('#risBody .risForm').forEach(risAttDraw);
 }
 function loadRis(){api('GET','/api/ris').then(function(j){RIS.data=j;var a=document.activeElement;if(!RIS.edit||!a||!a.closest||!a.closest('.risForm'))renderRis()}).catch(function(err){if(!(err&&err.code==='lockdown'))apiErr(err)})}
@@ -1311,6 +1343,7 @@ $('#risBody').addEventListener('click',function(e){
 $('#risBody').addEventListener('submit',function(e){
   var f=e.target.closest('.risForm');if(!f)return;e.preventDefault();
   var k=f.dataset.board,d={ti:$('.rti',f).value.trim(),ref:$('.rrf',f).value.trim(),text:$('.rtx',f).value.trim()};
+  if(k==='ris'){d.rank=$('.rrk',f).value.trim();d.place=$('.rpl',f).value.trim();d.staff=$('.rst',f).value.trim();d.units=$('.run',f).value.trim()}
   if(k==='wachen')d.att=RIS.att.map(function(a){return a.id?{id:a.id}:{k:a.k,src:a.src}});
   if(!d.ti||(!d.text&&!(d.att&&d.att.length))){toast(k==='wachen'?'Titel und Bericht (oder ein Anhang) müssen ausgefüllt sein.':'Titel und Bericht müssen ausgefüllt sein.','red');return}
   var isNew=RIS.edit===k+':new';
