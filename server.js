@@ -623,6 +623,7 @@ function need(req, perm) {
   return u;
 }
 let MAIN = '';
+function authorId(key, fb) { const u = db.users[key]; return (u && sidDigits(u.sid)) || fb || key || ''; }
 function sidDigits(s) { return String(s || '').replace(/\D/g, ''); }
 function canDecl(u) { return !!u && !u.ris && !u.blocked && (u.role === 'owner' || !!u.decl); }
 function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, decl: canDecl(u), ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
@@ -706,9 +707,9 @@ async function api(req, res, url) {
     if (since === db.rev) return send(res, 200, { same: true, rev: db.rev });
     const me = sessionUser(req);
     const persons = Object.keys(db.persons).filter(function (id) { return canSee(me, db.persons[id]); })
-      .map(function (id) { const x = db.persons[id]; return Object.assign({ id: id }, x, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
+      .map(function (id) { const x = db.persons[id]; return Object.assign({ id: id }, x, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
       .sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-    const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; const dcT = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === id; })[0]; return Object.assign({ id: id }, x, { dc: dcT ? { by: sidDigits(db.declass[dcT].decSid) || db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null }, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
+    const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; const dcT = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === id; })[0]; return Object.assign({ id: id }, x, { byName: authorId(x.by, x.byName), dc: dcT ? { by: sidDigits(db.declass[dcT].decSid) || db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null }, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
       .filter(function (r) { return canRead(me, r.cls); })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     return send(res, 200, { me: publicUser(me), groups: groupsList(), rev: db.rev, persons: persons, map: db.map, reports: reports, config: db.config, lockdown: !!db.lockdown.active,
@@ -853,7 +854,7 @@ async function api(req, res, url) {
       else text = String(cur.body || '').replace(/\[\[([\s\S]*?)\]\]/g, '$1');
       if (!old && Object.keys(db.declass).length >= 500) return send(res, 400, { error: 'Zu viele deklassifizierte Berichte.' });
       const tok = old || crypto.randomBytes(15).toString('hex');
-      db.declass[tok] = { rid: dm[1], ti: cur.ti, t: cur.t, d: cur.d, byName: cur.byName || cur.by || '', body: text,
+      db.declass[tok] = { rid: dm[1], ti: cur.ti, t: cur.t, d: cur.d, byName: authorId(cur.by, cur.byName), body: text,
         decName: dispName(u), decSid: u.sid || '', ts: Date.now(), hash: hashPw(pw) };
       logAct(u, old ? 'Deklassifizierung erneuert' : 'Bericht deklassifiziert', cur.ti + ' (per Link und Passwort abrufbar)'); bump();
       return send(res, 200, { token: tok });
