@@ -47,8 +47,8 @@ Unter „Konto“ → „Gruppen und Rechte“ legt die Schatten Leitung pro Gru
 ## Sichtbarkeit nach Gruppen
 Personen, Akten (bei Personen) und Operationen haben ein Feld „Sichtbar für“. Standard: alle Gruppen. Wählt man „Alle Gruppen“ ab, sehen nur die angehakten Gruppen den Eintrag; die anderen sehen ihn gar nicht (der Server liefert ihn nicht aus). Die Schatten Leitung sieht immer alles. Bei Operationen ändert man die Sichtbarkeit über den Knopf „Sichtbarkeit“ (ab Verwalten). Wird eine Gruppe gelöscht, bleiben ihre Einträge eingeschränkt (dann nur Schatten Leitung).
 
-## Kontonamen und Schatten ID
-Namen dürfen Leerzeichen und Großbuchstaben enthalten (z. B. „Nario Zeyscho“). Bei der Anmeldung ist die Schreibweise egal. Jedes Konto bekommt automatisch eine Schatten ID (z. B. SD-4821), die Schatten Leitung kann sie unter „Konto“ ändern. Beim Namen lässt sich nachträglich nur die Groß-/Kleinschreibung ändern.
+## Kontonamen und Wächter ID
+Namen dürfen Leerzeichen und Großbuchstaben enthalten (z. B. „Nario Zeyscho“). Bei der Anmeldung ist die Schreibweise egal. Jedes Konto bekommt automatisch eine Wächter ID (z. B. SD-4821), die Schatten Leitung kann sie unter „Konto“ ändern. Beim Namen lässt sich nachträglich nur die Groß-/Kleinschreibung ändern.
 
 ## Farben
 Labels können Weiß, Hellgrau, Silber, Mittelgrau, Rot, Dunkelrot, Orange, Gelb, Grün, Dunkelgrün, Hellblau, Blau, Dunkelblau, Lila oder Pink sein.
@@ -98,7 +98,7 @@ Operationen durchlaufen feste Phasen: 0 % Planung, 25 % Mitglieder Sammlung, 50 
 Die Kontenliste ist nach Rang sortiert: zuerst unantastbare Konten, dann das Haupt-Owner-Konto, dann nach Rang der Gruppe von hoch nach niedrig, bei gleichem Rang alphabetisch.
 
 ## Unantastbare Konten
-Unantastbare Konten sind fest im Code (`UNTOUCHABLE` in `server.js`) hinterlegt, aktuell „Mace Windu“ mit der Schatten ID RV-0000 und der Gruppenbezeichnung „Jedi Ratsvorsitz“ (technisch die Rechte der Schatten Leitung, also alle Rechte; die Gruppe „Schatten Leitung“ selbst heißt weiterhin so). Das Konto steht normal in der Kontenliste unter „Konten“, mit dem Label „Unantastbar“ und ohne Bearbeiten-Knöpfe, immer ganz oben (noch vor dem Haupt-Owner-Konto). Es kann von niemandem geändert werden, auch nicht vom Haupt-Owner: kein Löschen, Sperren, Befristen, Gruppenwechsel, Passwort-Reset und keine Umbenennung (der Server lehnt das ab). Nur das Konto selbst ändert sein Passwort unter „Konto“. Beim ersten Login muss das Startpasswort ersetzt werden. Wird das Konto in den Daten gelöscht, gesperrt oder herabgestuft, stellt der nächste Start es wieder her. Notfall-Zugang bei vergessenem Passwort: In Render die Umgebungsvariable `UNTOUCHABLE_PASSWORD_MACE_WINDU` setzen (dann gilt dieses Passwort ohne erzwungene Änderung). Weitere Konten: in `server.js` zur Liste `UNTOUCHABLE` ergänzen (Passwort-Hash mit `node server.js --hash "passwort"`).
+Unantastbare Konten sind fest im Code (`UNTOUCHABLE` in `server.js`) hinterlegt, aktuell „Mace Windu“ mit der Wächter ID RV-0000 und der Gruppenbezeichnung „Jedi Ratsvorsitz“ (technisch die Rechte der Schatten Leitung, also alle Rechte; die Gruppe „Schatten Leitung“ selbst heißt weiterhin so). Das Konto steht normal in der Kontenliste unter „Konten“, mit dem Label „Unantastbar“ und ohne Bearbeiten-Knöpfe, immer ganz oben (noch vor dem Haupt-Owner-Konto). Es kann von niemandem geändert werden, auch nicht vom Haupt-Owner: kein Löschen, Sperren, Befristen, Gruppenwechsel, Passwort-Reset und keine Umbenennung (der Server lehnt das ab). Nur das Konto selbst ändert sein Passwort unter „Konto“. Beim ersten Login muss das Startpasswort ersetzt werden. Wird das Konto in den Daten gelöscht, gesperrt oder herabgestuft, stellt der nächste Start es wieder her. Notfall-Zugang bei vergessenem Passwort: In Render die Umgebungsvariable `UNTOUCHABLE_PASSWORD_MACE_WINDU` setzen (dann gilt dieses Passwort ohne erzwungene Änderung). Weitere Konten: in `server.js` zur Liste `UNTOUCHABLE` ergänzen (Passwort-Hash mit `node server.js --hash "passwort"`).
 
 ## Archiv
 Neuer Reiter „Archiv“ (SR-AR) mit zwei Bereichen, zwischen denen man oben umschaltet; beide haben eine Suche und zeigen die Einträge als Karten.
@@ -113,7 +113,7 @@ Auf der Wächter-Seite („Berichts Austausch Wachen“) kann man beim Schreiben
 Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Personen“, mit Bestätigung) oder über das Häkchen „KoS“ im Formular als Kill on Sight markieren, „KoS aufheben“ nimmt es zurück. KoS-Personen erscheinen mit rotem „KoS“-Label und dunkelroter Zeile in der Liste, mit rotem Banner in der Detailansicht und als Zähler im Dashboard. Setzen und Aufheben stehen im Log.
 
 ## Notfall UMBRA (Dialogkette)
-„Notfall vorbereiten“ öffnet drei Fenster: Hinweis (GITs nötig) → Bestätigung mit Schatten ID → Meldung „/git <ID> autorisiert Notfallprotokoll Umbra und sperrt die Wächter Datenbank …“. Erst bei „Sicher“ wird gesperrt. Die Scan-Funktion bei den Planeten wurde entfernt.
+„Notfall vorbereiten“ öffnet drei Fenster: Hinweis (GITs nötig) → Bestätigung mit Wächter ID → Meldung „/git <ID> autorisiert Notfallprotokoll Umbra und sperrt die Wächter Datenbank …“. Erst bei „Sicher“ wird gesperrt. Die Scan-Funktion bei den Planeten wurde entfernt.
 
 ## Berichte deklassifizieren
 - Die Schatten Leitung vergibt unter Konten den Knopf „Deklassifizieren erlauben“ (Schatten Leitung darf immer).
