@@ -999,11 +999,12 @@ function renderReports(){
 function dcLink(d){return d.dc&&d.dc.token?location.origin+'/d/'+d.dc.token:''}
 function dcBox(d){
   var h2='';
-  if(d.dc)h2+='<div class="chip cyan" style="margin-top:10px">Deklassifiziert von '+esc(d.dc.by)+'</div>';
+  if(d.dc)h2+='<div class="chip cyan" style="margin-top:10px">Deklassifiziert durch Schatten ID '+esc(d.dc.by)+'</div>';
   if(S.dcForm!==d.id||!(H.user&&H.user.decl))return h2;
   var lk=dcLink(d);
   return h2+'<div class="rform" style="margin-top:12px;padding:12px;border:1px solid var(--line2);display:grid;gap:8px"><b>Deklassifizierung</b>'+
-   '<span class="muted" style="font-size:12px">Der Bericht wird mit aufgehobenen Schwärzungen (ohne Anhänge) unter einem Link bereitgestellt. Abrufbar nur mit Link UND dem Passwort, das du jetzt festlegst. Der Stand wird beim Deklassifizieren eingefroren.</span>'+
+   '<span class="muted" style="font-size:12px">Der Bericht wird (ohne Anhänge) unter einem Link bereitgestellt. Abrufbar nur mit Link UND dem Passwort, das du jetzt festlegst. Der Stand wird beim Deklassifizieren eingefroren.</span>'+
+   '<div class="field"><label for="dcBody">SCHWÄRZEN</label><textarea id="dcBody" maxlength="8000" rows="8">'+esc(d.body)+'</textarea><span class="muted" style="font-size:12px">'+(H.user.role==='owner'?'Optional für die Schatten Leitung: Stellen in [[doppelten Klammern]] werden im öffentlichen Bericht geschwärzt, ohne Klammern bleibt alles lesbar.':'Pflicht: Jeder Bericht, der nicht von der Schatten Leitung deklassifiziert wird, muss eigenhändig geschwärzt werden. Setze die zu schwärzenden Stellen in [[doppelte Klammern]] (mindestens eine). Der Text selbst darf nicht verändert werden.')+'</span></div>'+
    (lk?'<div class="field"><label>LINK</label><input type="text" readonly id="dcLink" value="'+esc(lk)+'"></div>':'')+
    '<div class="field"><label for="dcPw">PASSWORT (8–100 Zeichen, legst du fest)</label><input type="text" id="dcPw" minlength="8" maxlength="100" autocomplete="off" placeholder="neues Passwort für diesen Bericht"></div>'+
    '<div class="rtools"><button class="btn sm" data-act="dcSave">'+(d.dc?'Neues Passwort setzen / Stand erneuern':'Deklassifizieren')+'</button>'+(lk?'<button class="btn sm ghost" data-act="dcCopy">Link kopieren</button>':'')+(d.dc?'<button class="btn sm danger" data-act="dcRevoke">Widerrufen</button>':'')+'<button class="btn sm ghost" data-act="dcClose">Schließen</button></div></div>';
@@ -1018,7 +1019,8 @@ $('#reader').addEventListener('click',function(e){
   if(a==='dcClose'){S.dcForm=null;renderReports();return}
   if(a==='dcCopy'){var lk=dcLink(d);if(navigator.clipboard)navigator.clipboard.writeText(lk).then(function(){toast('Link kopiert.','cyan')},function(){toast('Kopieren nicht möglich.','red')});return}
   if(a==='dcSave'&&d){var pw=$('#dcPw').value;if(pw.length<8){toast('Das Passwort braucht mindestens 8 Zeichen.','red');return}
-    api('POST','/api/reports/'+encodeURIComponent(d.id)+'/declassify',{password:pw}).then(function(){toast('Bericht deklassifiziert. Link und Passwort einzeln weitergeben.','cyan');return loadData(true)}).then(function(){renderReports()}).catch(apiErr);return}
+    var db2=$('#dcBody').value;if(H.user.role!=='owner'&&db2.indexOf('[[')<0){toast('Bitte zuerst eigenhändig schwärzen: mindestens eine Stelle in [[Klammern]] setzen.','red');return}
+    api('POST','/api/reports/'+encodeURIComponent(d.id)+'/declassify',{password:pw,body:db2}).then(function(){toast('Bericht deklassifiziert. Link und Passwort einzeln weitergeben.','cyan');return loadData(true)}).then(function(){renderReports()}).catch(apiErr);return}
   if(a==='dcRevoke'&&d){api('DELETE','/api/reports/'+encodeURIComponent(d.id)+'/declassify').then(function(){toast('Deklassifizierung widerrufen. Der Link ist ungültig.','red');S.dcForm=null;return loadData(true)}).then(function(){renderReports()}).catch(apiErr);return}
   if(a==='rCancel'){S.repEdit=null;renderReports();return}
   if(!d)return;
