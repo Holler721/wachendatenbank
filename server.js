@@ -14,6 +14,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const INDEX_FILE = path.join(__dirname, 'public', 'index.html');
+const DECL_FILE = path.join(__dirname, 'public', 'd.html');
 const TRUST_PROXY = process.env.TRUST_PROXY !== '0';
 const SESSION_MS = 12 * 60 * 60 * 1000;
 const COOKIE = 'sh_sess';
@@ -263,6 +264,7 @@ function normalizeDb() {
   Object.keys(db.users).forEach(function (k) { if (!db.users[k].sid) db.users[k].sid = genSid(); });
   if (!isObj(db.lockdown)) db.lockdown = { active: false };
   if (!isObj(db.inv)) db.inv = {};
+  if (!isObj(db.declass)) db.declass = {};
   ['covers', 'informants', 'talks'].forEach(function (k) { if (!isObj(db.inv[k])) db.inv[k] = {}; });
   if (!isObj(db.ris)) db.ris = {};
   ['wachen', 'ris'].forEach(function (k) { if (!isObj(db.ris[k])) db.ris[k] = {}; });
@@ -621,7 +623,8 @@ function need(req, perm) {
   return u;
 }
 let MAIN = '';
-function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
+function canDecl(u) { return !!u && !u.ris && !u.blocked && (u.role === 'owner' || !!u.decl); }
+function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, decl: canDecl(u), ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
 function cleanUntil(x) {
   const n = Number(x), now = Date.now();
   if (!isFinite(n) || n < now + 60000 || n > now + 400 * 86400000) { const e = new Error('Das Ablaufdatum muss zwischen 1 Minute und 400 Tagen in der Zukunft liegen.'); e.status = 400; throw e; }
@@ -649,6 +652,16 @@ async function api(req, res, url) {
     if (req.headers['x-requested-with'] !== 'shadow-net' || !/^application\/json/.test(req.headers['content-type'] || (method === 'DELETE' ? 'application/json' : ''))) {
       return send(res, 400, { error: 'Ungültige Anfrage.' });
     }
+  }
+  if (p === '/api/public/declass' && method === 'POST') {
+    const b = await readBody(req);
+    const tok = typeof b.token === 'string' ? b.token.slice(0, 60) : '', pw = typeof b.password === 'string' ? b.password.slice(0, 100) : '';
+    const ipk = 'dc:' + clientIp(req), tk = 'dct:' + tok;
+    if (limited(ipk, 15) || limited(tk, 30)) return send(res, 429, { error: 'Zu viele Versuche. Bitte warte etwa 15 Minuten.' });
+    if (db.lockdown.active) return send(res, 503, { error: 'Die Wächter Datenbank ist gerade gesperrt.' });
+    const e = /^[a-f0-9]{30}$/.test(tok) ? db.declass[tok] : null;
+    if (!e || !pw || !checkPw(pw, e.hash)) { fail(ipk); fail(tk); return send(res, 403, { error: 'Link oder Passwort ungültig.' }); }
+    return send(res, 200, { ti: e.ti, t: e.t, d: e.d, byName: e.byName, body: e.body, decName: e.decName, ts: e.ts });
   }
   if (db.lockdown.active && ['/api/session', '/api/login', '/api/logout'].indexOf(p) < 0) {
     const lu = sessionUser(req);
@@ -694,7 +707,7 @@ async function api(req, res, url) {
     const persons = Object.keys(db.persons).filter(function (id) { return canSee(me, db.persons[id]); })
       .map(function (id) { const x = db.persons[id]; return Object.assign({ id: id }, x, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
       .sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-    const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; return Object.assign({ id: id }, x, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
+    const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; const dcT = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === id; })[0]; return Object.assign({ id: id }, x, { dc: dcT ? { by: db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null }, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }) }); })
       .filter(function (r) { return canRead(me, r.cls); })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     return send(res, 200, { me: publicUser(me), groups: groupsList(), rev: db.rev, persons: persons, map: db.map, reports: reports, config: db.config, lockdown: !!db.lockdown.active,
@@ -813,6 +826,30 @@ async function api(req, res, url) {
     db.reports[id] = o; logAct(u, 'Bericht angelegt', o.t + ' · ' + o.cls + ': ' + o.ti); bump();
     return send(res, 200, { id: id });
   }
+  const dm = /^\/api\/reports\/([A-Za-z0-9_-]{1,40})\/declassify$/.exec(p);
+  if (dm) {
+    const u = need(req, 'viewer');
+    const cur = db.reports[dm[1]];
+    if (!canDecl(u)) return send(res, 403, { error: 'Dafür brauchst du die Freigabe zum Deklassifizieren (vergibt die Schatten Leitung unter Konten).' });
+    if (!cur || !canRead(u, cur.cls)) return send(res, 404, { error: 'Bericht nicht gefunden.' });
+    const old = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === dm[1]; })[0];
+    if (method === 'DELETE') {
+      if (!old) return send(res, 404, { error: 'Dieser Bericht ist nicht deklassifiziert.' });
+      delete db.declass[old]; logAct(u, 'Deklassifizierung widerrufen', cur.ti); bump();
+      return send(res, 200, { ok: true });
+    }
+    if (method === 'POST') {
+      const b = await readBody(req);
+      const pw = typeof b.password === 'string' ? b.password : '';
+      if (pw.length < 8 || pw.length > 100) return send(res, 400, { error: 'Das Passwort muss 8 bis 100 Zeichen lang sein.' });
+      if (!old && Object.keys(db.declass).length >= 500) return send(res, 400, { error: 'Zu viele deklassifizierte Berichte.' });
+      const tok = old || crypto.randomBytes(15).toString('hex');
+      db.declass[tok] = { rid: dm[1], ti: cur.ti, t: cur.t, d: cur.d, byName: cur.byName || cur.by || '', body: String(cur.body || '').replace(/\[\[([\s\S]*?)\]\]/g, '$1'),
+        decName: dispName(u), decSid: u.sid || '', ts: Date.now(), hash: hashPw(pw) };
+      logAct(u, old ? 'Deklassifizierung erneuert' : 'Bericht deklassifiziert', cur.ti + ' (per Link und Passwort abrufbar)'); bump();
+      return send(res, 200, { token: tok });
+    }
+  }
   const rm = /^\/api\/reports\/([A-Za-z0-9_-]{1,40})$/.exec(p);
   if (rm) {
     const u = need(req, 'reports');
@@ -825,7 +862,7 @@ async function api(req, res, url) {
       Object.assign(cur, o); cur.edited = fullDate(); logAct(u, 'Bericht geändert', cur.t + ' · ' + cur.cls + ': ' + cur.ti); bump();
       return send(res, 200, { ok: true });
     }
-    if (method === 'DELETE') { logAct(u, 'Bericht gelöscht', cur.ti); delete db.reports[rm[1]]; bump(); return send(res, 200, { ok: true }); }
+    if (method === 'DELETE') { logAct(u, 'Bericht gelöscht', cur.ti); Object.keys(db.declass).forEach(function (t) { if (db.declass[t].rid === rm[1]) delete db.declass[t]; }); delete db.reports[rm[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/ops' && method === 'POST') {
     const su = need(req, 'opsStart');
@@ -870,7 +907,7 @@ async function api(req, res, url) {
     const me = need(req, 'lockdown');
     const b = await readBody(req);
     db.lockdown = b.active === true ? { active: true, by: me.name, ts: Date.now() } : { active: false };
-    logAct(me, db.lockdown.active ? 'Notfall UMBRA ausgelöst' : 'Notfall UMBRA beendet', '');
+    logAct(me, db.lockdown.active ? 'Notfall UMBRA ausgelöst' : 'Notfall UMBRA beendet', db.lockdown.active ? '/git ' + (me.sid || dispName(me)) + ' autorisiert Notfallprotokoll Umbra' : '');
     bump();
     return send(res, 200, { ok: true, lockdown: db.lockdown.active });
   }
@@ -898,7 +935,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return !!ub.untouchable - !!ua.untouchable || (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, ris: !!u.ris, untouchable: !!u.untouchable, groupLabel: u.groupLabel || '', main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return !!ub.untouchable - !!ua.untouchable || (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, decl: !!u.decl, ris: !!u.ris, untouchable: !!u.untouchable, groupLabel: u.groupLabel || '', main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
@@ -1145,6 +1182,12 @@ async function api(req, res, url) {
         if (ni && u.ris) return send(res, 400, { error: 'RIS-Konten können keine Jedi Ermittler sein.' });
         if (ni !== !!u.inv) { if (ni) u.inv = true; else delete u.inv; uch.push(ni ? 'Jedi Ermittler freigegeben' : 'Ermittler-Freigabe entzogen'); }
       }
+      if ('decl' in b) {
+        if (me.role !== 'owner') return send(res, 403, { error: 'Die Deklassifizierungs-Freigabe vergibt nur die Schatten Leitung.' });
+        const nd = !!b.decl;
+        if (nd && u.ris) return send(res, 400, { error: 'RIS-Konten können nicht deklassifizieren.' });
+        if (nd !== !!u.decl) { if (nd) u.decl = true; else delete u.decl; uch.push(nd ? 'darf Berichte deklassifizieren' : 'Deklassifizierungs-Recht entzogen'); }
+      }
       let pw = null;
       if (b.reset === true && u.name !== MAIN) { pw = genPassword(); u.hash = hashPw(pw); u.since = Date.now(); u.mustChange = true; uch.push('neues Passwort erzeugt'); }
       if (uch.length) logAct(me, 'Konto geändert', dispName(u) + ': ' + uch.join(', '));
@@ -1168,6 +1211,14 @@ const server = http.createServer(function (req, res) {
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   if (url.pathname === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('ok'); }
+  if (/^\/d\/[a-f0-9]{30}$/.test(url.pathname)) {
+    fs.readFile(DECL_FILE, function (err, buf) {
+      if (err) { res.writeHead(500); return res.end('d.html fehlt'); }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
+      res.end(req.method === 'HEAD' ? undefined : buf);
+    });
+    return;
+  }
   if (url.pathname === '/' || url.pathname === '/index.html') {
     fs.readFile(INDEX_FILE, function (err, buf) {
       if (err) { res.writeHead(500); return res.end('index.html fehlt'); }
