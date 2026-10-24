@@ -52,7 +52,7 @@ button:hover{background:#222}
       var j=x.j;
       document.getElementById('gate').hidden=true;
       var d=document.getElementById('doc');d.hidden=false;
-      d.innerHTML='<span class="stamp">DEKLASSIFIZIERT</span><h2>'+esc(j.ti)+'</h2><div class="muted">'+esc(j.t)+' · '+esc(j.d||'')+' · verfasst von '+esc(j.byName||'unbekannt')+'<br>Deklassifiziert von '+esc(j.decName)+' am '+esc(new Date(j.ts).toLocaleDateString('de-DE'))+'</div><hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="body">'+
+      d.innerHTML='<span class="stamp">DEKLASSIFIZIERT</span><h2>'+esc(j.ti)+'</h2><div class="muted">'+esc(j.t)+' · '+esc(j.d||'')+' · verfasst von '+esc(j.byName||'unbekannt')+'<br>Deklassifiziert durch Schatten ID '+esc(j.decName)+' am '+esc(new Date(j.ts).toLocaleDateString('de-DE'))+'</div><hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="body">'+
         String(j.body).split(/\n{2,}/).map(function(p){return '<p>'+esc(p).replace(/\n/g,'<br>')+'</p>'}).join('')+'</div>';
       document.title=j.ti+' · Deklassifiziert';
     }).catch(function(){err.textContent='Verbindung fehlgeschlagen.'});
