@@ -108,8 +108,8 @@ function genSid() {
 }
 function cleanSid(v, self) {
   const s = String(v || '').trim().toUpperCase();
-  if (!/^[A-Z0-9][A-Z0-9-]{1,19}$/.test(s)) { const e = new Error('Schatten ID: 2 bis 20 Zeichen aus A-Z, 0-9 und Strich.'); e.status = 400; throw e; }
-  Object.keys(db.users).forEach(function (k) { if (db.users[k] !== self && db.users[k].sid === s) { const e = new Error('Diese Schatten ID ist schon vergeben.'); e.status = 400; throw e; } });
+  if (!/^[A-Z0-9][A-Z0-9-]{1,19}$/.test(s)) { const e = new Error('Wächter ID: 2 bis 20 Zeichen aus A-Z, 0-9 und Strich.'); e.status = 400; throw e; }
+  Object.keys(db.users).forEach(function (k) { if (db.users[k] !== self && db.users[k].sid === s) { const e = new Error('Diese Wächter ID ist schon vergeben.'); e.status = 400; throw e; } });
   return s;
 }
 function dispName(u) { return (u && (u.display || u.name)) || ''; }
@@ -1154,7 +1154,7 @@ async function api(req, res, url) {
     if (u.untouchable) return send(res, 403, { error: 'Dieses Konto ist unantastbar und kann von niemandem geändert, gesperrt, zurückgesetzt oder gelöscht werden.' });
     if (u.role === 'owner' && u.name !== MAIN && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten verwaltet nur das Haupt-Owner-Konto.' });
     if (u.name !== MAIN && !canTouch(me, u)) return send(res, 403, { error: 'Dieses Konto hat mehr Rechte als du oder ist dein eigenes. Es lässt sich nur von der Schatten Leitung verwalten.' });
-    // Haupt-Owner: nur Schreibweise des Namens und Schatten ID, und nur durch sich selbst
+    // Haupt-Owner: nur Schreibweise des Namens und Wächter ID, und nur durch sich selbst
     if (u.name === MAIN && (method !== 'PATCH' || me.name !== MAIN)) return send(res, 400, { error: 'Das Haupt-Owner-Konto kann hier nicht geändert werden.' });
     if (method === 'PATCH') {
       const b = await readBody(req);
@@ -1166,7 +1166,7 @@ async function api(req, res, url) {
         if (d !== dispName(u)) uch.push('Name: ' + dispName(u) + ' → ' + d);
         u.display = d;
       }
-      if ('sid' in b) { const ns = cleanSid(b.sid, u); if (ns !== u.sid) uch.push('Schatten ID: ' + (u.sid || '-') + ' → ' + ns); u.sid = ns; }
+      if ('sid' in b) { const ns = cleanSid(b.sid, u); if (ns !== u.sid) uch.push('Wächter ID: ' + (u.sid || '-') + ' → ' + ns); u.sid = ns; }
       if ('role' in b && u.name !== MAIN) {
         if (!db.roles[b.role]) return send(res, 400, { error: 'Ungültige Rolle.' });
         if (b.role === 'owner' && me.name !== MAIN) return send(res, 403, { error: 'Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an.' });
