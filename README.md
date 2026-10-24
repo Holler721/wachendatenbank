@@ -121,3 +121,5 @@ Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Perso
 - Abruf nur mit Link UND Passwort (öffentliche Seite `public/d.html`, ohne Anhänge, Schwärzungen aufgehoben, Stand eingefroren). Widerruf jederzeit; beim Löschen des Berichts erlischt der Link. Falsche Versuche werden begrenzt, bei Notfall UMBRA ist der Abruf gesperrt. Passwörter stehen nie in den Logs.
 
 **Schwärzungspflicht:** Wer nicht zur Schatten Leitung gehört, muss einen Bericht beim Deklassifizieren eigenhändig schwärzen (mindestens eine Stelle in [[doppelten Klammern]], Text sonst unverändert). Die geschwärzten Stellen erscheinen öffentlich als ████████. Nur die Schatten Leitung darf ohne Schwärzung deklassifizieren.
+
+**RIS-Berichte:** „Berichts Austausch RIS“ zeigt Berichte im RIS-Dossier-Layout (Kopfzeile, Meta-Raster, nummerierte Abschnitte). Zusatzfelder: Rang, Planet / Ort, Beteiligtes Personal, Einheiten. Abschnitte im Text mit „## Überschrift“ beginnen.
