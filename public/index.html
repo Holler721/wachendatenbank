@@ -356,7 +356,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
           <span class="chip cyan" id="umChip"><i class="dot"></i><span>Bereit</span></span>
         </div>
         <div class="ctl">
-          <div class="field"><label for="agentId">SCHATTEN ID</label><input class="id" id="agentId" type="text" value="SD-NYX-0417" autocomplete="off"></div>
+          <div class="field"><label for="agentId">WÄCHTER ID</label><input class="id" id="agentId" type="text" value="SD-NYX-0417" autocomplete="off"></div>
           <button class="btn danger" id="umBtn">→ Notfall vorbereiten</button>
           <button class="btn ghost" id="umCancel" hidden>Abbrechen</button>
           <div class="hint" id="umHint">Sperrt die Seite für alle Konten ohne Notfall-Recht und versiegelt die Archive.</div>
@@ -477,12 +477,12 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       </section>
       <section class="panel" id="usersPanel" aria-labelledby="usH" hidden>
         <h2 id="usH">Konten verwalten</h2>
-        <p class="muted" style="margin:0">Schatten lesen nur. Phantome pflegen das Personenregister, schreiben Berichte und starten Operationen. Der Spektral Rat darf alle Inhalte bearbeiten. Die Schatten Leitung verwaltet zusätzlich Konten. Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an. Namen dürfen Leerzeichen und Großbuchstaben enthalten (z. B. „Nario Zeyscho“), bei der Anmeldung ist die Schreibweise egal. Jedes Konto bekommt automatisch eine Schatten ID, die du hier ändern kannst.</p>
-        <div class="tbl"><table class="utbl"><thead><tr><th>Name</th><th>Schatten ID</th><th>Rolle</th><th>Passwort</th><th>Aktion</th></tr></thead><tbody id="uBody"></tbody></table></div>
+        <p class="muted" style="margin:0">Schatten lesen nur. Phantome pflegen das Personenregister, schreiben Berichte und starten Operationen. Der Spektral Rat darf alle Inhalte bearbeiten. Die Schatten Leitung verwaltet zusätzlich Konten. Schatten-Leitungs-Konten legt nur das Haupt-Owner-Konto an. Namen dürfen Leerzeichen und Großbuchstaben enthalten (z. B. „Nario Zeyscho“), bei der Anmeldung ist die Schreibweise egal. Jedes Konto bekommt automatisch eine Wächter ID, die du hier ändern kannst.</p>
+        <div class="tbl"><table class="utbl"><thead><tr><th>Name</th><th>Wächter ID</th><th>Rolle</th><th>Passwort</th><th>Aktion</th></tr></thead><tbody id="uBody"></tbody></table></div>
         <h2 style="margin-top:6px">Neues Konto</h2>
         <form id="newUserForm" class="ugrid">
           <div class="field"><label for="nuName">NAME (Z. B. NARIO ZEYSCHO)</label><input id="nuName" type="text" autocomplete="off" required minlength="3" maxlength="40"></div>
-          <div class="field"><label for="nuSid">SCHATTEN ID (LEER = AUTOMATISCH)</label><input id="nuSid" type="text" autocomplete="off" maxlength="20"></div>
+          <div class="field"><label for="nuSid">WÄCHTER ID (LEER = AUTOMATISCH)</label><input id="nuSid" type="text" autocomplete="off" maxlength="20"></div>
           <div class="field"><label for="nuRole">ROLLE</label><select id="nuRole"></select></div>
           <div class="field"><label for="nuType">KONTO-TYP</label><select id="nuType"><option value="">Normales Konto</option><option value="ris">RIS-Konto (nur Reiter „RIS Kooperation“)</option></select></div>
           <div class="field" id="nuInvF" hidden><label for="nuInv">JEDI ERMITTLER</label><select id="nuInv"><option value="">Nein</option><option value="1">Ja: Ermittler-Reiter freigeben</option></select></div>
@@ -523,7 +523,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       <header class="head"><div class="t"><div class="eyebrow">SR-LG · PROTOKOLL ALLER AKTIONEN</div><h1 class="sm" data-t="Logs">Logs</h1><p class="lead" id="lgLead">Wer hat wann was gemacht. Neueste oben.</p></div><button class="btn" id="lgRefresh">Aktualisieren</button></header>
       <section class="panel">
         <div class="toolbar">
-          <div class="field"><label for="lgQ">SUCHE</label><input id="lgQ" type="search" placeholder="Aktion, Betreff, Name oder Schatten ID" autocomplete="off"></div>
+          <div class="field"><label for="lgQ">SUCHE</label><input id="lgQ" type="search" placeholder="Aktion, Betreff, Name oder Wächter ID" autocomplete="off"></div>
           <div class="field"><label for="lgU">KONTO</label><select id="lgU"><option value="">Alle</option></select></div>
           <div class="field"><label for="lgC">BEREICH</label><select id="lgC"><option value="">Alle</option></select></div>
           <div class="field"><label for="lgA">AKTION</label><select id="lgA"><option value="">Alle</option></select></div>
@@ -535,7 +535,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
           <div class="field" style="flex:0 0 auto"><label for="lgBad">NUR KRITISCHE</label><span style="display:flex;gap:6px;align-items:center;min-height:40px;font-size:13px"><input id="lgBad" type="checkbox" aria-label="Nur kritische Einträge"> Fehlversuche, Löschungen, Notfall</span></div>
           <div class="field" style="flex:0 0 auto"><label>&nbsp;</label><button class="btn sm ghost" type="button" id="lgReset">Filter zurücksetzen</button></div>
         </div>
-        <div class="tbl"><table><thead><tr><th>Zeit</th><th>Konto</th><th>Schatten ID</th><th>Aktion</th><th>Betreff</th></tr></thead><tbody id="lgBody"></tbody></table></div>
+        <div class="tbl"><table><thead><tr><th>Zeit</th><th>Konto</th><th>Wächter ID</th><th>Aktion</th><th>Betreff</th></tr></thead><tbody id="lgBody"></tbody></table></div>
         <div class="dt" id="lgCount"></div>
       </section>
     </section>
@@ -999,7 +999,7 @@ function renderReports(){
 function dcLink(d){return d.dc&&d.dc.token?location.origin+'/d/'+d.dc.token:''}
 function dcBox(d){
   var h2='';
-  if(d.dc)h2+='<div class="chip cyan" style="margin-top:10px">Deklassifiziert durch Schatten ID '+esc(d.dc.by)+'</div>';
+  if(d.dc)h2+='<div class="chip cyan" style="margin-top:10px">Deklassifiziert durch Wächter ID '+esc(d.dc.by)+'</div>';
   if(S.dcForm!==d.id||!(H.user&&H.user.decl))return h2;
   var lk=dcLink(d);
   return h2+'<div class="rform" style="margin-top:12px;padding:12px;border:1px solid var(--line2);display:grid;gap:8px"><b>Deklassifizierung</b>'+
@@ -1741,12 +1741,12 @@ function renderKonto(){
   if(!H.user)return;
   renderCfg();
   var own=P('accounts'),grp=P('groups');$('#nuInvF').hidden=H.user.role!=='owner';
-  $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Schatten ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'.'+(H.user.expires?' Dein Konto ist befristet bis '+expTxt(H.user.expires)+'.':'');
+  $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Wächter ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'.'+(H.user.expires?' Dein Konto ist befristet bis '+expTxt(H.user.expires)+'.':'');
   renderRoles();$('#usersPanel').hidden=!own;
   if(!own&&!grp)return;
   api('GET','/api/users').then(function(j){
     var st=j.storage==='remote'?'Speicher: dauerhaft (Änderungen bleiben nach Neustarts erhalten).':j.storage==='remote-error'?'Speicher: Dauerspeicher antwortet gerade nicht, Änderungen werden nachgeholt.':'Speicher: FLÜCHTIG. Bei jedem Neustart gehen Konten, Personen und Berichte verloren (siehe README, Dauerspeicher).';
-    $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Schatten ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'. '+st;
+    $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Wächter ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'. '+st;
     var isMain=!!H.user.main,roles=(H.roles=j.roles||[],renderRoles(),H.roles).map(function(x){return x.key}).filter(function(k){return canAssignC(k)});
     if(!own)return;
     var cur=$('#nuRole').value||'agent';
@@ -1754,7 +1754,7 @@ function renderKonto(){
     $('#uBody').innerHTML=j.users.map(function(u){
       var dn=u.display||u.name,
         nm='<input type="text" class="udisp" maxlength="40" value="'+esc(dn)+'" aria-label="Name von '+esc(dn)+'" title="Nur Groß- und Kleinschreibung änderbar">',
-        sid='<input type="text" class="usid mono" maxlength="20" value="'+esc(u.sid||'')+'" aria-label="Schatten ID von '+esc(dn)+'">',
+        sid='<input type="text" class="usid mono" maxlength="20" value="'+esc(u.sid||'')+'" aria-label="Wächter ID von '+esc(dn)+'">',
         sv='<button class="btn sm" data-uact="save">Speichern</button>';
       if(u.untouchable)return '<tr><td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td><td><span class="chip vio">'+esc(u.groupLabel||RN('owner'))+'</span> <span class="chip cyan">Unantastbar</span></td><td class="muted">nur das Konto selbst (Passwort ändern)</td><td class="muted">unantastbar</td></tr>';
       if(u.main)return '<tr data-u="'+esc(u.name)+'" data-i="'+(u.inv?'1':'')+'">'+(isMain?'<td>'+nm+'</td><td>'+sid+'</td>':'<td><b>'+esc(dn)+'</b></td><td class="mono">'+esc(u.sid||'')+'</td>')+'<td><span class="chip vio">Haupt-Owner</span></td><td class="muted">über „Passwort ändern“</td><td>'+(isMain?'<div class="acts">'+sv+'<button class="btn sm ghost" data-uact="inv">'+(u.inv?'Ermittler entziehen':'Jedi Ermittler')+'</button></div>':'<span class="muted">nicht änderbar</span>')+'</td></tr>';
@@ -1798,11 +1798,11 @@ function showCred(user,pw,title,sid){
   var p=document.createElement('p');p.className='muted';p.style.margin='0';p.textContent='Gib diese Zugangsdaten sicher weiter. Das Passwort ist nur jetzt sichtbar. Bei der ersten Anmeldung muss '+user+' ein eigenes Passwort wählen.';box.appendChild(p);
   var u=document.createElement('div');u.className='muted';u.textContent='Name (Anmeldung, Schreibweise egal)';box.appendChild(u);
   var cu=document.createElement('code');cu.textContent=user;box.appendChild(cu);
-  if(sid){var sl0=document.createElement('div');sl0.className='muted';sl0.textContent='Schatten ID';box.appendChild(sl0);var sc0=document.createElement('code');sc0.textContent=sid;box.appendChild(sc0)}
+  if(sid){var sl0=document.createElement('div');sl0.className='muted';sl0.textContent='Wächter ID';box.appendChild(sl0);var sc0=document.createElement('code');sc0.textContent=sid;box.appendChild(sc0)}
   var l=document.createElement('div');l.className='muted';l.textContent='Erzeugtes Passwort';box.appendChild(l);
   var c=document.createElement('code');c.textContent=pw;box.appendChild(c);
   var bt=document.createElement('button');bt.className='btn sm';bt.type='button';bt.textContent='Zugangsdaten kopieren';
-  bt.addEventListener('click',function(){var t='Name: '+user+(sid?'\nSchatten ID: '+sid:'')+'\nPasswort: '+pw;
+  bt.addEventListener('click',function(){var t='Name: '+user+(sid?'\nWächter ID: '+sid:'')+'\nPasswort: '+pw;
     (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){toast('Zugangsdaten kopiert.','cyan')}).catch(function(){var r=document.createRange();r.selectNodeContents(c);var sl=getSelection();sl.removeAllRanges();sl.addRange(r);toast('Passwort markiert. Mit Strg+C kopieren.','')})});
   box.appendChild(bt);box.hidden=false;
 }
