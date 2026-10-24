@@ -1100,7 +1100,7 @@ async function api(req, res, url) {
     if (!side) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
     const out = { side: side, write: { wachen: risWrite(ru, 'wachen'), ris: risWrite(ru, 'ris') }, others: side === 'intern' && can(ru, 'others') };
     Object.keys(RIS_BOARDS).forEach(function (k) {
-      out[k] = Object.keys(db.ris[k]).map(function (id) { return Object.assign({ id: id }, db.ris[k][id]); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+      out[k] = Object.keys(db.ris[k]).map(function (id) { const x = db.ris[k][id]; return Object.assign({ id: id }, x, { by: authorId(x.bk, x.by) }); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     });
     if (out.write.wachen) out.src = {
       persons: Object.keys(db.persons).filter(function (id) { return canSee(ru, db.persons[id]); }).map(function (id) { return { id: id, n: db.persons[id].n }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); }),
