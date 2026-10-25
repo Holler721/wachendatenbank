@@ -265,6 +265,7 @@ function normalizeDb() {
   if (!isObj(db.lockdown)) db.lockdown = { active: false };
   if (!isObj(db.inv)) db.inv = {};
   if (!isObj(db.declass)) db.declass = {};
+  if (!isObj(db.orders)) db.orders = {};
   ['covers', 'informants', 'talks'].forEach(function (k) { if (!isObj(db.inv[k])) db.inv[k] = {}; });
   if (!isObj(db.ris)) db.ris = {};
   ['wachen', 'ris'].forEach(function (k) { if (!isObj(db.ris[k])) db.ris[k] = {}; });
@@ -635,10 +636,10 @@ function wiaList(x, kind) { // normalisiert: [{k, st: 'ok'|'req', lead}]
   return x.wia[kind];
 }
 function wiaLead(x, kind, u) { return !!u && (u.role === 'owner' || wiaList(x, kind).some(function (e) { return e.k === u.name && e.st === 'ok' && e.lead; })); }
-function wiaOut(x, me) {
-  const o = { watch: [], kos: [], lead: { watch: false, kos: false } };
-  ['watch', 'kos'].forEach(function (k) {
-    if (!x[k]) return;
+function wiaOut(x, me, kinds) {
+  const o = { watch: [], kos: [], order: [], lead: { watch: false, kos: false, order: false } };
+  (kinds || ['watch', 'kos']).forEach(function (k) {
+    if (k !== 'order' && !x[k]) return;
     const lead = wiaLead(x, k, me);
     o.lead[k] = lead;
     wiaList(x, k).forEach(function (e) {
@@ -737,7 +738,9 @@ async function api(req, res, url) {
     const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; const dcT = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === id; })[0]; return Object.assign({ id: id }, x, { byName: authorId(x.by, x.byName), dc: dcT ? { by: sidDigits(db.declass[dcT].decSid) || db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null }, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
       .filter(function (r) { return canRead(me, r.cls); })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
-    return send(res, 200, { me: publicUser(me), groups: groupsList(), rev: db.rev, persons: persons, map: db.map, reports: reports, config: db.config, lockdown: !!db.lockdown.active,
+    const orders = Object.keys(db.orders).map(function (id) { const x = db.orders[id]; return { id: id, ti: x.ti, target: x.target, why: x.why, desc: x.desc, by: authorId(x.bk, x.by), mine: x.bk === me.name, ts: x.ts, edited: x.edited || 0, wia: wiaOut(x, me, ['order']) }; })
+      .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    return send(res, 200, { orders: orders, me: publicUser(me), groups: groupsList(), rev: db.rev, persons: persons, map: db.map, reports: reports, config: db.config, lockdown: !!db.lockdown.active,
       ops: Object.keys(db.ops).filter(function (id) { return canSee(me, db.ops[id]); }).map(function (id) { return Object.assign({ id: id }, db.ops[id]); }).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); }) });
   }
   if (p === '/api/persons' && method === 'POST') {
@@ -821,13 +824,37 @@ async function api(req, res, url) {
     bump();
     return send(res, 200, { ok: true, roles: rolesList() });
   }
-  const wm = /^\/api\/persons\/([A-Za-z0-9_-]{1,40})\/wia$/.exec(p);
+  if (p === '/api/orders' && method === 'POST') {
+    const ou = need(req, 'opsStart');
+    if (Object.keys(db.orders).length >= 300) return send(res, 400, { error: 'Zu viele Aufträge.' });
+    const b = await readBody(req), o = { ti: str(b && b.ti, 120), target: str(b && b.target, 120), why: str(b && b.why, 1000), desc: str(b && b.desc, 4000) };
+    if (!o.ti) return send(res, 400, { error: 'Der Titel fehlt.' });
+    if (!o.target) return send(res, 400, { error: 'Zielperson / Zielobjekt fehlt.' });
+    if (!o.desc) return send(res, 400, { error: 'Die Beschreibung des Auftrags fehlt.' });
+    Object.assign(o, { ts: Date.now(), by: dispName(ou), bk: ou.name });
+    const id = newId(); db.orders[id] = o; logAct(ou, 'Sonstigen Auftrag erstellt', o.ti + ' (Ziel: ' + o.target + ')'); bump();
+    return send(res, 200, { id: id });
+  }
+  const om2 = /^\/api\/orders\/([A-Za-z0-9_-]{1,40})$/.exec(p);
+  if (om2 && (method === 'PATCH' || method === 'DELETE')) {
+    const ou = need(req, 'opsStart'), cur = db.orders[om2[1]];
+    if (!cur) return send(res, 404, { error: 'Auftrag nicht gefunden.' });
+    if (cur.bk !== ou.name && !can(ou, 'others')) return send(res, 403, { error: 'Fremde Aufträge bearbeiten nur Gruppen mit dem Recht „Fremde Inhalte“.' });
+    if (method === 'DELETE') { logAct(ou, 'Sonstigen Auftrag beendet', cur.ti); delete db.orders[om2[1]]; bump(); return send(res, 200, { ok: true }); }
+    const b = await readBody(req), o = { ti: str(b && b.ti, 120), target: str(b && b.target, 120), why: str(b && b.why, 1000), desc: str(b && b.desc, 4000) };
+    if (!o.ti || !o.target || !o.desc) return send(res, 400, { error: 'Titel, Ziel und Beschreibung müssen ausgefüllt sein.' });
+    Object.assign(cur, o, { edited: Date.now() }); logAct(ou, 'Sonstigen Auftrag geändert', o.ti); bump();
+    return send(res, 200, { ok: true });
+  }
+  const wm = /^\/api\/(persons|orders)\/([A-Za-z0-9_-]{1,40})\/wia$/.exec(p);
   if (wm && method === 'POST') {
-    const wu = need(req, 'viewer'), b = await readBody(req), cp = db.persons[wm[1]];
-    if (!cp || !canSee(wu, cp)) return send(res, 404, { error: 'Person nicht gefunden.' });
-    const kind = b.kind === 'kos' ? 'kos' : (b.kind === 'watch' ? 'watch' : '');
-    if (!kind || !cp[kind]) return send(res, 400, { error: 'Für diese Person läuft dieser Auftrag nicht.' });
-    const list = wiaList(cp, kind), K = kind === 'kos' ? 'KoS' : 'Beschattung';
+    const isOrd = wm[1] === 'orders';
+    const wu = need(req, 'viewer'), b = await readBody(req), cp = (isOrd ? db.orders : db.persons)[wm[2]];
+    if (!cp || (!isOrd && !canSee(wu, cp))) return send(res, 404, { error: isOrd ? 'Auftrag nicht gefunden.' : 'Person nicht gefunden.' });
+    const kind = isOrd ? 'order' : (b.kind === 'kos' ? 'kos' : (b.kind === 'watch' ? 'watch' : ''));
+    if (!kind || (!isOrd && !cp[kind])) return send(res, 400, { error: 'Für diese Person läuft dieser Auftrag nicht.' });
+    cp.n = isOrd ? cp.ti : cp.n;
+    const list = wiaList(cp, kind), K = kind === 'kos' ? 'KoS' : (kind === 'order' ? 'Sonstiger Auftrag' : 'Beschattung');
     const isOwner = wu.role === 'owner', lead = wiaLead(cp, kind, wu);
     const bySid = function (s) { s = String(s || '').trim().toLowerCase(); return Object.keys(db.users).map(function (k) { return db.users[k]; }).filter(function (u) { return !u.ris && ((u.sid || '').toLowerCase() === s || u.name === s); })[0]; };
     const sidOf = function (u) { return u.sid || dispName(u); };
