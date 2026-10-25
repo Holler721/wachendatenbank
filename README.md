@@ -136,3 +136,5 @@ Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Perso
 **WiA (Wächter im Auftrag):** In „Aktive Aufträge“ kann jedes Konto einen laufenden Auftrag („Beschattung“ oder „KoS“) übernehmen und erscheint dann mit der vollständigen Wächter ID als „WiA SD-1234“ (auch in der Personenansicht). Mit dem Ende des Auftrags werden die Übernahmen gelöscht.
 
 **Aufträge zuteilen:** Die Schatten Leitung teilt unter „Aktive Aufträge“ Konten einem Auftrag zu; zugeteilte Konten sind die Auftragsleitung (AL). Alle anderen Konten stellen mit „Übernahme anfragen“ eine Anfrage; die Auftragsleitung (und die Schatten Leitung) sieht die offenen Anfragen und kann sie „Akzeptieren“ oder „Ablehnen“. Erst akzeptierte Konten erscheinen als WiA.
+
+**Sonstige Aufträge:** Tab in „Aktive Aufträge“ mit den Zeilen Titel, Zielperson / Zielobjekt, Grund und Beschreibung des Auftrags. Erstellen und Bearbeiten: Recht „Op. starten“ (fremde Aufträge: „Fremde Inhalte“). Zuteilen, Anfragen und Akzeptieren (WiA, Auftragsleitung) funktionieren wie bei Beschattung und KoS.
