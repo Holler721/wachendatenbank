@@ -976,7 +976,7 @@ async function api(req, res, url) {
     needInv(req);
     const out = {};
     Object.keys(INV_SPEC).forEach(function (k) {
-      out[k] = Object.keys(db.inv[k]).map(function (id) { return Object.assign({ id: id }, db.inv[k][id]); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+      out[k] = Object.keys(db.inv[k]).map(function (id) { const x = db.inv[k][id]; return Object.assign({ id: id }, x, { by: authorId(x.bk, x.by) }); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     });
     return send(res, 200, out);
   }
