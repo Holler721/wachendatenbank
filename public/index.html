@@ -338,6 +338,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       <button data-nav="berichte"><span>Berichte</span><small>SR-02</small></button>
       <button data-nav="karte"><span>Galaxis Karte</span><small>SR-04</small></button>
       <button data-nav="ops"><span>Operationen</span><small>SR-03</small></button>
+      <button data-nav="auftraege"><span>Aktive Aufträge</span><small>SR-AU</small></button>
       <button data-nav="archiv"><span>Archiv</span><small>SR-AR</small></button>
       <button data-nav="ris" id="navRis" hidden><span>RIS Kooperation</span><small>SR-RK</small></button>
       <button data-nav="ermittler" id="navInv" hidden><span>Jedi Ermittler</span><small>SR-JE</small></button>
@@ -517,6 +518,14 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
     </section>
 
     <!-- ARCHIV -->
+    <section class="view" id="v-auftraege" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SR-AU · AKTIVE AUFTRÄGE</div><h1 class="sm" data-t="Aktive Aufträge">Aktive Aufträge</h1><p class="lead">Alle Personen aus dem Personenregister, die beschattet werden oder KoS (Kill on Sight) sind. Hier erklärst und begründest du den Auftrag genau.</p></div></header>
+      <section class="panel">
+        <div class="tabs" id="auTabs" role="tablist"></div>
+        <div id="auBody" style="display:grid;gap:10px"></div>
+      </section>
+    </section>
+
     <section class="view" id="v-archiv" hidden>
       <header class="head"><div class="t"><div class="eyebrow">SR-AR · ARCHIV</div><h1 class="sm" data-t="Archiv">Archiv</h1><p class="lead" id="arLead">Machtfähigkeiten mit Icon, Name und Beschreibung sowie Prüfungen mit Name, Leitern und Beschreibung.</p></div><button class="btn" id="arRefresh">Aktualisieren</button></header>
       <section class="panel">
@@ -867,6 +876,52 @@ function renderOpsMini(){
     return '<div class="item"><div class="r1"><span class="ti">'+esc(o.n)+'</span><span class="mono" style="font-size:11px;color:'+col+'">'+Math.min(o.p,100)+'%</span></div><div class="bar" style="height:6px"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div><div class="by">'+esc(OPH[opPh(o)])+' · '+esc(o.c)+' · '+esc(o.loc)+'</div></div>'}).join('')||'<div class="muted">Keine Operationen aktiv.</div>';
 }
 
+/* ---------- Aktive Aufträge ---------- */
+var AU={tab:'watch'};
+var AUT={watch:{t:'Beschattungen',why:'watchWhy',ph:'Auftrag und Begründung der Beschattung: Warum wird die Person beschattet, was soll beobachtet werden, wer führt aus, was ist das Ziel?',end:'Beschattung beenden'},
+         kos:{t:'KoS',why:'kosWhy',ph:'Auftrag und Begründung des KoS (Kill on Sight): Warum gilt der Befehl, unter welchen Umständen, wer hat ihn erteilt, wann endet er?',end:'KoS aufheben'}};
+function wiaLine(p){
+  var o=[];['kos','watch'].forEach(function(k){((p.wia&&p.wia[k])||[]).filter(function(x){return x.st==='ok'}).forEach(function(x){o.push('<span class="chip '+(x.mine?'cyan':'vio')+'" title="'+(k==='kos'?'KoS':'Beschattung')+'">WiA '+esc(x.sid)+(x.lead?' · AL':'')+'</span>')})});
+  return o.length?'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0"><span class="muted" style="font-size:11px">WÄCHTER IM AUFTRAG</span>'+o.join('')+'</div>':''}
+function wiaHtml(p,kind){
+  var all=(p.wia&&p.wia[kind])||[],ok=all.filter(function(x){return x.st==='ok'}),req=all.filter(function(x){return x.st!=='ok'}),lead=!!(p.wia&&p.wia.lead&&p.wia.lead[kind]),mineE=all.filter(function(x){return x.mine})[0],owner=!!(H.user&&H.user.role==='owner');
+  var chips=ok.length?ok.map(function(x){return '<span class="chip '+(x.mine?'cyan':'vio')+'" title="'+(x.lead?'Auftragsleitung':'Wächter im Auftrag')+'">WiA '+esc(x.sid)+(x.lead?' · AL':'')+'</span>'+((lead&&!x.mine&&(!x.lead||owner))?'<button class="btn sm ghost" data-auact="reject" data-sid="'+esc(x.sid)+'" title="Vom Auftrag entfernen" aria-label="'+esc(x.sid)+' entfernen">×</button>':'')}).join(''):'<span class="muted" style="font-size:12px">Noch niemand zugeteilt oder akzeptiert.</span>';
+  var h2='<div style="display:grid;gap:6px"><div class="muted" style="font-size:11px;letter-spacing:.1em">WiA · WÄCHTER IM AUFTRAG ('+ok.length+') · AL = AUFTRAGSLEITUNG</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+chips+
+    (S.hosted&&!mineE?'<button class="btn sm" data-auact="take">'+(owner?'Auftrag übernehmen':'Übernahme anfragen')+'</button>':'')+
+    (mineE&&mineE.st!=='ok'?'<span class="chip amber">Deine Anfrage ist offen</span><button class="btn sm ghost" data-auact="drop">Anfrage zurückziehen</button>':'')+
+    (mineE&&mineE.st==='ok'?'<button class="btn sm ghost" data-auact="drop">Übernahme zurückziehen</button>':'')+'</div>';
+  if(lead&&req.length)h2+='<div style="display:grid;gap:6px;padding:8px 10px;border:1px dashed var(--line2)"><div class="muted" style="font-size:11px;letter-spacing:.1em">OFFENE ANFRAGEN ('+req.length+')</div>'+req.map(function(x){return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="chip amber">'+esc(x.sid)+'</span><button class="btn sm" data-auact="accept" data-sid="'+esc(x.sid)+'">Akzeptieren</button><button class="btn sm danger" data-auact="reject" data-sid="'+esc(x.sid)+'">Ablehnen</button></div>'}).join('')+'</div>';
+  if(owner&&S.hosted){var us=(AU.users||[]).filter(function(u){return !u.ris&&!u.blocked&&!all.some(function(x){return x.sid===u.sid&&x.lead})});
+    h2+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><div class="field" style="margin:0"><label for="auAs_'+esc(p.id)+'">KONTO ZUTEILEN (WIRD AUFTRAGSLEITUNG)</label><select id="auAs_'+esc(p.id)+'" class="auAs">'+(us.length?us.map(function(u){return '<option value="'+esc(u.sid||u.name)+'">'+esc((u.display||u.name)+' · '+(u.sid||''))+'</option>'}).join(''):'<option value="">'+(AU.users?'keine Konten':'lädt …')+'</option>')+'</select></div><button class="btn sm" data-auact="assign">Zuteilen</button></div>'}
+  return h2+'</div>'}
+function renderOrders(){
+  var tabs=$('#auTabs');if(!tabs)return;
+  if(S.hosted&&H.user&&H.user.role==='owner'&&!AU.users&&!AU.loading){AU.loading=true;api('GET','/api/users').then(function(j){AU.users=j.users||[];AU.loading=false;if(S.view==='auftraege')renderOrders()}).catch(function(){AU.loading=false;AU.users=[]})}
+  tabs.innerHTML=Object.keys(AUT).map(function(k){var n=S.persons.filter(function(p){return !!p[k]}).length;return '<button data-autab="'+k+'" aria-pressed="'+(AU.tab===k)+'">'+AUT[k].t+' ('+n+')</button>'}).join('');
+  var T=AUT[AU.tab],list=S.persons.filter(function(p){return !!p[AU.tab]}),w=P('persons');
+  $('#auBody').innerHTML=list.length?list.map(function(p){
+    var why=p[T.why]||'';
+    return '<article class="fl" style="padding:12px;display:grid;gap:8px" data-pid="'+esc(p.id)+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><span><b>'+esc(p.n)+'</b> '+(p.kos?'<span class="chip kos">☠ KoS</span> ':'')+(p.watch?'<span class="chip amber">Beschattet</span>':'')+'</span><span class="muted">'+esc(p.r)+' · '+esc(p.s)+' · Gefahrenlevel '+esc(p.p)+' · '+esc(p.l)+'</span></div>'+
+      (w?'<div class="field"><label for="auT_'+esc(p.id)+'">AUFTRAG / BEGRÜNDUNG</label><textarea id="auT_'+esc(p.id)+'" rows="5" maxlength="2000" placeholder="'+esc(T.ph)+'">'+esc(why)+'</textarea></div>'+wiaHtml(p,AU.tab)+'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-auact="save">Speichern</button><button class="btn sm ghost" data-auact="open">Zur Person</button><button class="btn sm danger" data-auact="end">'+T.end+'</button></div>'
+        :'<div><div class="muted" style="font-size:11px;letter-spacing:.1em">AUFTRAG / BEGRÜNDUNG</div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+(why?esc(why):'<span class="muted">Noch keine Begründung eingetragen.</span>')+'</div></div>'+wiaHtml(p,AU.tab)+'<div><button class="btn sm ghost" data-auact="open">Zur Person</button></div>')+'</article>'}).join('')
+    :'<p class="muted" style="margin:0">Aktuell '+(AU.tab==='watch'?'wird niemand beschattet':'ist niemand KoS')+'. Im Personenregister lässt sich das bei der Person setzen.</p>';
+}
+$('#auTabs').addEventListener('click',function(e){var b=e.target.closest('[data-autab]');if(b){AU.tab=b.dataset.autab;renderOrders()}});
+$('#auBody').addEventListener('click',function(e){
+  var b=e.target.closest('[data-auact]');if(!b)return;var card=b.closest('[data-pid]'),p=card&&find(card.dataset.pid);if(!p)return;var a=b.dataset.auact,T=AUT[AU.tab];
+  if(a==='open'){S.selP=p.id;S.add=false;go('register');renderRegister();return}
+  if(a==='take'||a==='drop'||a==='accept'||a==='reject'||a==='assign'){
+    var body={kind:AU.tab},msg='';
+    if(a==='take'){body.take=true;msg=H.user.role==='owner'?'Auftrag übernommen. Du erscheinst als WiA.':'Anfrage gesendet. Die Auftragsleitung entscheidet.'}
+    else if(a==='drop'){body.take=false;msg='Zurückgezogen.'}
+    else if(a==='accept'){body.accept=b.dataset.sid;body.yes=true;msg='Akzeptiert. '+b.dataset.sid+' erscheint als WiA.'}
+    else if(a==='reject'){body.accept=b.dataset.sid;body.yes=false;msg=b.dataset.sid+' entfernt.'}
+    else{var sel=card.querySelector('.auAs');if(!sel||!sel.value){toast('Kein Konto ausgewählt.','red');return}body.assign=sel.value;msg='Konto zugeteilt (Auftragsleitung).'}
+    api('POST','/api/persons/'+encodeURIComponent(p.id)+'/wia',body).then(function(){toast(msg,'cyan');return loadData(true)}).then(function(){renderOrders()}).catch(apiErr);return}
+  if(!S.db||!P('persons'))return;var ref=S.db.collection('persons').doc(p.id);
+  if(a==='save'){var d={};d[T.why]=$('#auT_'+p.id).value.trim();ref.update(d).then(function(){toast('Auftrag gespeichert.','cyan');renderOrders()}).catch(writeErr);return}
+  if(a==='end'){if(!confirm(T.end+' für '+p.n+'?'))return;var d2={};d2[AU.tab]=false;ref.update(d2).then(function(){toast(T.end+': '+p.n+'.','cyan');renderOrders()}).catch(writeErr)}
+});
 /* ---------- Register ---------- */
 function filtered(){
   var q=$('#q').value.trim().toLowerCase(),fs=$('#fs').value,so=$('#so').value;
@@ -933,7 +988,7 @@ function renderDetail(){
   }
   var ini=String(p.n||'?').replace('Dr. ','').split(' ').map(function(x){return x[0]||''}).join('').slice(0,3),col=stCol(p.s)||'#909090',pw=Math.max(0,Math.min(100,num(p.p,0)));
   el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2><span class="chip '+(stChip(p.s)||'amber')+'" style="margin-top:6px">'+esc(p.s)+'</span>'+(p.kos?' <span class="chip kos" style="margin-top:6px">KoS</span>':'')+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+visChip(p.groups,'margin-top:6px')+'</div></div>'+
-   ''+(p.kos?'<div class="kosbar" role="alert">☠ KoS · Kill on Sight</div>':'')+(p.watch?'<div class="watchbar" role="status"><span class="dot"></span> Diese Person wird beschattet</div>':'')+'<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd>'+(p.sp?'<dt>Spezies</dt><dd style="overflow-wrap:anywhere">'+esc(p.sp)+'</dd>':'')+(p.look?'<dt>Aussehen</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(p.look)+'</dd>':'')+(p.extra||[]).map(function(x){return '<dt>'+esc(x.k)+'</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(x.v)+'</dd>'}).join('')+'<dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
+   ''+(p.kos?'<div class="kosbar" role="alert">☠ KoS · Kill on Sight</div>':'')+(p.watch?'<div class="watchbar" role="status"><span class="dot"></span> Diese Person wird beschattet</div>':'')+wiaLine(p)+'<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd>'+(p.sp?'<dt>Spezies</dt><dd style="overflow-wrap:anywhere">'+esc(p.sp)+'</dd>':'')+(p.look?'<dt>Aussehen</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(p.look)+'</dd>':'')+(p.extra||[]).map(function(x){return '<dt>'+esc(x.k)+'</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(x.v)+'</dd>'}).join('')+'<dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
    '<div class="gauge"><div class="l"><span>Gefahrenlevel</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
    (P('persons')?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="edit">Bearbeiten</button><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm danger" data-act="kos">'+(p.kos?'KoS aufheben':'KoS setzen')+'</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
    '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Dir fehlt das Recht „Personen“.</p>')+filesHtml(p);
@@ -1318,7 +1373,7 @@ function umbraFlow(){
 $('#umBtn').addEventListener('click',function(){if(S.phase===2)umbraTo(0);else umbraFlow()});
 $('#umCancel').addEventListener('click',function(){setPhase(0)});
 
-var VIEWS={dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1,ermittler:1,ris:1,archiv:1};
+var VIEWS={auftraege:1,dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1,ermittler:1,ris:1,archiv:1};
 /* ---------- RIS Kooperation ---------- */
 var RIS={data:{wachen:[],ris:[],write:{},side:'',others:false},edit:null,att:[]};
 var RISB=[['wachen','Berichts Austausch Wachen','Berichte der Wachen an das RIS'],['ris','Berichts Austausch RIS','Berichte des RIS an die Wachen']];
@@ -1550,7 +1605,7 @@ function acts(){
   var a=[
    {l:'Dashboard',k:'Ansicht',f:function(){go('dashboard')}},{l:'Personenregister',k:'Ansicht',f:function(){go('register')}},
    {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Galaxis Karte',k:'Ansicht',f:function(){go('karte')}},
-   {l:'Archiv',k:'Ansicht',f:function(){go('archiv')}},{l:'RIS Kooperation',k:'Ansicht',f:function(){go('ris')}},{l:'Jedi Ermittler',k:'Ansicht',f:function(){if(S.hosted&&H.user&&H.user.inv)go('ermittler');else toast('Dafür fehlt die Freigabe „Jedi Ermittler“.','red')}},{l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
+   {l:'Archiv',k:'Ansicht',f:function(){go('archiv')}},{l:'Aktive Aufträge',k:'Ansicht',f:function(){go('auftraege')}},{l:'RIS Kooperation',k:'Ansicht',f:function(){go('ris')}},{l:'Jedi Ermittler',k:'Ansicht',f:function(){if(S.hosted&&H.user&&H.user.inv)go('ermittler');else toast('Dafür fehlt die Freigabe „Jedi Ermittler“.','red')}},{l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
    {l:'UMBRA auslösen',k:'Aktion',f:function(){umbraFlow()}},{l:'UMBRA beenden',k:'Aktion',f:function(){umbraTo(0)}}];
   if(P('persons'))a.push({l:'Person hinzufügen',k:'Aktion',f:function(){go('register');$('#addP').click()}});
   if(P('map'))a.push({l:'Karte bearbeiten',k:'Aktion',f:function(){go('karte');enterEdit()}});
@@ -1583,7 +1638,7 @@ function go(v){
   if(S.hosted&&H.user&&H.user.ris&&v!=='ris'&&v!=='konto')v='ris';S.view=v;
   $$('.view').forEach(function(s){s.hidden=s.id!=='v-'+v});
   $$('#nav button').forEach(function(b){b.setAttribute('aria-current',b.dataset.nav===v?'page':'false')});
-  if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();if(v==='logs'){if(!(S.hosted&&P('logs'))){go('dashboard');return}loadLogs()}if(v==='ris'){if(!(S.hosted&&H.user&&(H.user.ris||P('ris')))){go('dashboard');return}RIS.edit=null;renderRis();loadRis()}if(v==='archiv'){if(!(S.hosted&&H.user&&!H.user.ris)){go('dashboard');return}AR.edit=null;renderAr();loadAr()}if(v==='ermittler'){if(!(S.hosted&&H.user&&H.user.inv)){go('dashboard');return}INV.edit=null;renderInv();loadInv()}
+  if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();if(v==='logs'){if(!(S.hosted&&P('logs'))){go('dashboard');return}loadLogs()}if(v==='ris'){if(!(S.hosted&&H.user&&(H.user.ris||P('ris')))){go('dashboard');return}RIS.edit=null;renderRis();loadRis()}if(v==='auftraege')renderOrders();if(v==='archiv'){if(!(S.hosted&&H.user&&!H.user.ris)){go('dashboard');return}AR.edit=null;renderAr();loadAr()}if(v==='ermittler'){if(!(S.hosted&&H.user&&H.user.inv)){go('dashboard');return}INV.edit=null;renderInv();loadInv()}
   if(v==='dashboard'){renderDash();renderCards()}
   if(location.hash!=='#'+v){try{location.hash=v}catch(e){}}
   window.scrollTo(0,0);
@@ -1685,6 +1740,7 @@ function loadData(force){
     if(S.selP&&!find(S.selP))S.selP=null;
     if(j.map)S.map={nodes:clone(j.map.nodes||[]),edges:clone(j.map.edges||[])};
     if(!S.editing){if(S.selN&&!nodeByKey(S.selN))S.selN=null;if(S.view==='karte')renderNode()}
+    if(S.view==='auftraege'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#auBody')))renderOrders();
     renderLocs();renderRegister();renderCards();renderDash();if(!S.repEdit&&!S.rfEdit)renderReports();renderOps();if(S.view==='konto'&&!S.cfgDraft)renderCfg();
   }).catch(function(){});
 }
