@@ -130,3 +130,9 @@ Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Perso
 **Dossier-Layout (Wächter):** Berichte, Berichts-Anhänge, Personenakten und der Wächter-Austausch erscheinen im grauen Wächter-Dossier-Layout (Kopf, Meta-Raster, nummerierte Abschnitte). Abschnitte im Text mit „## Überschrift“ beginnen.
 
 **Akten-Nummer:** Jede Akte bzw. jeder Bericht im Wächter-Layout trägt eine Nummer „WA-“ plus 9 Zeichen (Buchstaben und Zahlen), die aus der internen ID erzeugt wird und gleich bleibt. Das Layout gilt auch für die Einträge der Jedi Ermittler.
+
+**Aktive Aufträge:** Reiter mit den Tabs „Beschattungen“ und „KoS“. Er listet alle Personen aus dem Register, bei denen das gesetzt ist, mit einem Textfeld „Auftrag / Begründung“ (Recht „Personen“ zum Schreiben). Beenden geht direkt dort oder bei der Person.
+
+**WiA (Wächter im Auftrag):** In „Aktive Aufträge“ kann jedes Konto einen laufenden Auftrag („Beschattung“ oder „KoS“) übernehmen und erscheint dann mit der vollständigen Wächter ID als „WiA SD-1234“ (auch in der Personenansicht). Mit dem Ende des Auftrags werden die Übernahmen gelöscht.
+
+**Aufträge zuteilen:** Die Schatten Leitung teilt unter „Aktive Aufträge“ Konten einem Auftrag zu; zugeteilte Konten sind die Auftragsleitung (AL). Alle anderen Konten stellen mit „Übernahme anfragen“ eine Anfrage; die Auftragsleitung (und die Schatten Leitung) sieht die offenen Anfragen und kann sie „Akzeptieren“ oder „Ablehnen“. Erst akzeptierte Konten erscheinen als WiA.
