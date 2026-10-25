@@ -126,3 +126,7 @@ Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Perso
 
 **Karte:** Mausrad zoomt die Galaxis Karte (bis 8x) zum Mauszeiger, mit gedrückter Maus verschiebt man den Ausschnitt, Doppelklick setzt zurück. Bei normaler Größe scrollt das Rad weiter die Seite.
 **Karte erweitern:** Herauszoomen (bis 0,25x) zeigt freien Raum rund um die Karte; im Bearbeitungsmodus lassen sich Systeme auch außerhalb des bisherigen Rahmens setzen (gestrichelter Rahmen = ursprünglicher Bereich).
+
+**Dossier-Layout (Wächter):** Berichte, Berichts-Anhänge, Personenakten und der Wächter-Austausch erscheinen im grauen Wächter-Dossier-Layout (Kopf, Meta-Raster, nummerierte Abschnitte). Abschnitte im Text mit „## Überschrift“ beginnen.
+
+**Akten-Nummer:** Jede Akte bzw. jeder Bericht im Wächter-Layout trägt eine Nummer „WA-“ plus 9 Zeichen (Buchstaben und Zahlen), die aus der internen ID erzeugt wird und gleich bleibt. Das Layout gilt auch für die Einträge der Jedi Ermittler.
