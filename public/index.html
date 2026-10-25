@@ -519,7 +519,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
 
     <!-- ARCHIV -->
     <section class="view" id="v-auftraege" hidden>
-      <header class="head"><div class="t"><div class="eyebrow">SR-AU · AKTIVE AUFTRÄGE</div><h1 class="sm" data-t="Aktive Aufträge">Aktive Aufträge</h1><p class="lead">Alle Personen aus dem Personenregister, die beschattet werden oder KoS (Kill on Sight) sind. Hier erklärst und begründest du den Auftrag genau.</p></div></header>
+      <header class="head"><div class="t"><div class="eyebrow">SR-AU · AKTIVE AUFTRÄGE</div><h1 class="sm" data-t="Aktive Aufträge">Aktive Aufträge</h1><p class="lead">Alle Personen aus dem Personenregister, die beschattet werden oder KoS (Kill on Sight) sind. Hier erklärst und begründest du den Auftrag genau. Unter „Sonstige Aufträge“ legst du freie Aufträge an.</p></div></header>
       <section class="panel">
         <div class="tabs" id="auTabs" role="tablist"></div>
         <div id="auBody" style="display:grid;gap:10px"></div>
@@ -877,7 +877,7 @@ function renderOpsMini(){
 }
 
 /* ---------- Aktive Aufträge ---------- */
-var AU={tab:'watch'};
+var AU={tab:'watch',edit:null};S.orders=[];
 var AUT={watch:{t:'Beschattungen',why:'watchWhy',ph:'Auftrag und Begründung der Beschattung: Warum wird die Person beschattet, was soll beobachtet werden, wer führt aus, was ist das Ziel?',end:'Beschattung beenden'},
          kos:{t:'KoS',why:'kosWhy',ph:'Auftrag und Begründung des KoS (Kill on Sight): Warum gilt der Befehl, unter welchen Umständen, wer hat ihn erteilt, wann endet er?',end:'KoS aufheben'}};
 function wiaLine(p){
@@ -894,10 +894,37 @@ function wiaHtml(p,kind){
   if(owner&&S.hosted){var us=(AU.users||[]).filter(function(u){return !u.ris&&!u.blocked&&!all.some(function(x){return x.sid===u.sid&&x.lead})});
     h2+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><div class="field" style="margin:0"><label for="auAs_'+esc(p.id)+'">KONTO ZUTEILEN (WIRD AUFTRAGSLEITUNG)</label><select id="auAs_'+esc(p.id)+'" class="auAs">'+(us.length?us.map(function(u){return '<option value="'+esc(u.sid||u.name)+'">'+esc((u.display||u.name)+' · '+(u.sid||''))+'</option>'}).join(''):'<option value="">'+(AU.users?'keine Konten':'lädt …')+'</option>')+'</select></div><button class="btn sm" data-auact="assign">Zuteilen</button></div>'}
   return h2+'</div>'}
+function orderForm(o){return '<form class="fl" id="orForm" style="padding:12px;display:grid;gap:8px"><h3 style="margin:0;font-size:14px">'+(o?'Auftrag bearbeiten':'Neuer sonstiger Auftrag')+'</h3>'+
+  '<div class="field"><label for="orTi">TITEL *</label><input id="orTi" type="text" maxlength="120" required value="'+esc(o?o.ti:'')+'"></div>'+
+  '<div class="field"><label for="orTg">ZIELPERSON / ZIELOBJEKT *</label><input id="orTg" type="text" maxlength="120" required value="'+esc(o?o.target:'')+'"></div>'+
+  '<div class="field"><label for="orWy">GRUND</label><textarea id="orWy" rows="3" maxlength="1000">'+esc(o?o.why:'')+'</textarea></div>'+
+  '<div class="field"><label for="orDs">BESCHREIBUNG DES AUFTRAGS *</label><textarea id="orDs" rows="6" maxlength="4000" required>'+esc(o?o.desc:'')+'</textarea></div>'+
+  '<div style="display:flex;gap:8px"><button class="btn sm" type="submit">Speichern</button><button class="btn sm ghost" type="button" data-auact="ocancel">Abbrechen</button></div></form>'}
+function renderOther(){
+  var w=P('opsStart'),h2='';
+  h2+=AU.edit==='new'?orderForm(null):(w?'<div><button class="btn sm" data-auact="onew">+ Auftrag erstellen</button></div>':'');
+  h2+=S.orders.map(function(o){
+    if(AU.edit===o.id)return orderForm(o);
+    var can=w&&(o.mine||P('others'));
+    var row=function(l,t){return t?'<div><div class="muted" style="font-size:11px;letter-spacing:.1em">'+l+'</div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(t)+'</div></div>':''};
+    return '<article class="fl" style="padding:12px;display:grid;gap:10px" data-oid="'+esc(o.id)+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b>'+esc(o.ti)+'</b><span class="muted">'+esc(fDate(o.ts))+' · '+esc(o.by||'')+(o.edited?' · bearbeitet '+esc(fDate(o.edited)):'')+'</span></div>'+
+      row('ZIELPERSON / ZIELOBJEKT',o.target)+row('GRUND',o.why)+row('BESCHREIBUNG DES AUFTRAGS',o.desc)+wiaHtml(o,'order')+
+      (can?'<div style="display:flex;gap:8px"><button class="btn sm ghost" data-auact="oedit">Bearbeiten</button><button class="btn sm danger" data-auact="odel">Auftrag beenden</button></div>':'')+'</article>'}).join('');
+  if(!S.orders.length&&AU.edit!=='new')h2+='<p class="muted" style="margin:0">Noch keine sonstigen Aufträge.'+(w?' Mit „Auftrag erstellen“ legst du den ersten an.':'')+'</p>';
+  $('#auBody').innerHTML=h2;
+}
+$('#auBody').addEventListener('submit',function(e){
+  if(e.target.id!=='orForm')return;e.preventDefault();
+  var d={ti:$('#orTi').value.trim(),target:$('#orTg').value.trim(),why:$('#orWy').value.trim(),desc:$('#orDs').value.trim()};
+  if(!d.ti||!d.target||!d.desc){toast('Titel, Ziel und Beschreibung müssen ausgefüllt sein.','red');return}
+  var isNew=AU.edit==='new';
+  api(isNew?'POST':'PATCH',isNew?'/api/orders':'/api/orders/'+encodeURIComponent(AU.edit),d).then(function(){AU.edit=null;toast('Auftrag gespeichert.','cyan');return loadData(true)}).then(function(){renderOrders()}).catch(apiErr);
+});
 function renderOrders(){
   var tabs=$('#auTabs');if(!tabs)return;
   if(S.hosted&&H.user&&H.user.role==='owner'&&!AU.users&&!AU.loading){AU.loading=true;api('GET','/api/users').then(function(j){AU.users=j.users||[];AU.loading=false;if(S.view==='auftraege')renderOrders()}).catch(function(){AU.loading=false;AU.users=[]})}
-  tabs.innerHTML=Object.keys(AUT).map(function(k){var n=S.persons.filter(function(p){return !!p[k]}).length;return '<button data-autab="'+k+'" aria-pressed="'+(AU.tab===k)+'">'+AUT[k].t+' ('+n+')</button>'}).join('');
+  tabs.innerHTML=Object.keys(AUT).map(function(k){var n=S.persons.filter(function(p){return !!p[k]}).length;return '<button data-autab="'+k+'" aria-pressed="'+(AU.tab===k)+'">'+AUT[k].t+' ('+n+')</button>'}).join('')+'<button data-autab="other" aria-pressed="'+(AU.tab==='other')+'">Sonstige Aufträge ('+S.orders.length+')</button>';
+  if(AU.tab==='other'){renderOther();return}
   var T=AUT[AU.tab],list=S.persons.filter(function(p){return !!p[AU.tab]}),w=P('persons');
   $('#auBody').innerHTML=list.length?list.map(function(p){
     var why=p[T.why]||'';
@@ -908,7 +935,22 @@ function renderOrders(){
 }
 $('#auTabs').addEventListener('click',function(e){var b=e.target.closest('[data-autab]');if(b){AU.tab=b.dataset.autab;renderOrders()}});
 $('#auBody').addEventListener('click',function(e){
-  var b=e.target.closest('[data-auact]');if(!b)return;var card=b.closest('[data-pid]'),p=card&&find(card.dataset.pid);if(!p)return;var a=b.dataset.auact,T=AUT[AU.tab];
+  var b=e.target.closest('[data-auact]');if(!b)return;var a=b.dataset.auact;
+  if(a==='onew'){AU.edit='new';renderOrders();var f=$('#orTi');if(f)f.focus();return}
+  if(a==='ocancel'){AU.edit=null;renderOrders();return}
+  var ocard=b.closest('[data-oid]');
+  if(ocard){var oid=ocard.dataset.oid,oo=S.orders.filter(function(x){return x.id===oid})[0];if(!oo)return;
+    if(a==='oedit'){AU.edit=oid;renderOrders();return}
+    if(a==='odel'){if(!confirm('Auftrag „'+oo.ti+'“ beenden und löschen?'))return;api('DELETE','/api/orders/'+encodeURIComponent(oid)).then(function(){toast('Auftrag beendet.','red');return loadData(true)}).then(function(){renderOrders()}).catch(apiErr);return}
+    var body={},msg='';
+    if(a==='take'){body.take=true;msg=H.user.role==='owner'?'Auftrag übernommen. Du erscheinst als WiA.':'Anfrage gesendet. Die Auftragsleitung entscheidet.'}
+    else if(a==='drop'){body.take=false;msg='Zurückgezogen.'}
+    else if(a==='accept'){body.accept=b.dataset.sid;body.yes=true;msg='Akzeptiert. '+b.dataset.sid+' erscheint als WiA.'}
+    else if(a==='reject'){body.accept=b.dataset.sid;body.yes=false;msg=b.dataset.sid+' entfernt.'}
+    else if(a==='assign'){var s2=ocard.querySelector('.auAs');if(!s2||!s2.value){toast('Kein Konto ausgewählt.','red');return}body.assign=s2.value;msg='Konto zugeteilt (Auftragsleitung).'}
+    else return;
+    api('POST','/api/orders/'+encodeURIComponent(oid)+'/wia',body).then(function(){toast(msg,'cyan');return loadData(true)}).then(function(){renderOrders()}).catch(apiErr);return}
+  var card=b.closest('[data-pid]'),p=card&&find(card.dataset.pid);if(!p)return;var T=AUT[AU.tab];
   if(a==='open'){S.selP=p.id;S.add=false;go('register');renderRegister();return}
   if(a==='take'||a==='drop'||a==='accept'||a==='reject'||a==='assign'){
     var body={kind:AU.tab},msg='';
@@ -1735,7 +1777,7 @@ function loadData(force){
   return api('GET','/api/data?since='+(force?0:H.rev)).then(function(j){
     if(j.same)return;
     if(j.me&&H.user){H.user=j.me;applyUser(j.me);applyRights()}
-    H.rev=j.rev;if(j.groups)GROUPS=j.groups;applyConfig(j.config);if(typeof j.lockdown==='boolean')syncAlarm(j.lockdown);S.persons=j.persons||[];S.reports=j.reports||[];if(j.ops)ops=j.ops;S.loaded=true;
+    H.rev=j.rev;if(j.groups)GROUPS=j.groups;applyConfig(j.config);if(typeof j.lockdown==='boolean')syncAlarm(j.lockdown);S.persons=j.persons||[];S.orders=j.orders||[];S.reports=j.reports||[];if(j.ops)ops=j.ops;S.loaded=true;
     if(S.rep&&!repById(S.rep))S.rep=null;
     if(S.selP&&!find(S.selP))S.selP=null;
     if(j.map)S.map={nodes:clone(j.map.nodes||[]),edges:clone(j.map.edges||[])};
