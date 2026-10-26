@@ -21,9 +21,9 @@ const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
 // Einzelrechte, pro Gruppe auf der Website (Konto -> Gruppen und Rechte) vergebbar
-const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs', 'accounts', 'groups', 'ris', 'archive'];
+const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs', 'accounts', 'groups', 'ris', 'archive', 'mark'];
 const ALLP = {}; PERMS.forEach(function (x) { ALLP[x] = true; });
-const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen', ris: 'RIS Kooperation', archive: 'Archiv' };
+const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen', ris: 'RIS Kooperation', archive: 'Archiv', mark: 'Beschatten / KoS' };
 const WRITE_PERMS = ['persons', 'files', 'reports', 'opsStart'];            // früher „Schreiben“
 const MANAGE_PERMS = ['opsManage', 'map', 'others', 'config', 'lockdown'];  // früher „Verwalten“
 const RANK_MAX = 10, RANK_OWNER = 11, BUILTIN_RANK = { viewer: 1, agent: 2, editor: 3, owner: RANK_OWNER };
@@ -31,7 +31,7 @@ function cleanRank(x, def) { const n = Math.round(Number(x)); return isFinite(n)
 const BUILTIN = {
   viewer: { label: 'Schatten', perms: { open: true } },
   agent: { label: 'Phantom', perms: { persons: true, files: true, archive: true, reports: true, opsStart: true, open: true, intern: true } },
-  editor: { label: 'Spektral Rat', perms: { persons: true, files: true, archive: true, reports: true, opsStart: true, opsManage: true, map: true, others: true, config: true, lockdown: true, open: true, intern: true, secret: true } },
+  editor: { label: 'Spektral Rat', perms: { mark: true, persons: true, files: true, archive: true, reports: true, opsStart: true, opsManage: true, map: true, others: true, config: true, lockdown: true, open: true, intern: true, secret: true } },
   owner: { label: 'Schatten Leitung', perms: ALLP }
 };
 function upgradePerms(pm) { // Gespeicherte Rechte älterer Versionen (write/manage) umstellen
@@ -636,6 +636,16 @@ function wiaList(x, kind) { // normalisiert: [{k, st: 'ok'|'req', lead}]
   return x.wia[kind];
 }
 function wiaLead(x, kind, u) { return !!u && (u.role === 'owner' || wiaList(x, kind).some(function (e) { return e.k === u.name && e.st === 'ok' && e.lead; })); }
+function wiaMember(x, kind, u) { return !!u && (u.role === 'owner' || wiaList(x, kind).some(function (e) { return e.k === u.name && e.st === 'ok'; })); }
+const DOC_TYPES = ['Gespräch', 'Protokoll', 'Eliminierung'];
+function docsOut(x, me, kinds) {
+  const o = {};
+  kinds.forEach(function (k) {
+    if (!wiaMember(x, k, me)) return;
+    o[k] = ((isObj(x.docs) && Array.isArray(x.docs[k])) ? x.docs[k] : []).map(function (d) { return { id: d.id, type: d.type, title: d.title || '', text: d.text, by: authorId(d.bk, d.by), ts: d.ts, edited: d.edited || 0, mine: d.bk === me.name }; }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+  });
+  return o;
+}
 function wiaOut(x, me, kinds) {
   const o = { watch: [], kos: [], order: [], lead: { watch: false, kos: false, order: false } };
   (kinds || ['watch', 'kos']).forEach(function (k) {
@@ -733,12 +743,12 @@ async function api(req, res, url) {
     if (since === db.rev) return send(res, 200, { same: true, rev: db.rev });
     const me = sessionUser(req);
     const persons = Object.keys(db.persons).filter(function (id) { return canSee(me, db.persons[id]); })
-      .map(function (id) { const x = db.persons[id]; return Object.assign({ id: id }, x, { wia: wiaOut(x, me), files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
+      .map(function (id) { const x = db.persons[id]; return Object.assign({ id: id }, x, { wia: wiaOut(x, me), docs: docsOut(x, me, ['watch', 'kos']), files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
       .sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
     const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; const dcT = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === id; })[0]; return Object.assign({ id: id }, x, { byName: authorId(x.by, x.byName), dc: dcT ? { by: sidDigits(db.declass[dcT].decSid) || db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null }, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
       .filter(function (r) { return canRead(me, r.cls); })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
-    const orders = Object.keys(db.orders).map(function (id) { const x = db.orders[id]; return { id: id, ti: x.ti, target: x.target, why: x.why, desc: x.desc, by: authorId(x.bk, x.by), mine: x.bk === me.name, ts: x.ts, edited: x.edited || 0, wia: wiaOut(x, me, ['order']) }; })
+    const orders = Object.keys(db.orders).map(function (id) { const x = db.orders[id]; return { id: id, ti: x.ti, target: x.target, why: x.why, desc: x.desc, by: authorId(x.bk, x.by), mine: x.bk === me.name, ts: x.ts, edited: x.edited || 0, wia: wiaOut(x, me, ['order']), docs: docsOut(x, me, ['order']) }; })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     return send(res, 200, { orders: orders, me: publicUser(me), groups: groupsList(), rev: db.rev, persons: persons, map: db.map, reports: reports, config: db.config, lockdown: !!db.lockdown.active,
       ops: Object.keys(db.ops).filter(function (id) { return canSee(me, db.ops[id]); }).map(function (id) { return Object.assign({ id: id }, db.ops[id]); }).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); }) });
@@ -846,6 +856,39 @@ async function api(req, res, url) {
     Object.assign(cur, o, { edited: Date.now() }); logAct(ou, 'Sonstigen Auftrag geändert', o.ti); bump();
     return send(res, 200, { ok: true });
   }
+  const dcm = /^\/api\/(persons|orders)\/([A-Za-z0-9_-]{1,40})\/docs(?:\/([a-f0-9]{6,20}))?$/.exec(p);
+  if (dcm) {
+    const isOrd = dcm[1] === 'orders', du = need(req, 'viewer'), cp = (isOrd ? db.orders : db.persons)[dcm[2]];
+    if (!cp || (!isOrd && !canSee(du, cp))) return send(res, 404, { error: 'Nicht gefunden.' });
+    const b = method === 'DELETE' ? {} : await readBody(req);
+    const kind = isOrd ? 'order' : (b.kind === 'kos' ? 'kos' : (b.kind === 'watch' ? 'watch' : (url.searchParams.get('kind') === 'kos' ? 'kos' : (url.searchParams.get('kind') === 'watch' ? 'watch' : ''))));
+    if (!kind || (!isOrd && !cp[kind])) return send(res, 400, { error: 'Dieser Auftrag läuft nicht.' });
+    if (!wiaMember(cp, kind, du)) return send(res, 403, { error: 'Nur Mitglieder des Auftrags dürfen dokumentieren.' });
+    if (!isObj(cp.docs)) cp.docs = {};
+    if (!Array.isArray(cp.docs[kind])) cp.docs[kind] = [];
+    const arr = cp.docs[kind], nm = isOrd ? cp.ti : cp.n, sidOf = du.sid || dispName(du);
+    if (!dcm[3] && method === 'POST') {
+      if (arr.length >= 200) return send(res, 400, { error: 'Die Dokumentation ist voll.' });
+      const d = { id: newId(), type: DOC_TYPES.indexOf(b.type) >= 0 ? b.type : '', title: str(b.title, 120), text: str(b.text, 4000), ts: Date.now(), by: dispName(du), bk: du.name };
+      if (!d.type) return send(res, 400, { error: 'Bitte Gespräch, Protokoll oder Eliminierung wählen.' });
+      if (!d.text) return send(res, 400, { error: 'Der Text fehlt.' });
+      arr.push(d); logAct(du, 'Auftrag dokumentiert', d.type + ': ' + nm + ' (' + sidOf + ')'); bump();
+      return send(res, 200, { id: d.id });
+    }
+    const cd = arr.filter(function (x) { return x.id === dcm[3]; })[0];
+    if (!cd) return send(res, 404, { error: 'Eintrag nicht gefunden.' });
+    if (method === 'PATCH') {
+      if (cd.bk !== du.name) return send(res, 403, { error: 'Nur der Verfasser ändert seinen Eintrag.' });
+      const t = str(b.text, 4000); if (!t) return send(res, 400, { error: 'Der Text fehlt.' });
+      cd.text = t; cd.title = str(b.title, 120); cd.edited = Date.now(); logAct(du, 'Dokumentation geändert', cd.type + ': ' + nm); bump();
+      return send(res, 200, { ok: true });
+    }
+    if (method === 'DELETE') {
+      if (cd.bk !== du.name && !wiaLead(cp, kind, du)) return send(res, 403, { error: 'Nur der Verfasser oder die Auftragsleitung löscht Einträge.' });
+      arr.splice(arr.indexOf(cd), 1); logAct(du, 'Dokumentation gelöscht', cd.type + ': ' + nm); bump();
+      return send(res, 200, { ok: true });
+    }
+  }
   const wm = /^\/api\/(persons|orders)\/([A-Za-z0-9_-]{1,40})\/wia$/.exec(p);
   if (wm && method === 'POST') {
     const isOrd = wm[1] === 'orders';
@@ -889,11 +932,16 @@ async function api(req, res, url) {
   }
   let m = /^\/api\/persons\/([A-Za-z0-9_-]{1,40})$/.exec(p);
   if (m) {
-    const pu = need(req, 'persons');
+    const pu = need(req, method === 'PATCH' ? 'viewer' : 'persons');
     const cur = db.persons[m[1]];
     if (!cur || !canSee(pu, cur)) return send(res, 404, { error: 'Akte nicht gefunden.' });
     if (method === 'PATCH') {
-      const o = cleanPerson(await readBody(req), true);
+      const rb = await readBody(req);
+      if (!can(pu, 'persons')) {
+        const only = rb && typeof rb === 'object' && Object.keys(rb).every(function (k) { return ['watch', 'kos', 'watchWhy', 'kosWhy'].indexOf(k) >= 0; });
+        if (!can(pu, 'mark') || !only) return send(res, 403, { error: 'Dafür fehlen dir die Rechte (Personen bzw. Beschatten / KoS).' });
+      }
+      const o = cleanPerson(rb, true);
       const LBL = { n: 'Name', r: 'Rang', s: 'Zugehörigkeit', p: 'Gefahrenlevel', l: 'Ort', note: 'Notiz', watch: 'Beschattung', kos: 'KoS', watchWhy: 'Beschattungs-Auftrag', kosWhy: 'KoS-Auftrag', groups: 'Sichtbarkeit', sp: 'Spezies', look: 'Aussehen', extra: 'Weitere Felder' };
       const ch = [];
       Object.keys(o).forEach(function (k) {
