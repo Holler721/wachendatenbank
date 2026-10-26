@@ -635,25 +635,30 @@ function wiaList(x, kind) { // normalisiert: [{k, st: 'ok'|'req', lead}]
   norm.forEach(function (e) { x.wia[kind].push(e); });
   return x.wia[kind];
 }
-function wiaLead(x, kind, u) { return !!u && (u.role === 'owner' || wiaList(x, kind).some(function (e) { return e.k === u.name && e.st === 'ok' && e.lead; })); }
-function wiaMember(x, kind, u) { return !!u && (u.role === 'owner' || wiaList(x, kind).some(function (e) { return e.k === u.name && e.st === 'ok'; })); }
+function wiaLead(x, kind, u) { return !!u && (u.role === 'owner' || wiaList(x, kind).some(function (e) { return e.k === u.name && e.st === 'ok' && e.lead && !e.ov; })); }
+function wiaMember(x, kind, u) { return !!u && (u.role === 'owner' || wiaList(x, kind).some(function (e) { return e.k === u.name && e.st === 'ok' && !e.ov; })); }
+function wiaOverseer(x, kind, u) { return !!u && wiaList(x, kind).some(function (e) { return e.k === u.name && e.ov; }); }
+function canOversee(u) { return !!u && !u.ris && (u.role === 'owner' || u.role === 'editor'); }
 const DOC_TYPES = ['Gespräch', 'Protokoll', 'Eliminierung'];
 function docsOut(x, me, kinds) {
   const o = {};
   kinds.forEach(function (k) {
-    if (!wiaMember(x, k, me)) return;
+    const mem = wiaMember(x, k, me);
+    if (!mem && !wiaOverseer(x, k, me)) return;
+    if (!mem) { if (!o.ro) o.ro = {}; o.ro[k] = true; }
     o[k] = ((isObj(x.docs) && Array.isArray(x.docs[k])) ? x.docs[k] : []).map(function (d) { return { id: d.id, type: d.type, title: d.title || '', text: d.text, by: authorId(d.bk, d.by), ts: d.ts, edited: d.edited || 0, mine: d.bk === me.name }; }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
   });
   return o;
 }
 function wiaOut(x, me, kinds) {
-  const o = { watch: [], kos: [], order: [], lead: { watch: false, kos: false, order: false } };
+  const o = { watch: [], kos: [], order: [], over: { watch: [], kos: [], order: [] }, lead: { watch: false, kos: false, order: false } };
   (kinds || ['watch', 'kos']).forEach(function (k) {
     if (k !== 'order' && !x[k]) return;
     const lead = wiaLead(x, k, me);
     o.lead[k] = lead;
     wiaList(x, k).forEach(function (e) {
       const u = db.users[e.k], mine = !!me && me.name === e.k;
+      if (e.ov) { o.over[k].push({ sid: u.sid || dispName(u), mine: mine }); return; }
       if (e.st !== 'ok' && !lead && !mine) return;
       o[k].push({ sid: u.sid || dispName(u), mine: mine, st: e.st, lead: !!e.lead });
     });
@@ -901,19 +906,33 @@ async function api(req, res, url) {
     const isOwner = wu.role === 'owner', lead = wiaLead(cp, kind, wu);
     const bySid = function (s) { s = String(s || '').trim().toLowerCase(); return Object.keys(db.users).map(function (k) { return db.users[k]; }).filter(function (u) { return !u.ris && ((u.sid || '').toLowerCase() === s || u.name === s); })[0]; };
     const sidOf = function (u) { return u.sid || dispName(u); };
-    if (typeof b.assign === 'string') { // Schatten Leitung teilt zu (= Auftragsleitung)
+    if (typeof b.oversee === 'boolean') {
+      if (!canOversee(wu)) return send(res, 403, { error: 'Überwachen dürfen nur Spektral Rat und Schatten Leitung.' });
+      const ex = list.filter(function (e) { return e.k === wu.name; })[0];
+      if (b.oversee) {
+        if (ex && !ex.ov) return send(res, 400, { error: 'Du bist schon Mitglied oder hast angefragt. Zieh das zuerst zurück.' });
+        if (!ex) { if (list.length >= 30) return send(res, 400, { error: 'Es sind schon genug Konten zugeteilt.' }); list.push({ k: wu.name, st: 'ok', lead: false, ov: true }); logAct(wu, 'Auftrag überwacht', K + ': ' + cp.n + ' (Überwacher ' + sidOf(wu) + ')'); }
+      } else if (ex && ex.ov) { list.splice(list.indexOf(ex), 1); logAct(wu, 'Überwachung beendet', K + ': ' + cp.n + ' (' + sidOf(wu) + ')'); }
+    } else if (typeof b.assignOver === 'string') { // Schatten Leitung weist Überwacher zu
+      if (!isOwner) return send(res, 403, { error: 'Überwacher weist nur die Schatten Leitung zu.' });
+      const tu = bySid(b.assignOver); if (!tu || tu.blocked) return send(res, 404, { error: 'Konto nicht gefunden oder gesperrt.' });
+      const ex = list.filter(function (e) { return e.k === tu.name; })[0];
+      if (ex && !ex.ov) return send(res, 400, { error: 'Dieses Konto ist schon Mitglied des Auftrags.' });
+      if (!ex) { if (list.length >= 30) return send(res, 400, { error: 'Es sind schon genug Konten zugeteilt.' }); list.push({ k: tu.name, st: 'ok', lead: false, ov: true }); }
+      logAct(wu, 'Überwacher zugewiesen', K + ': ' + cp.n + ' → ' + sidOf(tu));
+    } else if (typeof b.assign === 'string') { // Schatten Leitung teilt zu (= Auftragsleitung)
       if (!isOwner) return send(res, 403, { error: 'Konten zuteilen darf nur die Schatten Leitung.' });
       const tu = bySid(b.assign); if (!tu || tu.blocked) return send(res, 404, { error: 'Konto nicht gefunden oder gesperrt.' });
       if (!canSee(tu, cp)) return send(res, 400, { error: 'Dieses Konto darf die Person nicht sehen.' });
       const ex = list.filter(function (e) { return e.k === tu.name; })[0];
-      if (ex) { ex.st = 'ok'; ex.lead = true; } else { if (list.length >= 30) return send(res, 400, { error: 'Es sind schon genug Konten zugeteilt.' }); list.push({ k: tu.name, st: 'ok', lead: true }); }
+      if (ex) { ex.st = 'ok'; ex.lead = true; delete ex.ov; } else { if (list.length >= 30) return send(res, 400, { error: 'Es sind schon genug Konten zugeteilt.' }); list.push({ k: tu.name, st: 'ok', lead: true }); }
       logAct(wu, 'Konto auf Auftrag zugeteilt', K + ': ' + cp.n + ' → ' + sidOf(tu) + ' (Auftragsleitung)');
     } else if (typeof b.accept === 'string') { // Auftragsleitung entscheidet über Anfragen
       if (!lead) return send(res, 403, { error: 'Das entscheidet nur die Auftragsleitung.' });
       const tu = bySid(b.accept), ex = tu && list.filter(function (e) { return e.k === tu.name; })[0];
       if (!ex) return send(res, 404, { error: 'Anfrage nicht gefunden.' });
       if (b.yes === false) {
-        if (ex.lead && !isOwner) return send(res, 403, { error: 'Die Auftragsleitung entfernt nur die Schatten Leitung.' });
+        if ((ex.lead || ex.ov) && !isOwner) return send(res, 403, { error: 'Die Auftragsleitung und Überwacher entfernt nur die Schatten Leitung.' });
         list.splice(list.indexOf(ex), 1); logAct(wu, ex.st === 'ok' ? 'Konto vom Auftrag entfernt' : 'Auftragsanfrage abgelehnt', K + ': ' + cp.n + ' → ' + sidOf(tu));
       } else { ex.st = 'ok'; logAct(wu, 'Auftragsanfrage akzeptiert', K + ': ' + cp.n + ' → ' + sidOf(tu)); }
     } else if (b.take === false) {
@@ -921,6 +940,7 @@ async function api(req, res, url) {
       if (ix >= 0) { list.splice(ix, 1); logAct(wu, 'Auftrag abgegeben', K + ': ' + cp.n + ' (' + sidOf(wu) + ')'); }
     } else {
       const ex = list.filter(function (e) { return e.k === wu.name; })[0];
+      if (ex && ex.ov) return send(res, 400, { error: 'Du überwachst diesen Auftrag. Beende zuerst die Überwachung.' });
       if (!ex) {
         if (list.length >= 30) return send(res, 400, { error: 'Es haben schon genug Konten den Auftrag angefragt.' });
         list.push({ k: wu.name, st: isOwner ? 'ok' : 'req', lead: false });
