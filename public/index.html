@@ -639,7 +639,7 @@ function clone(o){return JSON.parse(JSON.stringify(o))}
 function num(v,d){v=+v;return isFinite(v)?v:d}
 
 /* ---------- Einzelrechte ---------- */
-var PL=[['persons','Personen','Personen anlegen, ändern, entfernen'],['files','Akten','Akten bei Personen schreiben'],['reports','Berichte','Berichte schreiben und Anhänge hinzufügen'],['opsStart','Op. starten','Operationen starten'],['opsManage','Op. steuern','Operationen vorantreiben, umbenennen, Sichtbarkeit, abbrechen, archivieren'],['map','Karte','Galaxis Karte bearbeiten'],['others','Fremde Inhalte','Fremde Berichte, Akten und Anhänge ändern, deklassifizieren'],['config','Anpassung','Ränge, Labels und Berichtsarten ändern'],['lockdown','Notfall','UMBRA auslösen/beenden; bleibt bei UMBRA freigeschaltet'],['open','Offen lesen','Berichte der Stufe Offen lesen'],['intern','Intern lesen','Berichte der Stufe Intern lesen'],['secret','Vertraulich lesen','Berichte der Stufen Vertraulich und Geheim lesen'],['logs','Logs','Protokoll sehen: wer hat wann was gemacht'],['accounts','Konten','Konten anlegen, Gruppe zuweisen, Passwort zurücksetzen, löschen (nur mit Gruppen, deren Rechte man selbst hat)'],['groups','Gruppen','Gruppen und Rechte verwalten (nur Rechte, die man selbst hat)'],['ris','RIS Kooperation','Reiter „RIS Kooperation“ sehen und Berichte für „Wachen“ schreiben'],['archive','Archiv','Im Archiv Machtfähigkeiten und Aufgaben eintragen (lesen dürfen alle)']];
+var PL=[['persons','Personen','Personen anlegen, ändern, entfernen'],['files','Akten','Akten bei Personen schreiben'],['reports','Berichte','Berichte schreiben und Anhänge hinzufügen'],['opsStart','Op. starten','Operationen starten'],['opsManage','Op. steuern','Operationen vorantreiben, umbenennen, Sichtbarkeit, abbrechen, archivieren'],['map','Karte','Galaxis Karte bearbeiten'],['others','Fremde Inhalte','Fremde Berichte, Akten und Anhänge ändern, deklassifizieren'],['config','Anpassung','Ränge, Labels und Berichtsarten ändern'],['lockdown','Notfall','UMBRA auslösen/beenden; bleibt bei UMBRA freigeschaltet'],['open','Offen lesen','Berichte der Stufe Offen lesen'],['intern','Intern lesen','Berichte der Stufe Intern lesen'],['secret','Vertraulich lesen','Berichte der Stufen Vertraulich und Geheim lesen'],['logs','Logs','Protokoll sehen: wer hat wann was gemacht'],['accounts','Konten','Konten anlegen, Gruppe zuweisen, Passwort zurücksetzen, löschen (nur mit Gruppen, deren Rechte man selbst hat)'],['groups','Gruppen','Gruppen und Rechte verwalten (nur Rechte, die man selbst hat)'],['ris','RIS Kooperation','Reiter „RIS Kooperation“ sehen und Berichte für „Wachen“ schreiben'],['archive','Archiv','Im Archiv Machtfähigkeiten und Aufgaben eintragen (lesen dürfen alle)'],['mark','Beschatten / KoS','Personen auf Beschattung oder KoS setzen und aufheben, Aufträge dazu schreiben']];
 var WRITE_P={persons:1,files:1,reports:1,opsStart:1},MANAGE_P={opsManage:1,map:1,others:1,config:1,lockdown:1};
 function P(k){if(S.hosted&&H.user)return !!(H.user.perms&&H.user.perms[k]);return WRITE_P[k]?!!S.canWrite:MANAGE_P[k]?!!S.canMap:false}
 
@@ -880,6 +880,14 @@ function renderOpsMini(){
 var AU={tab:'watch',edit:null};S.orders=[];
 var AUT={watch:{t:'Beschattungen',why:'watchWhy',ph:'Auftrag und Begründung der Beschattung: Warum wird die Person beschattet, was soll beobachtet werden, wer führt aus, was ist das Ziel?',end:'Beschattung beenden'},
          kos:{t:'KoS',why:'kosWhy',ph:'Auftrag und Begründung des KoS (Kill on Sight): Warum gilt der Befehl, unter welchen Umständen, wer hat ihn erteilt, wann endet er?',end:'KoS aufheben'}};
+var DOCT={'Gespräch':'cyan','Protokoll':'vio','Eliminierung':'red'};
+function docsHtml(o,kind){
+  if(!o.docs||!o.docs[kind])return '';
+  var l=o.docs[kind],lead=!!(o.wia&&o.wia.lead&&o.wia.lead[kind]);
+  return '<div style="display:grid;gap:8px;padding:10px;border:1px solid var(--line2)"><div class="muted" style="font-size:11px;letter-spacing:.1em">DOKUMENTATION DES AUFTRAGS ('+l.length+') · NUR MITGLIEDER</div>'+
+   '<div style="display:grid;gap:8px"><div style="display:flex;gap:8px;flex-wrap:wrap"><div class="field" style="margin:0"><label>ART</label><select class="dTy"><option>Gespräch</option><option>Protokoll</option><option>Eliminierung</option></select></div><div class="field" style="margin:0;flex:1;min-width:180px"><label>TITEL (OPTIONAL)</label><input class="dTi" type="text" maxlength="120"></div></div>'+
+   '<div class="field" style="margin:0"><label>EINTRAG</label><textarea class="dTx" rows="4" maxlength="4000" placeholder="Was wurde besprochen, festgehalten oder erledigt?"></textarea></div><div><button class="btn sm" data-auact="dadd">Eintragen</button></div></div>'+
+   l.map(function(d){return '<div class="fl" style="padding:10px;display:grid;gap:4px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><span><span class="chip '+(DOCT[d.type]||'vio')+'">'+esc(d.type)+'</span> <b>'+esc(d.title)+'</b></span><span class="muted" style="font-size:12px">'+esc(fDate(d.ts))+' · '+esc(d.by)+(d.edited?' · bearbeitet':'')+'</span></div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(d.text)+'</div>'+((d.mine||lead)?'<div><button class="btn sm ghost" data-auact="ddel" data-did="'+esc(d.id)+'">Löschen</button></div>':'')+'</div>'}).join('')+'</div>'}
 function wiaLine(p){
   var o=[];['kos','watch'].forEach(function(k){((p.wia&&p.wia[k])||[]).filter(function(x){return x.st==='ok'}).forEach(function(x){o.push('<span class="chip '+(x.mine?'cyan':'vio')+'" title="'+(k==='kos'?'KoS':'Beschattung')+'">WiA '+esc(x.sid)+(x.lead?' · AL':'')+'</span>')})});
   return o.length?'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0"><span class="muted" style="font-size:11px">WÄCHTER IM AUFTRAG</span>'+o.join('')+'</div>':''}
@@ -908,7 +916,7 @@ function renderOther(){
     var can=w&&(o.mine||P('others'));
     var row=function(l,t){return t?'<div><div class="muted" style="font-size:11px;letter-spacing:.1em">'+l+'</div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(t)+'</div></div>':''};
     return '<article class="fl" style="padding:12px;display:grid;gap:10px" data-oid="'+esc(o.id)+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><b>'+esc(o.ti)+'</b><span class="muted">'+esc(fDate(o.ts))+' · '+esc(o.by||'')+(o.edited?' · bearbeitet '+esc(fDate(o.edited)):'')+'</span></div>'+
-      row('ZIELPERSON / ZIELOBJEKT',o.target)+row('GRUND',o.why)+row('BESCHREIBUNG DES AUFTRAGS',o.desc)+wiaHtml(o,'order')+
+      row('ZIELPERSON / ZIELOBJEKT',o.target)+row('GRUND',o.why)+row('BESCHREIBUNG DES AUFTRAGS',o.desc)+wiaHtml(o,'order')+docsHtml(o,'order')+
       (can?'<div style="display:flex;gap:8px"><button class="btn sm ghost" data-auact="oedit">Bearbeiten</button><button class="btn sm danger" data-auact="odel">Auftrag beenden</button></div>':'')+'</article>'}).join('');
   if(!S.orders.length&&AU.edit!=='new')h2+='<p class="muted" style="margin:0">Noch keine sonstigen Aufträge.'+(w?' Mit „Auftrag erstellen“ legst du den ersten an.':'')+'</p>';
   $('#auBody').innerHTML=h2;
@@ -925,17 +933,23 @@ function renderOrders(){
   if(S.hosted&&H.user&&H.user.role==='owner'&&!AU.users&&!AU.loading){AU.loading=true;api('GET','/api/users').then(function(j){AU.users=j.users||[];AU.loading=false;if(S.view==='auftraege')renderOrders()}).catch(function(){AU.loading=false;AU.users=[]})}
   tabs.innerHTML=Object.keys(AUT).map(function(k){var n=S.persons.filter(function(p){return !!p[k]}).length;return '<button data-autab="'+k+'" aria-pressed="'+(AU.tab===k)+'">'+AUT[k].t+' ('+n+')</button>'}).join('')+'<button data-autab="other" aria-pressed="'+(AU.tab==='other')+'">Sonstige Aufträge ('+S.orders.length+')</button>';
   if(AU.tab==='other'){renderOther();return}
-  var T=AUT[AU.tab],list=S.persons.filter(function(p){return !!p[AU.tab]}),w=P('persons');
+  var T=AUT[AU.tab],list=S.persons.filter(function(p){return !!p[AU.tab]}),w=P('persons')||P('mark');
   $('#auBody').innerHTML=list.length?list.map(function(p){
     var why=p[T.why]||'';
     return '<article class="fl" style="padding:12px;display:grid;gap:8px" data-pid="'+esc(p.id)+'"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><span><b>'+esc(p.n)+'</b> '+(p.kos?'<span class="chip kos">☠ KoS</span> ':'')+(p.watch?'<span class="chip amber">Beschattet</span>':'')+'</span><span class="muted">'+esc(p.r)+' · '+esc(p.s)+' · Gefahrenlevel '+esc(p.p)+' · '+esc(p.l)+'</span></div>'+
-      (w?'<div class="field"><label for="auT_'+esc(p.id)+'">AUFTRAG / BEGRÜNDUNG</label><textarea id="auT_'+esc(p.id)+'" rows="5" maxlength="2000" placeholder="'+esc(T.ph)+'">'+esc(why)+'</textarea></div>'+wiaHtml(p,AU.tab)+'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-auact="save">Speichern</button><button class="btn sm ghost" data-auact="open">Zur Person</button><button class="btn sm danger" data-auact="end">'+T.end+'</button></div>'
-        :'<div><div class="muted" style="font-size:11px;letter-spacing:.1em">AUFTRAG / BEGRÜNDUNG</div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+(why?esc(why):'<span class="muted">Noch keine Begründung eingetragen.</span>')+'</div></div>'+wiaHtml(p,AU.tab)+'<div><button class="btn sm ghost" data-auact="open">Zur Person</button></div>')+'</article>'}).join('')
+      (w?'<div class="field"><label for="auT_'+esc(p.id)+'">AUFTRAG / BEGRÜNDUNG</label><textarea id="auT_'+esc(p.id)+'" rows="5" maxlength="2000" placeholder="'+esc(T.ph)+'">'+esc(why)+'</textarea></div>'+wiaHtml(p,AU.tab)+docsHtml(p,AU.tab)+'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-auact="save">Speichern</button><button class="btn sm ghost" data-auact="open">Zur Person</button><button class="btn sm danger" data-auact="end">'+T.end+'</button></div>'
+        :'<div><div class="muted" style="font-size:11px;letter-spacing:.1em">AUFTRAG / BEGRÜNDUNG</div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+(why?esc(why):'<span class="muted">Noch keine Begründung eingetragen.</span>')+'</div></div>'+wiaHtml(p,AU.tab)+docsHtml(p,AU.tab)+'<div><button class="btn sm ghost" data-auact="open">Zur Person</button></div>')+'</article>'}).join('')
     :'<p class="muted" style="margin:0">Aktuell '+(AU.tab==='watch'?'wird niemand beschattet':'ist niemand KoS')+'. Im Personenregister lässt sich das bei der Person setzen.</p>';
 }
 $('#auTabs').addEventListener('click',function(e){var b=e.target.closest('[data-autab]');if(b){AU.tab=b.dataset.autab;renderOrders()}});
 $('#auBody').addEventListener('click',function(e){
   var b=e.target.closest('[data-auact]');if(!b)return;var a=b.dataset.auact;
+  if(a==='dadd'||a==='ddel'){
+    var cd=b.closest('[data-oid],[data-pid]');if(!cd)return;var isO=!!cd.dataset.oid,base='/api/'+(isO?'orders':'persons')+'/'+encodeURIComponent(isO?cd.dataset.oid:cd.dataset.pid)+'/docs',kd=isO?'order':AU.tab;
+    if(a==='dadd'){var d={kind:kd,type:cd.querySelector('.dTy').value,title:cd.querySelector('.dTi').value.trim(),text:cd.querySelector('.dTx').value.trim()};if(!d.text){toast('Der Eintrag ist leer.','red');return}
+      api('POST',base,d).then(function(){toast('Eintrag dokumentiert.','cyan');return loadData(true)}).then(function(){renderOrders()}).catch(apiErr)}
+    else{if(!confirm('Diesen Eintrag löschen?'))return;api('DELETE',base+'/'+encodeURIComponent(b.dataset.did)+'?kind='+kd).then(function(){toast('Eintrag gelöscht.','red');return loadData(true)}).then(function(){renderOrders()}).catch(apiErr)}
+    return}
   if(a==='onew'){AU.edit='new';renderOrders();var f=$('#orTi');if(f)f.focus();return}
   if(a==='ocancel'){AU.edit=null;renderOrders();return}
   var ocard=b.closest('[data-oid]');
@@ -960,7 +974,7 @@ $('#auBody').addEventListener('click',function(e){
     else if(a==='reject'){body.accept=b.dataset.sid;body.yes=false;msg=b.dataset.sid+' entfernt.'}
     else{var sel=card.querySelector('.auAs');if(!sel||!sel.value){toast('Kein Konto ausgewählt.','red');return}body.assign=sel.value;msg='Konto zugeteilt (Auftragsleitung).'}
     api('POST','/api/persons/'+encodeURIComponent(p.id)+'/wia',body).then(function(){toast(msg,'cyan');return loadData(true)}).then(function(){renderOrders()}).catch(apiErr);return}
-  if(!S.db||!P('persons'))return;var ref=S.db.collection('persons').doc(p.id);
+  if(!S.db||!(P('persons')||P('mark')))return;var ref=S.db.collection('persons').doc(p.id);
   if(a==='save'){var d={};d[T.why]=$('#auT_'+p.id).value.trim();ref.update(d).then(function(){toast('Auftrag gespeichert.','cyan');renderOrders()}).catch(writeErr);return}
   if(a==='end'){if(!confirm(T.end+' für '+p.n+'?'))return;var d2={};d2[AU.tab]=false;ref.update(d2).then(function(){toast(T.end+': '+p.n+'.','cyan');renderOrders()}).catch(writeErr)}
 });
@@ -1032,7 +1046,7 @@ function renderDetail(){
   el.innerHTML='<div style="display:flex;gap:14px;align-items:center"><div class="avatar" aria-hidden="true">'+esc(ini)+'</div><div style="min-width:0"><h2 style="overflow-wrap:anywhere">'+esc(p.n)+'</h2><span class="chip '+(stChip(p.s)||'amber')+'" style="margin-top:6px">'+esc(p.s)+'</span>'+(p.kos?' <span class="chip kos" style="margin-top:6px">KoS</span>':'')+(p.watch?' <span class="chip vio" style="margin-top:6px">Überwacht</span>':'')+visChip(p.groups,'margin-top:6px')+'</div></div>'+
    ''+(p.kos?'<div class="kosbar" role="alert">☠ KoS · Kill on Sight</div>':'')+(p.watch?'<div class="watchbar" role="status"><span class="dot"></span> Diese Person wird beschattet</div>':'')+wiaLine(p)+'<dl class="kv"><dt>Rang</dt><dd>'+esc(p.r)+'</dd>'+(p.sp?'<dt>Spezies</dt><dd style="overflow-wrap:anywhere">'+esc(p.sp)+'</dd>':'')+(p.look?'<dt>Aussehen</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(p.look)+'</dd>':'')+(p.extra||[]).map(function(x){return '<dt>'+esc(x.k)+'</dt><dd style="overflow-wrap:anywhere;white-space:pre-wrap">'+esc(x.v)+'</dd>'}).join('')+'<dt>Ort</dt><dd>'+esc(p.l)+'</dd><dt>Zuletzt</dt><dd>'+esc(p.seen)+new Date().getFullYear()+'</dd><dt>Notiz</dt><dd style="overflow-wrap:anywhere">'+esc(p.note)+'</dd></dl>'+
    '<div class="gauge"><div class="l"><span>Gefahrenlevel</span><b style="color:'+col+'">'+pw+'</b></div><div class="bar"><i style="width:'+pw+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div></div>'+
-   (P('persons')?'<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-act="edit">Bearbeiten</button><button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm danger" data-act="kos">'+(p.kos?'KoS aufheben':'KoS setzen')+'</button><button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button></div>':
+   (P('persons')||P('mark')?'<div style="display:flex;flex-wrap:wrap;gap:8px">'+(P('persons')?'<button class="btn sm" data-act="edit">Bearbeiten</button>':'')+'<button class="btn sm" data-act="watch">'+(p.watch?'Beschattung beenden':'Beschatten')+'</button><button class="btn sm danger" data-act="kos">'+(p.kos?'KoS aufheben':'KoS setzen')+'</button>'+(P('persons')?'<button class="btn sm danger" data-act="flag">Als Gefahr markieren</button><button class="btn sm ghost" data-act="remove" style="margin-left:auto">'+(S.confirmDel===p.id?'Wirklich entfernen?':'Akte entfernen')+'</button>':'')+'</div>':
    '<p class="muted" style="margin:0;font-size:12px">Nur Lesen: Dir fehlt das Recht „Personen“.</p>')+filesHtml(p);
 }
 ['q','fs','so'].forEach(function(id){$('#'+id).addEventListener('input',renderRegister)});
@@ -1058,7 +1072,7 @@ $('#pDetail').addEventListener('click',function(e){
   if(a==='cancelAdd'){S.add=false;S.editP=null;renderRegister();return}
   if(a==='edit'){S.editP=S.selP;S.add=false;renderRegister();var nn=$('#nName');if(nn)nn.focus();return}
   if(a==='seed'){seedDefaults();return}
-  var p=find(S.selP);if(!p||!S.db||!P('persons'))return;var ref=S.db.collection('persons').doc(p.id);
+  var p=find(S.selP);if(!p||!S.db||!(P('persons')||(P('mark')&&(a==='kos'||a==='watch'))))return;var ref=S.db.collection('persons').doc(p.id);
   if(a==='kos'){var nk=!p.kos;if(nk&&!confirm('KoS (Kill on Sight) für '+p.n+' setzen?'))return;ref.update({kos:nk}).then(function(){toast(nk?p.n+' ist jetzt KoS (Kill on Sight).':'KoS für '+p.n+' aufgehoben.',nk?'red':'cyan')}).catch(writeErr);return}
   if(a==='watch')ref.update({watch:!p.watch}).then(function(){toast(!p.watch?p.n+' wird beschattet.':'Beschattung von '+p.n+' beendet.','cyan')}).catch(writeErr);
   if(a==='flag')ref.update({s:firstThreat()}).then(function(){toast(p.n+' als Gefahr markiert ('+firstThreat()+').','red')}).catch(writeErr);
