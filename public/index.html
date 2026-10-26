@@ -883,24 +883,28 @@ var AUT={watch:{t:'Beschattungen',why:'watchWhy',ph:'Auftrag und Begründung der
 var DOCT={'Gespräch':'cyan','Protokoll':'vio','Eliminierung':'red'};
 function docsHtml(o,kind){
   if(!o.docs||!o.docs[kind])return '';
-  var l=o.docs[kind],lead=!!(o.wia&&o.wia.lead&&o.wia.lead[kind]);
-  return '<div style="display:grid;gap:8px;padding:10px;border:1px solid var(--line2)"><div class="muted" style="font-size:11px;letter-spacing:.1em">DOKUMENTATION DES AUFTRAGS ('+l.length+') · NUR MITGLIEDER</div>'+
-   '<div style="display:grid;gap:8px"><div style="display:flex;gap:8px;flex-wrap:wrap"><div class="field" style="margin:0"><label>ART</label><select class="dTy"><option>Gespräch</option><option>Protokoll</option><option>Eliminierung</option></select></div><div class="field" style="margin:0;flex:1;min-width:180px"><label>TITEL (OPTIONAL)</label><input class="dTi" type="text" maxlength="120"></div></div>'+
-   '<div class="field" style="margin:0"><label>EINTRAG</label><textarea class="dTx" rows="4" maxlength="4000" placeholder="Was wurde besprochen, festgehalten oder erledigt?"></textarea></div><div><button class="btn sm" data-auact="dadd">Eintragen</button></div></div>'+
-   l.map(function(d){return '<div class="fl" style="padding:10px;display:grid;gap:4px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><span><span class="chip '+(DOCT[d.type]||'vio')+'">'+esc(d.type)+'</span> <b>'+esc(d.title)+'</b></span><span class="muted" style="font-size:12px">'+esc(fDate(d.ts))+' · '+esc(d.by)+(d.edited?' · bearbeitet':'')+'</span></div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(d.text)+'</div>'+((d.mine||lead)?'<div><button class="btn sm ghost" data-auact="ddel" data-did="'+esc(d.id)+'">Löschen</button></div>':'')+'</div>'}).join('')+'</div>'}
+  var l=o.docs[kind],lead=!!(o.wia&&o.wia.lead&&o.wia.lead[kind]),ro=!!(o.docs.ro&&o.docs.ro[kind]);
+  return '<div style="display:grid;gap:8px;padding:10px;border:1px solid var(--line2)"><div class="muted" style="font-size:11px;letter-spacing:.1em">DOKUMENTATION DES AUFTRAGS ('+l.length+') · '+(ro?'ÜBERWACHER: NUR LESEN':'NUR MITGLIEDER')+'</div>'+
+   (ro?'':'<div style="display:grid;gap:8px"><div style="display:flex;gap:8px;flex-wrap:wrap"><div class="field" style="margin:0"><label>ART</label><select class="dTy"><option>Gespräch</option><option>Protokoll</option><option>Eliminierung</option></select></div><div class="field" style="margin:0;flex:1;min-width:180px"><label>TITEL (OPTIONAL)</label><input class="dTi" type="text" maxlength="120"></div></div>'+
+   '<div class="field" style="margin:0"><label>EINTRAG</label><textarea class="dTx" rows="4" maxlength="4000" placeholder="Was wurde besprochen, festgehalten oder erledigt?"></textarea></div><div><button class="btn sm" data-auact="dadd">Eintragen</button></div></div>')+
+   l.map(function(d){return '<div class="fl" style="padding:10px;display:grid;gap:4px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><span><span class="chip '+(DOCT[d.type]||'vio')+'">'+esc(d.type)+'</span> <b>'+esc(d.title)+'</b></span><span class="muted" style="font-size:12px">'+esc(fDate(d.ts))+' · '+esc(d.by)+(d.edited?' · bearbeitet':'')+'</span></div><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(d.text)+'</div>'+((!ro&&(d.mine||lead))?'<div><button class="btn sm ghost" data-auact="ddel" data-did="'+esc(d.id)+'">Löschen</button></div>':'')+'</div>'}).join('')+'</div>'}
 function wiaLine(p){
   var o=[];['kos','watch'].forEach(function(k){((p.wia&&p.wia[k])||[]).filter(function(x){return x.st==='ok'}).forEach(function(x){o.push('<span class="chip '+(x.mine?'cyan':'vio')+'" title="'+(k==='kos'?'KoS':'Beschattung')+'">WiA '+esc(x.sid)+(x.lead?' · AL':'')+'</span>')})});
   return o.length?'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0"><span class="muted" style="font-size:11px">WÄCHTER IM AUFTRAG</span>'+o.join('')+'</div>':''}
 function wiaHtml(p,kind){
   var all=(p.wia&&p.wia[kind])||[],ok=all.filter(function(x){return x.st==='ok'}),req=all.filter(function(x){return x.st!=='ok'}),lead=!!(p.wia&&p.wia.lead&&p.wia.lead[kind]),mineE=all.filter(function(x){return x.mine})[0],owner=!!(H.user&&H.user.role==='owner');
   var chips=ok.length?ok.map(function(x){return '<span class="chip '+(x.mine?'cyan':'vio')+'" title="'+(x.lead?'Auftragsleitung':'Wächter im Auftrag')+'">WiA '+esc(x.sid)+(x.lead?' · AL':'')+'</span>'+((lead&&!x.mine&&(!x.lead||owner))?'<button class="btn sm ghost" data-auact="reject" data-sid="'+esc(x.sid)+'" title="Vom Auftrag entfernen" aria-label="'+esc(x.sid)+' entfernen">×</button>':'')}).join(''):'<span class="muted" style="font-size:12px">Noch niemand zugeteilt oder akzeptiert.</span>';
+  var ovs=(p.wia&&p.wia.over&&p.wia.over[kind])||[],ovMine=ovs.some(function(x){return x.mine}),canOv=!!(S.hosted&&H.user&&(H.user.role==='owner'||H.user.role==='editor'));
   var h2='<div style="display:grid;gap:6px"><div class="muted" style="font-size:11px;letter-spacing:.1em">WiA · WÄCHTER IM AUFTRAG ('+ok.length+') · AL = AUFTRAGSLEITUNG</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+chips+
     (S.hosted&&!mineE?'<button class="btn sm" data-auact="take">'+(owner?'Auftrag übernehmen':'Übernahme anfragen')+'</button>':'')+
     (mineE&&mineE.st!=='ok'?'<span class="chip amber">Deine Anfrage ist offen</span><button class="btn sm ghost" data-auact="drop">Anfrage zurückziehen</button>':'')+
     (mineE&&mineE.st==='ok'?'<button class="btn sm ghost" data-auact="drop">Übernahme zurückziehen</button>':'')+'</div>';
+  if(ovs.length||canOv)h2+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="muted" style="font-size:11px;letter-spacing:.1em">ÜBERWACHER ('+ovs.length+')</span>'+ovs.map(function(x){return '<span class="chip amber" title="Überwacher: sieht Ergebnisse und Protokolle">'+esc(x.sid)+'</span>'+(owner&&!x.mine?'<button class="btn sm ghost" data-auact="reject" data-sid="'+esc(x.sid)+'" aria-label="'+esc(x.sid)+' entfernen">×</button>':'')}).join('')+(canOv&&!mineE?'<button class="btn sm'+(ovMine?' ghost':'')+'" data-auact="'+(ovMine?'overoff':'overon')+'">'+(ovMine?'Überwachung beenden':'Auftrag überwachen')+'</button>':'')+'</div>';
   if(lead&&req.length)h2+='<div style="display:grid;gap:6px;padding:8px 10px;border:1px dashed var(--line2)"><div class="muted" style="font-size:11px;letter-spacing:.1em">OFFENE ANFRAGEN ('+req.length+')</div>'+req.map(function(x){return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="chip amber">'+esc(x.sid)+'</span><button class="btn sm" data-auact="accept" data-sid="'+esc(x.sid)+'">Akzeptieren</button><button class="btn sm danger" data-auact="reject" data-sid="'+esc(x.sid)+'">Ablehnen</button></div>'}).join('')+'</div>';
   if(owner&&S.hosted){var us=(AU.users||[]).filter(function(u){return !u.ris&&!u.blocked&&!all.some(function(x){return x.sid===u.sid&&x.lead})});
-    h2+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><div class="field" style="margin:0"><label for="auAs_'+esc(p.id)+'">KONTO ZUTEILEN (WIRD AUFTRAGSLEITUNG)</label><select id="auAs_'+esc(p.id)+'" class="auAs">'+(us.length?us.map(function(u){return '<option value="'+esc(u.sid||u.name)+'">'+esc((u.display||u.name)+' · '+(u.sid||''))+'</option>'}).join(''):'<option value="">'+(AU.users?'keine Konten':'lädt …')+'</option>')+'</select></div><button class="btn sm" data-auact="assign">Zuteilen</button></div>'}
+    h2+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><div class="field" style="margin:0"><label for="auAs_'+esc(p.id)+'">KONTO ZUTEILEN (WIRD AUFTRAGSLEITUNG)</label><select id="auAs_'+esc(p.id)+'" class="auAs">'+(us.length?us.map(function(u){return '<option value="'+esc(u.sid||u.name)+'">'+esc((u.display||u.name)+' · '+(u.sid||''))+'</option>'}).join(''):'<option value="">'+(AU.users?'keine Konten':'lädt …')+'</option>')+'</select></div><button class="btn sm" data-auact="assign">Zuteilen</button></div>';
+    var uo=(AU.users||[]).filter(function(u){return !u.ris&&!u.blocked&&!ovs.some(function(x){return x.sid===u.sid})&&!all.some(function(x){return x.sid===u.sid})});
+    h2+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><div class="field" style="margin:0"><label for="auOv_'+esc(p.id)+'">ÜBERWACHER ZUWEISEN</label><select id="auOv_'+esc(p.id)+'" class="auOv">'+(uo.length?uo.map(function(u){return '<option value="'+esc(u.sid||u.name)+'">'+esc((u.display||u.name)+' · '+(u.sid||''))+'</option>'}).join(''):'<option value="">'+(AU.users?'keine Konten':'lädt …')+'</option>')+'</select></div><button class="btn sm" data-auact="assignov">Zuweisen</button></div>'}
   return h2+'</div>'}
 function orderForm(o){return '<form class="fl" id="orForm" style="padding:12px;display:grid;gap:8px"><h3 style="margin:0;font-size:14px">'+(o?'Auftrag bearbeiten':'Neuer sonstiger Auftrag')+'</h3>'+
   '<div class="field"><label for="orTi">TITEL *</label><input id="orTi" type="text" maxlength="120" required value="'+esc(o?o.ti:'')+'"></div>'+
@@ -961,17 +965,23 @@ $('#auBody').addEventListener('click',function(e){
     else if(a==='drop'){body.take=false;msg='Zurückgezogen.'}
     else if(a==='accept'){body.accept=b.dataset.sid;body.yes=true;msg='Akzeptiert. '+b.dataset.sid+' erscheint als WiA.'}
     else if(a==='reject'){body.accept=b.dataset.sid;body.yes=false;msg=b.dataset.sid+' entfernt.'}
+    else if(a==='assignov'){var s3=ocard.querySelector('.auOv');if(!s3||!s3.value){toast('Kein Konto ausgewählt.','red');return}body.assignOver=s3.value;msg='Überwacher zugewiesen.'}
+    else if(a==='overon'){body.oversee=true;msg='Du überwachst den Auftrag und siehst die Dokumentation.'}
+    else if(a==='overoff'){body.oversee=false;msg='Überwachung beendet.'}
     else if(a==='assign'){var s2=ocard.querySelector('.auAs');if(!s2||!s2.value){toast('Kein Konto ausgewählt.','red');return}body.assign=s2.value;msg='Konto zugeteilt (Auftragsleitung).'}
     else return;
     api('POST','/api/orders/'+encodeURIComponent(oid)+'/wia',body).then(function(){toast(msg,'cyan');return loadData(true)}).then(function(){renderOrders()}).catch(apiErr);return}
   var card=b.closest('[data-pid]'),p=card&&find(card.dataset.pid);if(!p)return;var T=AUT[AU.tab];
   if(a==='open'){S.selP=p.id;S.add=false;go('register');renderRegister();return}
-  if(a==='take'||a==='drop'||a==='accept'||a==='reject'||a==='assign'){
+  if(a==='take'||a==='drop'||a==='accept'||a==='reject'||a==='assign'||a==='overon'||a==='overoff'||a==='assignov'){
     var body={kind:AU.tab},msg='';
     if(a==='take'){body.take=true;msg=H.user.role==='owner'?'Auftrag übernommen. Du erscheinst als WiA.':'Anfrage gesendet. Die Auftragsleitung entscheidet.'}
     else if(a==='drop'){body.take=false;msg='Zurückgezogen.'}
     else if(a==='accept'){body.accept=b.dataset.sid;body.yes=true;msg='Akzeptiert. '+b.dataset.sid+' erscheint als WiA.'}
     else if(a==='reject'){body.accept=b.dataset.sid;body.yes=false;msg=b.dataset.sid+' entfernt.'}
+    else if(a==='assignov'){var s3=card.querySelector('.auOv');if(!s3||!s3.value){toast('Kein Konto ausgewählt.','red');return}body.assignOver=s3.value;msg='Überwacher zugewiesen.'}
+    else if(a==='overon'){body.oversee=true;msg='Du überwachst den Auftrag und siehst die Dokumentation.'}
+    else if(a==='overoff'){body.oversee=false;msg='Überwachung beendet.'}
     else{var sel=card.querySelector('.auAs');if(!sel||!sel.value){toast('Kein Konto ausgewählt.','red');return}body.assign=sel.value;msg='Konto zugeteilt (Auftragsleitung).'}
     api('POST','/api/persons/'+encodeURIComponent(p.id)+'/wia',body).then(function(){toast(msg,'cyan');return loadData(true)}).then(function(){renderOrders()}).catch(apiErr);return}
   if(!S.db||!(P('persons')||P('mark')))return;var ref=S.db.collection('persons').doc(p.id);
