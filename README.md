@@ -6,7 +6,7 @@ Node.js, keine Abhängigkeiten. Start: `node server.js` (Port aus `PORT`).
 1. Alle Dateien dieses Ordners in das GitHub-Repo, direkt in die Wurzel (Dockerfile, server.js, package.json, public/ ...).
 2. Render -> New -> Web Service -> Repo wählen.
 3. Language/Runtime: **Node**, Build Command: leer oder `npm install`, Start Command: `node server.js`.
-   (Alternativ Docker: das mitgelieferte Dockerfile wird dann gefunden.)
+   (Alternativ Docker: das mitgelieferte Dockerfile wird dann gefunden.) d
 4. Optional unter Environment: `OWNER_PASSWORD` = dein eigenes Passwort (überschreibt das Standardpasswort).
 
 ## Login
