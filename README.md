@@ -144,3 +144,5 @@ Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Perso
 **Überwacher:** Konten der Gruppen „Spektral Rat“ und „Schatten Leitung“ können unter „Aktive Aufträge“ mit „Auftrag überwachen“ Überwacher eines Auftrags werden. Sie sehen die Dokumentation (Gespräche, Protokolle, Eliminierungen) nur lesend, sind aber keine WiA und keine Auftragsleitung. Entfernen kann nur die Schatten Leitung.
 
 **Geheimhaltung der Dokumentation:** Gespräche, Protokolle und Eliminierungen sieht nur, wer Teil des Auftrags ist (akzeptierte WiA, Auftragsleitung oder Überwacher). Die Schatten Leitung sieht die Dokumentation aller Aufträge immer und weist Überwacher zu (Auswahl „Überwacher zuweisen“ bei jedem Auftrag).
+
+**Einstellungen (pro Konto):** Der Reiter „Einstellungen“ steht immer ganz unten. Jedes Konto wählt für sich die Farbe (Vorgaben oder eigene), die Darstellung (Minimalistisch, Normal, Groß) sowie Reihenfolge und Sichtbarkeit der Reiter. Die Werte werden am Konto gespeichert und gelten auf jedem Gerät.
