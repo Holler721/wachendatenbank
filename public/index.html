@@ -138,6 +138,16 @@ h2{margin:0;font-size:18px}
 .dos.w{--dc:#d0d0d0;--dl:#2c2c2c;--dbg:rgba(255,255,255,.035);background:linear-gradient(#0b0b0b,#050505);border-color:var(--line2)}
 .dos.w .dosHd svg{width:44px;height:44px;color:var(--acc)}
 .dos.w .dosNo em{color:var(--acc)}
+.navoff{display:none!important}
+html.ui-big body{zoom:1.15}
+html.ui-min body{zoom:.92}
+html.ui-min #stars,html.ui-min .scan,html.ui-min .ticker,html.ui-min .foot,html.ui-min .cls,html.ui-min .nav small,html.ui-min .eyebrow{display:none!important}
+html.ui-min .panel,html.ui-min .side{box-shadow:none!important}
+.prsw{width:32px;height:32px;border-radius:50%;border:2px solid var(--line2);cursor:pointer;padding:0}
+.prsw[aria-pressed=true]{border-color:#fff;box-shadow:0 0 0 2px var(--bg),0 0 0 4px #fff}
+.prden{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.prden:has(input:checked){border-color:var(--acc);background:rgba(200,200,200,.08)}
+.prnav{display:flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:8px}
 .dlgov{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:20px}
 .dlgbox{background:var(--panel);border:1px solid var(--red);box-shadow:0 0 40px rgba(251,77,109,.25);padding:22px;max-width:520px;width:100%;display:grid;gap:16px}
 .dlgbox h3{margin:0 0 6px;font-family:var(--display);color:var(--red);letter-spacing:.06em;text-transform:uppercase;font-size:15px}
@@ -344,6 +354,7 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
       <button data-nav="ermittler" id="navInv" hidden><span>Jedi Ermittler</span><small>SR-JE</small></button>
       <button data-nav="logs" id="navLogs" hidden><span>Logs</span><small>SR-LG</small></button>
       <button data-nav="konto" id="navKonto" hidden><span>Konto</span><small>SR-KT</small></button>
+      <button data-nav="einstellungen" id="navPref"><span>Einstellungen</span><small>SR-ES</small></button>
     </nav>
     <div class="foot">Befehlspalette <span class="kbd">Strg K</span><br>Notfall <span class="kbd">UMBRA</span></div>
   </aside>
@@ -518,6 +529,15 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
     </section>
 
     <!-- ARCHIV -->
+    <section class="view" id="v-einstellungen" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SR-ES · EINSTELLUNGEN</div><h1 class="sm" data-t="Einstellungen">Einstellungen</h1><p class="lead">Diese Einstellungen gelten nur für dein Konto. Sie folgen dir auf jedes Gerät, auf dem du dich anmeldest.</p></div></header>
+      <section class="panel" style="display:grid;gap:18px">
+        <div><h3 style="margin:0 0 8px;font-size:14px">Farbe</h3><div id="prCol" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div></div>
+        <div><h3 style="margin:0 0 8px;font-size:14px">Darstellung</h3><div id="prDen" style="display:grid;gap:8px"></div></div>
+        <div><h3 style="margin:0 0 4px;font-size:14px">Anordnung der Reiter</h3><p class="muted" style="margin:0 0 8px;font-size:12px">Bestimme die Reihenfolge links und welche Reiter du sehen willst. „Einstellungen“ bleibt immer ganz unten, „Konto“ bleibt immer sichtbar. Ausgeblendete Reiter findest du weiter über die Befehlspalette (Strg K).</p><div id="prNav" style="display:grid;gap:6px"></div><div style="margin-top:8px"><button class="btn sm ghost" id="prNavReset">Reihenfolge zurücksetzen</button></div></div>
+      </section>
+    </section>
+
     <section class="view" id="v-auftraege" hidden>
       <header class="head"><div class="t"><div class="eyebrow">SR-AU · AKTIVE AUFTRÄGE</div><h1 class="sm" data-t="Aktive Aufträge">Aktive Aufträge</h1><p class="lead">Alle Personen aus dem Personenregister, die beschattet werden oder KoS (Kill on Sight) sind. Hier erklärst und begründest du den Auftrag genau. Unter „Sonstige Aufträge“ legst du freie Aufträge an.</p></div></header>
       <section class="panel">
@@ -818,7 +838,7 @@ function applyRights(){
   $('#rolePill').textContent='Zugriff: '+S.role;
   var risOnly=!!(S.hosted&&H.user&&H.user.ris);
   $('#navRis').hidden=!(S.hosted&&H.user&&(risOnly||P('ris')));if(S.view==='ris'&&$('#navRis').hidden)go('dashboard');
-  $$('#nav button').forEach(function(b){if(risOnly&&b.dataset.nav!=='ris'&&b.id!=='navKonto')b.hidden=true});
+  $$('#nav button').forEach(function(b){if(risOnly&&b.dataset.nav!=='ris'&&b.id!=='navKonto'&&b.id!=='navPref')b.hidden=true});
   $('#navInv').hidden=!(S.hosted&&H.user&&H.user.inv);if(S.view==='ermittler'&&$('#navInv').hidden)go('dashboard');
   $('#navLogs').hidden=!(S.hosted&&P('logs'));if(S.view==='logs'&&!(S.hosted&&P('logs')))go('dashboard');
   $('#addP').hidden=!P('persons');$('#rNew').hidden=!P('reports');
@@ -876,6 +896,53 @@ function renderOpsMini(){
     return '<div class="item"><div class="r1"><span class="ti">'+esc(o.n)+'</span><span class="mono" style="font-size:11px;color:'+col+'">'+Math.min(o.p,100)+'%</span></div><div class="bar" style="height:6px"><i style="width:'+Math.min(o.p,100)+'%;background:'+col+';box-shadow:0 0 12px '+col+'"></i></div><div class="by">'+esc(OPH[opPh(o)])+' · '+esc(o.c)+' · '+esc(o.loc)+'</div></div>'}).join('')||'<div class="muted">Keine Operationen aktiv.</div>';
 }
 
+/* ---------- Einstellungen (pro Konto) ---------- */
+var NAVK=[['dashboard','Dashboard'],['register','Personenregister'],['berichte','Berichte'],['karte','Galaxis Karte'],['ops','Operationen'],['auftraege','Aktive Aufträge'],['archiv','Archiv'],['ris','RIS Kooperation'],['ermittler','Jedi Ermittler'],['logs','Logs'],['konto','Konto']];
+var ACC=[['#c4c4c4','Grau (Standard)'],['#5aa0ff','Blau'],['#4dd6e6','Türkis'],['#5fd38d','Grün'],['#e0b84a','Gold'],['#ff8a3d','Orange'],['#b57cff','Violett'],['#ff6f9f','Rosa']];
+var PREF={accent:'',density:'normal',nav:[],hide:[]};
+function prefDefault(){return {accent:'',density:'normal',nav:[],hide:[]}}
+function applyPrefs(p){
+  PREF=Object.assign(prefDefault(),p||{});if(!Array.isArray(PREF.nav))PREF.nav=[];if(!Array.isArray(PREF.hide))PREF.hide=[];
+  var st=$('#prefStyle');if(!st){st=document.createElement('style');st.id='prefStyle';document.head.appendChild(st)}
+  var c=/^#[0-9a-f]{6}$/i.test(PREF.accent)?PREF.accent:'';
+  if(c){var r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);
+    st.textContent=':root:not(.alarm){--acc:'+c+';--acc-d:rgb('+Math.round(r*.45)+','+Math.round(g*.45)+','+Math.round(b*.45)+');--acc-glow:rgba('+r+','+g+','+b+',.28)}.nav button:hover,.nav button[aria-current=page]{background:rgba('+r+','+g+','+b+',.16)}'}
+  else st.textContent='';
+  var hc=document.documentElement.classList;hc.toggle('ui-min',PREF.density==='min');hc.toggle('ui-big',PREF.density==='big');
+  var nav=$('#nav'),def=NAVK.map(function(k){return k[0]}),order=PREF.nav.filter(function(k){return def.indexOf(k)>=0});
+  def.forEach(function(k){if(order.indexOf(k)<0)order.push(k)});
+  order.forEach(function(k){var b=nav.querySelector('[data-nav="'+k+'"]');if(b){nav.appendChild(b);b.classList.toggle('navoff',PREF.hide.indexOf(k)>=0&&k!=='konto')}});
+  nav.appendChild($('#navPref'));
+}
+function savePrefs(){
+  if(S.hosted&&H.user){api('POST','/api/prefs',PREF).then(function(j){H.user.prefs=j.prefs}).catch(apiErr)}
+  else{try{localStorage.setItem('wd_prefs',JSON.stringify(PREF))}catch(e){}}
+}
+function renderPrefs(){
+  $('#prCol').innerHTML=ACC.map(function(a){return '<button class="prsw" data-pc="'+a[0]+'" title="'+a[1]+'" aria-label="'+a[1]+'" aria-pressed="'+((PREF.accent||'#c4c4c4')===a[0])+'" style="background:'+a[0]+'"></button>'}).join('')+
+    '<label class="muted" style="display:flex;gap:6px;align-items:center;font-size:12px">Eigene Farbe <input type="color" id="prCustom" value="'+(PREF.accent||'#c4c4c4')+'"></label>';
+  var DEN=[['min','Minimalistisch','Ruhig und kompakt: kleiner, ohne Sternenhimmel, Laufband, Kürzel und Zierrat.'],['normal','Normal','Die gewohnte Darstellung.'],['big','Groß','Größere Schrift und größere Bedienflächen.']];
+  $('#prDen').innerHTML=DEN.map(function(d){return '<label class="prden"><input type="radio" name="prden" value="'+d[0]+'"'+(PREF.density===d[0]?' checked':'')+'><span><b>'+d[1]+'</b><br><span class="muted" style="font-size:12px">'+d[2]+'</span></span></label>'}).join('');
+  var def=NAVK.map(function(k){return k[0]}),order=PREF.nav.filter(function(k){return def.indexOf(k)>=0});def.forEach(function(k){if(order.indexOf(k)<0)order.push(k)});
+  var lab={};NAVK.forEach(function(k){lab[k[0]]=k[1]});
+  var vis=order.filter(function(k){var b=$('#nav [data-nav="'+k+'"]');return b&&!b.hidden});
+  $('#prNav').innerHTML=vis.map(function(k,i){return '<div class="prnav" data-k="'+k+'"><label style="display:flex;gap:8px;align-items:center;flex:1"><input type="checkbox" class="prshow"'+(PREF.hide.indexOf(k)<0||k==='konto'?' checked':'')+(k==='konto'?' disabled':'')+'> '+lab[k]+'</label><button class="btn sm ghost" data-pm="up"'+(i===0?' disabled':'')+' aria-label="'+lab[k]+' nach oben">↑</button><button class="btn sm ghost" data-pm="down"'+(i===vis.length-1?' disabled':'')+' aria-label="'+lab[k]+' nach unten">↓</button></div>'}).join('')+'<div class="prnav muted"><span style="flex:1">Einstellungen</span><span style="font-size:12px">immer ganz unten</span></div>';
+}
+$('#prCol').addEventListener('click',function(e){var b=e.target.closest('[data-pc]');if(!b)return;PREF.accent=b.dataset.pc==='#c4c4c4'?'':b.dataset.pc;applyPrefs(PREF);savePrefs();renderPrefs()});
+$('#prCol').addEventListener('change',function(e){if(e.target.id==='prCustom'){PREF.accent=e.target.value;applyPrefs(PREF);savePrefs();renderPrefs()}});
+$('#prDen').addEventListener('change',function(e){if(e.target.name==='prden'){PREF.density=e.target.value;applyPrefs(PREF);savePrefs();renderPrefs()}});
+$('#prNav').addEventListener('click',function(e){
+  var b=e.target.closest('[data-pm]');if(!b)return;var k=b.closest('[data-k]').dataset.k;
+  var def=NAVK.map(function(x){return x[0]}),order=PREF.nav.filter(function(x){return def.indexOf(x)>=0});def.forEach(function(x){if(order.indexOf(x)<0)order.push(x)});
+  var vis=order.filter(function(x){var bt=$('#nav [data-nav="'+x+'"]');return bt&&!bt.hidden}),i=vis.indexOf(k),j=b.dataset.pm==='up'?i-1:i+1;if(j<0||j>=vis.length)return;
+  var o1=order.indexOf(vis[i]),o2=order.indexOf(vis[j]);var t=order[o1];order[o1]=order[o2];order[o2]=t;PREF.nav=order;applyPrefs(PREF);savePrefs();renderPrefs();
+});
+$('#prNav').addEventListener('change',function(e){
+  if(!e.target.classList.contains('prshow'))return;var k=e.target.closest('[data-k]').dataset.k;
+  PREF.hide=PREF.hide.filter(function(x){return x!==k});if(!e.target.checked)PREF.hide.push(k);applyPrefs(PREF);savePrefs();
+});
+$('#prNavReset').addEventListener('click',function(){PREF.nav=[];PREF.hide=[];applyPrefs(PREF);savePrefs();renderPrefs()});
+try{var lp=localStorage.getItem('wd_prefs');if(lp)applyPrefs(JSON.parse(lp))}catch(e){}
 /* ---------- Aktive Aufträge ---------- */
 var AU={tab:'watch',edit:null};S.orders=[];
 var AUT={watch:{t:'Beschattungen',why:'watchWhy',ph:'Auftrag und Begründung der Beschattung: Warum wird die Person beschattet, was soll beobachtet werden, wer führt aus, was ist das Ziel?',end:'Beschattung beenden'},
@@ -1439,7 +1506,7 @@ function umbraFlow(){
 $('#umBtn').addEventListener('click',function(){if(S.phase===2)umbraTo(0);else umbraFlow()});
 $('#umCancel').addEventListener('click',function(){setPhase(0)});
 
-var VIEWS={auftraege:1,dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1,ermittler:1,ris:1,archiv:1};
+var VIEWS={einstellungen:1,auftraege:1,dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1,ermittler:1,ris:1,archiv:1};
 /* ---------- RIS Kooperation ---------- */
 var RIS={data:{wachen:[],ris:[],write:{},side:'',others:false},edit:null,att:[]};
 var RISB=[['wachen','Berichts Austausch Wachen','Berichte der Wachen an das RIS'],['ris','Berichts Austausch RIS','Berichte des RIS an die Wachen']];
@@ -1671,7 +1738,7 @@ function acts(){
   var a=[
    {l:'Dashboard',k:'Ansicht',f:function(){go('dashboard')}},{l:'Personenregister',k:'Ansicht',f:function(){go('register')}},
    {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Galaxis Karte',k:'Ansicht',f:function(){go('karte')}},
-   {l:'Archiv',k:'Ansicht',f:function(){go('archiv')}},{l:'Aktive Aufträge',k:'Ansicht',f:function(){go('auftraege')}},{l:'RIS Kooperation',k:'Ansicht',f:function(){go('ris')}},{l:'Jedi Ermittler',k:'Ansicht',f:function(){if(S.hosted&&H.user&&H.user.inv)go('ermittler');else toast('Dafür fehlt die Freigabe „Jedi Ermittler“.','red')}},{l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
+   {l:'Archiv',k:'Ansicht',f:function(){go('archiv')}},{l:'Aktive Aufträge',k:'Ansicht',f:function(){go('auftraege')}},{l:'Einstellungen',k:'Ansicht',f:function(){go('einstellungen')}},{l:'RIS Kooperation',k:'Ansicht',f:function(){go('ris')}},{l:'Jedi Ermittler',k:'Ansicht',f:function(){if(S.hosted&&H.user&&H.user.inv)go('ermittler');else toast('Dafür fehlt die Freigabe „Jedi Ermittler“.','red')}},{l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
    {l:'UMBRA auslösen',k:'Aktion',f:function(){umbraFlow()}},{l:'UMBRA beenden',k:'Aktion',f:function(){umbraTo(0)}}];
   if(P('persons'))a.push({l:'Person hinzufügen',k:'Aktion',f:function(){go('register');$('#addP').click()}});
   if(P('map'))a.push({l:'Karte bearbeiten',k:'Aktion',f:function(){go('karte');enterEdit()}});
@@ -1701,10 +1768,10 @@ addEventListener('keydown',function(e){
 /* ---------- Navigation ---------- */
 function go(v){
   if(!VIEWS[v])v='dashboard';
-  if(S.hosted&&H.user&&H.user.ris&&v!=='ris'&&v!=='konto')v='ris';S.view=v;
+  if(S.hosted&&H.user&&H.user.ris&&v!=='ris'&&v!=='konto'&&v!=='einstellungen')v='ris';S.view=v;
   $$('.view').forEach(function(s){s.hidden=s.id!=='v-'+v});
   $$('#nav button').forEach(function(b){b.setAttribute('aria-current',b.dataset.nav===v?'page':'false')});
-  if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();if(v==='logs'){if(!(S.hosted&&P('logs'))){go('dashboard');return}loadLogs()}if(v==='ris'){if(!(S.hosted&&H.user&&(H.user.ris||P('ris')))){go('dashboard');return}RIS.edit=null;renderRis();loadRis()}if(v==='auftraege')renderOrders();if(v==='archiv'){if(!(S.hosted&&H.user&&!H.user.ris)){go('dashboard');return}AR.edit=null;renderAr();loadAr()}if(v==='ermittler'){if(!(S.hosted&&H.user&&H.user.inv)){go('dashboard');return}INV.edit=null;renderInv();loadInv()}
+  if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();if(v==='logs'){if(!(S.hosted&&P('logs'))){go('dashboard');return}loadLogs()}if(v==='ris'){if(!(S.hosted&&H.user&&(H.user.ris||P('ris')))){go('dashboard');return}RIS.edit=null;renderRis();loadRis()}if(v==='auftraege')renderOrders();if(v==='einstellungen')renderPrefs();if(v==='archiv'){if(!(S.hosted&&H.user&&!H.user.ris)){go('dashboard');return}AR.edit=null;renderAr();loadAr()}if(v==='ermittler'){if(!(S.hosted&&H.user&&H.user.inv)){go('dashboard');return}INV.edit=null;renderInv();loadInv()}
   if(v==='dashboard'){renderDash();renderCards()}
   if(location.hash!=='#'+v){try{location.hash=v}catch(e){}}
   window.scrollTo(0,0);
@@ -1847,17 +1914,17 @@ $('#lockOut').addEventListener('click',function(){api('POST','/api/logout').catc
 function startHosted(u){
   if(u.mustChange){showForce();return}
   H.user=u;S.hosted=true;S.db=hostedDb;S.who=u.name;
-  applyUser(u);
+  applyUser(u);applyPrefs(u.prefs);
   $('#login').hidden=true;$('#logoutBtn').hidden=false;$('#navKonto').hidden=false;
   applyRights();
-  if(u.ris){$$('#nav button').forEach(function(b){b.hidden=b.dataset.nav!=='ris'&&b.id!=='navKonto'});go('ris');clearInterval(H.timer);H.timer=setInterval(function(){if(!document.hidden&&S.view==='ris')loadRis()},15000);return}
+  if(u.ris){$$('#nav button').forEach(function(b){b.hidden=b.dataset.nav!=='ris'&&b.id!=='navKonto'&&b.id!=='navPref'});go('ris');clearInterval(H.timer);H.timer=setInterval(function(){if(!document.hidden&&S.view==='ris')loadRis()},15000);return}
   loadData(true);
   clearInterval(H.timer);H.timer=setInterval(function(){
     if(document.hidden)return;
     if(H.locked)api('GET','/api/session').then(function(j){if(j.user&&!j.lockdown){hideLock();loadData(true)}}).catch(function(){});
     else loadData(false)},5000);
 }
-function showLogin(){
+function showLogin(){applyPrefs(null);
   clearInterval(H.timer);hideLock();
   S.canWrite=false;S.canMap=false;S.role='Nur Lesen';S.persons=[];S.reports=[];ops=[];S.rep=null;S.repEdit=null;S.selP=null;H.rev=0;
   if(S.editing)leaveEdit();
