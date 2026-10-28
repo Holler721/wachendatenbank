@@ -667,7 +667,17 @@ function wiaOut(x, me, kinds) {
 }
 function sidDigits(s) { return String(s || '').replace(/\D/g, ''); }
 function canDecl(u) { return !!u && !u.ris && !u.blocked && (u.role === 'owner' || !!u.decl); }
-function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, decl: canDecl(u), ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0 }; }
+const NAVKEYS = ['dashboard', 'register', 'berichte', 'karte', 'ops', 'auftraege', 'archiv', 'ris', 'ermittler', 'logs', 'konto'];
+function cleanPrefs(b) {
+  const o = { accent: '', density: 'normal', nav: [], hide: [] };
+  if (!b || typeof b !== 'object') return o;
+  if (typeof b.accent === 'string' && /^#[0-9a-fA-F]{6}$/.test(b.accent)) o.accent = b.accent.toLowerCase();
+  if (['min', 'normal', 'big'].indexOf(b.density) >= 0) o.density = b.density;
+  if (Array.isArray(b.nav)) b.nav.forEach(function (k) { if (NAVKEYS.indexOf(k) >= 0 && o.nav.indexOf(k) < 0) o.nav.push(k); });
+  if (Array.isArray(b.hide)) b.hide.forEach(function (k) { if (NAVKEYS.indexOf(k) >= 0 && k !== 'konto' && o.hide.indexOf(k) < 0) o.hide.push(k); });
+  return o;
+}
+function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, decl: canDecl(u), ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0, prefs: u.prefs || null }; }
 function cleanUntil(x) {
   const n = Number(x), now = Date.now();
   if (!isFinite(n) || n < now + 60000 || n > now + 400 * 86400000) { const e = new Error('Das Ablaufdatum muss zwischen 1 Minute und 400 Tagen in der Zukunft liegen.'); e.status = 400; throw e; }
@@ -710,7 +720,7 @@ async function api(req, res, url) {
     const lu = sessionUser(req);
     if (lu && !can(lu, 'lockdown')) return send(res, 403, { error: 'Notfall: Die Seite ist für dein Konto gesperrt.', code: 'lockdown' });
   }
-  if (['/api/session', '/api/login', '/api/logout', '/api/password'].indexOf(p) < 0 && !/^\/api\/ris(\/|$)/.test(p)) {
+  if (['/api/session', '/api/login', '/api/logout', '/api/password', '/api/prefs'].indexOf(p) < 0 && !/^\/api\/ris(\/|$)/.test(p)) {
     const ru0 = sessionUser(req);
     if (ru0 && ru0.ris) return send(res, 403, { error: 'Dieses Konto hat nur Zugriff auf „RIS Kooperation“.', code: 'ris_only' });
   }
@@ -1085,6 +1095,11 @@ async function api(req, res, url) {
     const mu = need(req, 'map');
     db.map = cleanMap(await readBody(req)); logAct(mu, 'Karte geändert', db.map.nodes.length + ' Systeme, ' + db.map.edges.length + ' Routen'); bump();
     return send(res, 200, { ok: true });
+  }
+  if (p === '/api/prefs' && method === 'POST') {
+    const u = need(req, 'viewer');
+    u.prefs = cleanPrefs(await readBody(req)); bump();
+    return send(res, 200, { ok: true, prefs: u.prefs });
   }
   if (p === '/api/password' && method === 'POST') {
     const u = need(req, 'viewer');
