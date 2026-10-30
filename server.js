@@ -492,6 +492,17 @@ function cleanReport(b, partial) {
   if ('t' in b || !partial) { if (db.config.rtypes.indexOf(b.t) < 0) bad('Ungültige Art.'); o.t = b.t; }
   if ('cls' in b || !partial) { if (CLASSES.indexOf(b.cls) < 0) bad('Ungültige Geheimhaltungsstufe.'); o.cls = b.cls; }
   if ('body' in b || !partial) { o.body = str(b.body, 8000); if (!o.body) bad('Der Berichtstext fehlt.'); }
+  if ('extra' in b || !partial) {
+    const ex = Array.isArray(b.extra) ? b.extra : [];
+    if (ex.length > 20) bad('Höchstens 20 Zusatzfelder.');
+    o.extra = [];
+    ex.forEach(function (x) {
+      if (!x || typeof x !== 'object') return;
+      const k = str(x.k, 60), val = str(x.v, 2000);
+      if (!k && !val) return;
+      o.extra.push({ k: k || 'Feld', v: val });
+    });
+  }
   return o;
 }
 function clsLevel(c) { const i = CLASSES.indexOf(c); return i < 0 ? 4 : [1, 2, 3, 3][i]; } // Spektral Rat (editor) liest alles
@@ -714,7 +725,7 @@ async function api(req, res, url) {
     if (db.lockdown.active) return send(res, 503, { error: 'Die Wächter Datenbank ist gerade gesperrt.' });
     const e = /^[a-f0-9]{30}$/.test(tok) ? db.declass[tok] : null;
     if (!e || !pw || !checkPw(pw, e.hash)) { fail(ipk); fail(tk); return send(res, 403, { error: 'Link oder Passwort ungültig.' }); }
-    return send(res, 200, { ti: e.ti, t: e.t, d: e.d, byName: e.byName, body: e.body, decName: sidDigits(e.decSid) || e.decName, ts: e.ts });
+    return send(res, 200, { ti: e.ti, t: e.t, d: e.d, byName: e.byName, body: e.body, extra: Array.isArray(e.extra) ? e.extra : [], decName: sidDigits(e.decSid) || e.decName, ts: e.ts });
   }
   if (db.lockdown.active && ['/api/session', '/api/login', '/api/logout'].indexOf(p) < 0) {
     const lu = sessionUser(req);
@@ -1022,9 +1033,26 @@ async function api(req, res, url) {
         if (u.role !== 'owner' && text === b.body) return send(res, 400, { error: 'Du musst den Bericht eigenhändig schwärzen: Setze mindestens eine Stelle in [[doppelte Klammern]].' });
       } else if (u.role !== 'owner') return send(res, 400, { error: 'Nur die Schatten Leitung darf ohne Schwärzung deklassifizieren. Du musst den Bericht eigenhändig schwärzen.' });
       else text = String(cur.body || '').replace(/\[\[([\s\S]*?)\]\]/g, '$1');
+      const curEx = Array.isArray(cur.extra) ? cur.extra : [];
+      const blk = function (s) { return String(s).replace(/\[\[[\s\S]*?\]\]/g, '████████'); };
+      const rev = function (s) { return String(s).replace(/\[\[([\s\S]*?)\]\]/g, '$1'); };
+      let pubEx;
+      if (Array.isArray(b.extra) && typeof b.body === 'string' && b.body.trim()) {
+        if (b.extra.length !== curEx.length) return send(res, 400, { error: 'Die Zusatzfelder dürfen beim Schwärzen nicht verändert werden.' });
+        pubEx = b.extra.map(function (x, i) {
+          const k = str(x && x.k, 60), v2 = str(x && x.v, 2000);
+          if (strip(k).trim() !== strip(curEx[i].k).trim() || strip(v2).replace(/\s+/g, ' ').trim() !== strip(curEx[i].v).replace(/\s+/g, ' ').trim()) return null;
+          return { k: blk(k), v: blk(v2) };
+        });
+        if (pubEx.indexOf(null) >= 0) return send(res, 400, { error: 'Die Zusatzfelder dürfen beim Schwärzen nicht verändert werden. Setze nur [[doppelte Klammern]].' });
+      } else if (u.role === 'owner') {
+        const bl = typeof b.body === 'string' && b.body.trim();
+        pubEx = curEx.map(function (x) { return { k: bl ? blk(x.k) : rev(x.k), v: bl ? blk(x.v) : rev(x.v) }; });
+      } else pubEx = [];
       if (!old && Object.keys(db.declass).length >= 500) return send(res, 400, { error: 'Zu viele deklassifizierte Berichte.' });
       const tok = old || crypto.randomBytes(15).toString('hex');
       db.declass[tok] = { rid: dm[1], ti: cur.ti, t: cur.t, d: cur.d, byName: authorId(cur.by, cur.byName), body: text,
+        extra: pubEx,
         decName: dispName(u), decSid: u.sid || '', ts: Date.now(), hash: hashPw(pw) };
       logAct(u, old ? 'Deklassifizierung erneuert' : 'Bericht deklassifiziert', cur.ti + ' (per Link und Passwort abrufbar)'); bump();
       return send(res, 200, { token: tok });
