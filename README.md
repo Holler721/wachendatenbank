@@ -146,3 +146,9 @@ Im Personenregister lässt sich jede Person mit „KoS setzen“ (Recht „Perso
 **Geheimhaltung der Dokumentation:** Gespräche, Protokolle und Eliminierungen sieht nur, wer Teil des Auftrags ist (akzeptierte WiA, Auftragsleitung oder Überwacher). Die Schatten Leitung sieht die Dokumentation aller Aufträge immer und weist Überwacher zu (Auswahl „Überwacher zuweisen“ bei jedem Auftrag).
 
 **Einstellungen (pro Konto):** Der Reiter „Einstellungen“ steht immer ganz unten. Jedes Konto wählt für sich die Farbe (Vorgaben oder eigene), die Darstellung (Minimalistisch, Normal, Groß) sowie Reihenfolge und Sichtbarkeit der Reiter. Die Werte werden am Konto gespeichert und gelten auf jedem Gerät.
+
+## Zusatzfelder bei Berichten
+Beim Erstellen/Bearbeiten eines Berichts können bis zu 20 Zusatzfelder mit selbst gewähltem Titel hinzugefügt werden ("+ Zusatzfeld hinzufügen"). Sie erscheinen in der Akte unter den Kopfdaten. `[[...]]` wird auch dort geschwärzt. Bei Deklassifizierung werden Zusatzfelder nur veröffentlicht, wenn die Schatten Leitung deklassifiziert; bei anderen Deklassifizierenden werden sie nicht veröffentlicht.
+
+### Schwärzen-Knopf & Zusatzfelder deklassifizieren
+Im Deklassifizieren-Formular Text im Berichtstext oder in einem Zusatzfeld markieren und auf „▮ Schwärzen“ klicken (setzt `[[…]]`). „Schwärzung aufheben“ entfernt sie wieder. Zusatzfelder werden jetzt für alle Deklassifizierenden veröffentlicht, mit denselben Schwärzungen; ihr Inhalt darf dabei nicht verändert werden.
