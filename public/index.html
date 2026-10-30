@@ -1202,6 +1202,7 @@ function renderReports(){
        '<span class="muted" style="font-size:12px">Wer welche Stufe lesen darf, legt die Schatten Leitung unter Konto → Gruppen und Rechte fest (Offen lesen, Intern lesen, Vertraulich lesen).</span></div>'+
      '<div class="field"><label for="rB">TEXT</label><textarea id="rB" maxlength="8000" required>'+esc(d?d.body:'')+'</textarea>'+
        '<span class="muted" style="font-size:12px">Leerzeile = neuer Absatz. Stellen in [[doppelten Klammern]] werden geschwärzt.</span></div>'+
+     '<div class="field"><label>ZUSATZFELDER (EIGENER TITEL)</label><div id="xList" style="display:grid;gap:8px">'+((d&&d.extra)||[]).map(xRow).join('')+'</div><div><button class="btn sm ghost" type="button" data-act="xadd">+ Zusatzfeld hinzufügen</button></div><span class="muted" style="font-size:12px">Eigene Felder mit selbst gewähltem Titel, z. B. Einsatzort, Zeugen, Beteiligte, Ergebnis. Stellen in [[doppelten Klammern]] werden auch hier geschwärzt.</span></div>'+
      '<div class="rtools"><button class="btn" type="submit">Speichern</button><button class="btn ghost" type="button" data-act="rCancel">Abbrechen</button></div></form>';
     return;
   }
@@ -1211,7 +1212,7 @@ function renderReports(){
   if(d2.body.indexOf('[[')>=0&&P('others'))tools+='<button class="btn sm" data-act="declass">'+(open?'Wieder schwärzen':'Schwärzungen aufheben')+'</button>';
   if(H.user&&H.user.decl)tools+='<button class="btn sm" data-act="dcOpen">'+(d2.dc?'Deklassifizierung verwalten':'Deklassifizieren')+'</button>';
   if(canEditRep(d2))tools+='<button class="btn sm" data-act="rEdit">Bearbeiten</button><button class="btn sm danger" data-act="rDel">'+(S.confirmRep===d2.id?'Wirklich löschen?':'Löschen')+'</button>';
-  rd.innerHTML=wdos({kick:'BERICHT · '+String(d2.t).toUpperCase(),tag:d2.cls,title:d2.ti,no:wno(d2.id),ts:d2.ts,meta:[['Autor',d2.byName||d2.by],['Art',d2.t]].concat(d2.edited?[['Bearbeitet',d2.edited]]:[]),text:d2.body,rx:true})+(tools?'<div class="rtools">'+tools+'</div>':'')+dcBox(d2)+repFilesHtml(d2);
+  rd.innerHTML=wdos({kick:'BERICHT · '+String(d2.t).toUpperCase(),tag:d2.cls,title:d2.ti,no:wno(d2.id),ts:d2.ts,meta:[['Autor',d2.byName||d2.by],['Art',d2.t]].concat(d2.edited?[['Bearbeitet',d2.edited]]:[]),rows:(d2.extra||[]).map(function(x){return [x.k,x.v,true]}),text:d2.body,rx:true})+(tools?'<div class="rtools">'+tools+'</div>':'')+dcBox(d2)+repFilesHtml(d2);
 }
 function dcLink(d){return d.dc&&d.dc.token?location.origin+'/d/'+d.dc.token:''}
 function dcBox(d){
@@ -1221,7 +1222,9 @@ function dcBox(d){
   var lk=dcLink(d);
   return h2+'<div class="rform" style="margin-top:12px;padding:12px;border:1px solid var(--line2);display:grid;gap:8px"><b>Deklassifizierung</b>'+
    '<span class="muted" style="font-size:12px">Der Bericht wird (ohne Anhänge) unter einem Link bereitgestellt. Abrufbar nur mit Link UND dem Passwort, das du jetzt festlegst. Der Stand wird beim Deklassifizieren eingefroren.</span>'+
-   '<div class="field"><label for="dcBody">SCHWÄRZEN</label><textarea id="dcBody" maxlength="8000" rows="8">'+esc(d.body)+'</textarea><span class="muted" style="font-size:12px">'+(H.user.role==='owner'?'Optional für die Schatten Leitung: Stellen in [[doppelten Klammern]] werden im öffentlichen Bericht geschwärzt, ohne Klammern bleibt alles lesbar.':'Pflicht: Jeder Bericht, der nicht von der Schatten Leitung deklassifiziert wird, muss eigenhändig geschwärzt werden. Setze die zu schwärzenden Stellen in [[doppelte Klammern]] (mindestens eine). Der Text selbst darf nicht verändert werden.')+'</span></div>'+
+   '<div class="rtools"><button class="btn sm" type="button" data-act="dcBlack">▮ Schwärzen</button><button class="btn sm ghost" type="button" data-act="dcUnblack">Schwärzung aufheben</button><span class="muted" style="font-size:12px">Text im Feld mit der Maus markieren (Linksklick und ziehen), dann „Schwärzen“ klicken.</span></div>'+
+   '<div class="field"><label for="dcBody">BERICHTSTEXT</label><textarea id="dcBody" class="dcT" maxlength="8000" rows="8">'+esc(d.body)+'</textarea><span class="muted" style="font-size:12px">'+(H.user.role==='owner'?'Optional für die Schatten Leitung: Stellen in [[doppelten Klammern]] werden im öffentlichen Bericht geschwärzt, ohne Klammern bleibt alles lesbar.':'Pflicht: Jeder Bericht, der nicht von der Schatten Leitung deklassifiziert wird, muss eigenhändig geschwärzt werden. Setze die zu schwärzenden Stellen in [[doppelte Klammern]] (mindestens eine). Der Text selbst darf nicht verändert werden.')+'</span></div>'+
+   ((d.extra||[]).length?'<div class="field"><label>ZUSATZFELDER</label><div id="dcEx" style="display:grid;gap:8px">'+d.extra.map(function(x,i){return '<div><input type="text" class="dcT dcExK" maxlength="60" value="'+esc(x.k)+'"><textarea class="dcT dcExV" maxlength="2000" rows="2">'+esc(x.v)+'</textarea></div>'}).join('')+'</div></div>':'')+
    (lk?'<div class="field"><label>LINK</label><input type="text" readonly id="dcLink" value="'+esc(lk)+'"></div>':'')+
    '<div class="field"><label for="dcPw">PASSWORT (8–100 Zeichen, legst du fest)</label><input type="text" id="dcPw" minlength="8" maxlength="100" autocomplete="off" placeholder="neues Passwort für diesen Bericht"></div>'+
    '<div class="rtools"><button class="btn sm" data-act="dcSave">'+(d.dc?'Neues Passwort setzen / Stand erneuern':'Deklassifizieren')+'</button>'+(lk?'<button class="btn sm ghost" data-act="dcCopy">Link kopieren</button>':'')+(d.dc?'<button class="btn sm danger" data-act="dcRevoke">Widerrufen</button>':'')+'<button class="btn sm ghost" data-act="dcClose">Schließen</button></div></div>';
@@ -1229,15 +1232,20 @@ function dcBox(d){
 $('#rTabs').addEventListener('click',function(e){var b=e.target.closest('[data-tab]');if(b){S.tab=b.dataset.tab;renderReports()}});
 $('#rList').addEventListener('click',function(e){var b=e.target.closest('[data-rep]');if(b){S.rep=b.dataset.rep;S.repEdit=null;S.rfEdit=null;S.confirmRep=null;$('#reader').classList.remove('open');renderReports()}});
 $('#rNew').addEventListener('click',function(){if(!P('reports'))return;S.repEdit={id:null};renderReports();var t=$('#rTi');if(t)t.focus()});
+$('#reader').addEventListener('focusin',function(e){if(e.target.classList&&e.target.classList.contains('dcT'))S.dcLast=e.target});
+$('#reader').addEventListener('mousedown',function(e){var b=e.target.closest('[data-act=dcBlack],[data-act=dcUnblack]');if(b)e.preventDefault()});
 $('#reader').addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b)return;var a=b.dataset.act,d=S.rep?repById(S.rep):null;
   if(a==='declass'){var r=$('#reader');r.classList.toggle('open');toast(r.classList.contains('open')?'Freigabe erteilt: Schwärzungen aufgehoben.':'Schwärzungen wiederhergestellt.',r.classList.contains('open')?'cyan':'');renderReports();return}
+  if(a==='xadd'){var xl=$('#xList');if(xl.children.length>=20){toast('Höchstens 20 Zusatzfelder.','red');return}xl.insertAdjacentHTML('beforeend',xRow());var ks=xl.querySelectorAll('.xk');ks[ks.length-1].focus();return}
+  if(a==='xdel'){var xr=b.closest('.xrow');if(xr)xr.remove();return}
   if(a==='dcOpen'){S.dcForm=S.dcForm===(d&&d.id)?null:(d&&d.id);renderReports();return}
+  if(a==='dcBlack'||a==='dcUnblack'){var ta=S.dcLast&&document.body.contains(S.dcLast)?S.dcLast:$('#dcBody');var s0=ta.selectionStart,e0=ta.selectionEnd;if(s0===e0){toast('Erst Text im Feld markieren.','red');return}var sel=ta.value.slice(s0,e0);var ns=a==='dcBlack'?'[['+sel.replace(/\[\[|\]\]/g,'')+']]':sel.replace(/\[\[|\]\]/g,'');var before=ta.value.slice(0,s0),after=ta.value.slice(e0);if(a==='dcUnblack'){var ob=before.lastIndexOf('[['),cb=before.lastIndexOf(']]');if(ob>cb&&after.indexOf(']]')>=0&&(after.indexOf('[[')<0||after.indexOf(']]')<after.indexOf('[['))){before=before.slice(0,ob)+before.slice(ob+2);after=after.replace(']]','')}}ta.value=before+ns+after;ta.focus();ta.setSelectionRange(before.length,before.length+ns.length);return}
   if(a==='dcClose'){S.dcForm=null;renderReports();return}
   if(a==='dcCopy'){var lk=dcLink(d);if(navigator.clipboard)navigator.clipboard.writeText(lk).then(function(){toast('Link kopiert.','cyan')},function(){toast('Kopieren nicht möglich.','red')});return}
   if(a==='dcSave'&&d){var pw=$('#dcPw').value;if(pw.length<8){toast('Das Passwort braucht mindestens 8 Zeichen.','red');return}
     var db2=$('#dcBody').value;if(H.user.role!=='owner'&&db2.indexOf('[[')<0){toast('Bitte zuerst eigenhändig schwärzen: mindestens eine Stelle in [[Klammern]] setzen.','red');return}
-    api('POST','/api/reports/'+encodeURIComponent(d.id)+'/declassify',{password:pw,body:db2}).then(function(){toast('Bericht deklassifiziert. Link und Passwort einzeln weitergeben.','cyan');return loadData(true)}).then(function(){renderReports()}).catch(apiErr);return}
+    var exs=[];$$('#dcEx>div').forEach(function(r){exs.push({k:r.querySelector('.dcExK').value,v:r.querySelector('.dcExV').value})});api('POST','/api/reports/'+encodeURIComponent(d.id)+'/declassify',{password:pw,body:db2,extra:exs}).then(function(){toast('Bericht deklassifiziert. Link und Passwort einzeln weitergeben.','cyan');return loadData(true)}).then(function(){renderReports()}).catch(apiErr);return}
   if(a==='dcRevoke'&&d){api('DELETE','/api/reports/'+encodeURIComponent(d.id)+'/declassify').then(function(){toast('Deklassifizierung widerrufen. Der Link ist ungültig.','red');S.dcForm=null;return loadData(true)}).then(function(){renderReports()}).catch(apiErr);return}
   if(a==='rCancel'){S.repEdit=null;renderReports();return}
   if(!d)return;
@@ -1251,7 +1259,7 @@ $('#reader').addEventListener('click',function(e){
 });
 $('#reader').addEventListener('submit',function(e){
   if(e.target.id!=='rForm')return;e.preventDefault();if(!S.db||!P('reports'))return;
-  var data={ti:$('#rTi').value.trim(),t:$('#rT').value,cls:$('#rC').value,body:$('#rB').value.trim()};
+  var data={ti:$('#rTi').value.trim(),t:$('#rT').value,cls:$('#rC').value,body:$('#rB').value.trim(),extra:readExtra()};
   if(!data.ti||!data.body)return;
   var id=S.repEdit&&S.repEdit.id,col=S.db.collection('reports');
   var p=id?col.doc(id).update(data).then(function(){return {id:id}}):col.add(data);
@@ -1522,7 +1530,7 @@ function wdos(o){
    '<header class="dosHd"><svg role="img" aria-label="Emblem" viewBox="0 0 64 64"><use href="#emb"/></svg><div><b>WÄCHTER DATENBANK</b><small>INTERNES DOKUMENT · NUR FÜR BERECHTIGTE</small></div><div class="dosNo"><small>AKTEN-NR.</small><b>'+esc(o.no||'')+'</b><em>'+esc((o.tag||'INTERN').toUpperCase())+'</em></div></header>'+
    '<div class="dosKick">'+esc(o.kick)+'</div><h3 class="dosTi">'+esc(o.title)+'</h3>'+
    (meta.length?'<div class="dosMeta">'+meta.map(function(m){return '<div><small>'+esc(String(m[0]).toUpperCase())+'</small><b>'+esc(m[1]||'–')+'</b></div>'}).join('')+'</div>':'')+
-   (o.rows&&o.rows.length?'<div class="dosPers">'+o.rows.map(function(r){return '<div><small>'+esc(r[0].toUpperCase())+'</small><span>'+esc(r[1])+'</span></div>'}).join('')+'</div>':'')+
+   (o.rows&&o.rows.length?'<div class="dosPers">'+o.rows.map(function(r){return '<div><small>'+esc(r[0].toUpperCase())+'</small><span style="white-space:pre-wrap;overflow-wrap:anywhere;text-align:left;justify-self:start">'+(r[2]?rx(r[1]):esc(r[1]))+'</span></div>'}).join('')+'</div>':'')+
    dosSecHtml(o.text,o.rx)+'</article>';
 }
 function wno(id){var s=String(id||'x'),a=2166136261,b=5381,o='';
