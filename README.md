@@ -152,3 +152,6 @@ Beim Erstellen/Bearbeiten eines Berichts können bis zu 20 Zusatzfelder mit selb
 
 ### Schwärzen-Knopf & Zusatzfelder deklassifizieren
 Im Deklassifizieren-Formular Text im Berichtstext oder in einem Zusatzfeld markieren und auf „▮ Schwärzen“ klicken (setzt `[[…]]`). „Schwärzung aufheben“ entfernt sie wieder. Zusatzfelder werden jetzt für alle Deklassifizierenden veröffentlicht, mit denselben Schwärzungen; ihr Inhalt darf dabei nicht verändert werden.
+
+## Mehr Anpassungen (Einstellungen)
+Pro Konto einstellbar: Farbwelt (Schwarz, Graphit, Nachtblau), hoher Kontrast, Schriftart (Chakra Petch, Systemschrift, Monospace), Größe 80–140 %, Ecken (eckig, normal, rund), Effekte einzeln (Sternenhimmel, Laufband, Scanlinien, Animationen reduzieren, volle Breite, Start-Animation überspringen), Startseite nach der Anmeldung, sowie „Alle Einstellungen zurücksetzen“. Gespeichert am Konto (`/api/prefs`).
