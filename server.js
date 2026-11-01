@@ -680,8 +680,9 @@ function sidDigits(s) { return String(s || '').replace(/\D/g, ''); }
 function canDecl(u) { return !!u && !u.ris && !u.blocked && (u.role === 'owner' || !!u.decl); }
 const NAVKEYS = ['dashboard', 'register', 'berichte', 'karte', 'ops', 'auftraege', 'archiv', 'ris', 'ermittler', 'logs', 'konto'];
 function cleanPrefs(b) {
-  const o = { accent: '', density: 'normal', nav: [], hide: [], theme: 'dark', font: 'display', radius: 'normal', scale: 100, contrast: 'normal', stars: true, ticker: true, scan: true, calm: false, noboot: false, wide: false, start: '' };
+  const o = { accent: '', density: 'normal', nav: [], hide: [], theme: 'dark', bg: '', font: 'display', radius: 'normal', scale: 100, contrast: 'normal', stars: true, ticker: true, scan: true, calm: false, noboot: false, wide: false, start: '' };
   if (!b || typeof b !== 'object') return o;
+  if (typeof b.bg === 'string' && /^#[0-9a-fA-F]{6}$/.test(b.bg)) o.bg = b.bg.toLowerCase();
   if (['dark', 'graphite', 'navy'].indexOf(b.theme) >= 0) o.theme = b.theme;
   if (['display', 'system', 'mono'].indexOf(b.font) >= 0) o.font = b.font;
   if (['square', 'normal', 'round'].indexOf(b.radius) >= 0) o.radius = b.radius;
