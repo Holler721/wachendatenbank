@@ -155,3 +155,6 @@ Im Deklassifizieren-Formular Text im Berichtstext oder in einem Zusatzfeld marki
 
 ## Mehr Anpassungen (Einstellungen)
 Pro Konto einstellbar: Farbwelt (Schwarz, Graphit, Nachtblau), hoher Kontrast, Schriftart (Chakra Petch, Systemschrift, Monospace), Größe 80–140 %, Ecken (eckig, normal, rund), Effekte einzeln (Sternenhimmel, Laufband, Scanlinien, Animationen reduzieren, volle Breite, Start-Animation überspringen), Startseite nach der Anmeldung, sowie „Alle Einstellungen zurücksetzen“. Gespeichert am Konto (`/api/prefs`).
+
+### Freie Farben
+Akzentfarbe (Farbfeld oder Hex-Wert) färbt jetzt Kopfzeilen, Knöpfe, Rahmen, Auswahlfelder und Schein; die Hintergrundfarbe ist frei wählbar (`bg`), Flächen und Rahmen leiten sich davon ab.
