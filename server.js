@@ -680,8 +680,16 @@ function sidDigits(s) { return String(s || '').replace(/\D/g, ''); }
 function canDecl(u) { return !!u && !u.ris && !u.blocked && (u.role === 'owner' || !!u.decl); }
 const NAVKEYS = ['dashboard', 'register', 'berichte', 'karte', 'ops', 'auftraege', 'archiv', 'ris', 'ermittler', 'logs', 'konto'];
 function cleanPrefs(b) {
-  const o = { accent: '', density: 'normal', nav: [], hide: [] };
+  const o = { accent: '', density: 'normal', nav: [], hide: [], theme: 'dark', font: 'display', radius: 'normal', scale: 100, contrast: 'normal', stars: true, ticker: true, scan: true, calm: false, noboot: false, wide: false, start: '' };
   if (!b || typeof b !== 'object') return o;
+  if (['dark', 'graphite', 'navy'].indexOf(b.theme) >= 0) o.theme = b.theme;
+  if (['display', 'system', 'mono'].indexOf(b.font) >= 0) o.font = b.font;
+  if (['square', 'normal', 'round'].indexOf(b.radius) >= 0) o.radius = b.radius;
+  if (['normal', 'high'].indexOf(b.contrast) >= 0) o.contrast = b.contrast;
+  if (typeof b.scale === 'number' && isFinite(b.scale)) o.scale = Math.max(80, Math.min(140, Math.round(b.scale)));
+  ['stars', 'ticker', 'scan'].forEach(function (k) { if (typeof b[k] === 'boolean') o[k] = b[k]; });
+  ['calm', 'noboot', 'wide'].forEach(function (k) { if (typeof b[k] === 'boolean') o[k] = b[k]; });
+  if (typeof b.start === 'string' && NAVKEYS.indexOf(b.start) >= 0) o.start = b.start;
   if (typeof b.accent === 'string' && /^#[0-9a-fA-F]{6}$/.test(b.accent)) o.accent = b.accent.toLowerCase();
   if (['min', 'normal', 'big'].indexOf(b.density) >= 0) o.density = b.density;
   if (Array.isArray(b.nav)) b.nav.forEach(function (k) { if (NAVKEYS.indexOf(k) >= 0 && o.nav.indexOf(k) < 0) o.nav.push(k); });
