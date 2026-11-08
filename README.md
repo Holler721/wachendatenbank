@@ -158,3 +158,6 @@ Pro Konto einstellbar: Farbwelt (Schwarz, Graphit, Nachtblau), hoher Kontrast, S
 
 ### Freie Farben
 Akzentfarbe (Farbfeld oder Hex-Wert) färbt jetzt Kopfzeilen, Knöpfe, Rahmen, Auswahlfelder und Schein; die Hintergrundfarbe ist frei wählbar (`bg`), Flächen und Rahmen leiten sich davon ab.
+
+## RIS-Zugriff pro Konto
+Die Schatten Leitung kann im Reiter „Konto“ einzelnen Konten über „RIS-Zugriff erteilen“ den Zugang zu „RIS Kooperation“ geben, unabhängig von der Gruppe (`risx`). Diese Konten sehen beide Austausch-Bereiche und schreiben im Bereich „Berichts Austausch Wachen“. Entziehen oder Sperren beendet den Zugriff sofort.

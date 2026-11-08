@@ -81,7 +81,7 @@ function canTouch(me, u) { // darf me das Konto u verwalten?
   if (me.role === 'owner') return true;
   return u.name !== me.name && rankOf(u.role) < rankOf(me.role) && permsSubset((db.roles[u.role] || {}).perms, rolePerms(me));
 }
-function can(u, perm) { return !!rolePerms(u)[perm]; }
+function can(u, perm) { return !!rolePerms(u)[perm] || (perm === 'ris' && !!u && !u.ris && !u.blocked && !!u.risx); }
 function canRead(u, cls) { return cls === 'Offen' ? can(u, 'open') : (cls === 'Intern' ? can(u, 'intern') : can(u, 'secret')); }
 function rolesList() { return Object.keys(db.roles).sort(function (a, b) { const ra = a === 'owner' ? 99 : (db.roles[a].rank || 1), rb = b === 'owner' ? 99 : (db.roles[b].rank || 1); return rb - ra || String(db.roles[a].label).localeCompare(String(db.roles[b].label), 'de'); }).map(function (k) { return { key: k, label: db.roles[k].label, builtin: !!BUILTIN[k], rank: db.roles[k].rank || 1, perms: k === 'owner' ? ALLP : db.roles[k].perms }; }); }
 /* Sichtbarkeit: leere Liste = alle Gruppen, sonst nur die genannten Gruppen (Schatten Leitung sieht immer alles) */
@@ -697,7 +697,7 @@ function cleanPrefs(b) {
   if (Array.isArray(b.hide)) b.hide.forEach(function (k) { if (NAVKEYS.indexOf(k) >= 0 && k !== 'konto' && o.hide.indexOf(k) < 0) o.hide.push(k); });
   return o;
 }
-function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : rolePerms(u), rank: rankOf(u.role), inv: !!u.inv && !u.ris, decl: canDecl(u), ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0, prefs: u.prefs || null }; }
+function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : Object.assign({}, rolePerms(u), u.risx ? { ris: true } : {}), rank: rankOf(u.role), inv: !!u.inv && !u.ris, decl: canDecl(u), ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0, prefs: u.prefs || null }; }
 function cleanUntil(x) {
   const n = Number(x), now = Date.now();
   if (!isFinite(n) || n < now + 60000 || n > now + 400 * 86400000) { const e = new Error('Das Ablaufdatum muss zwischen 1 Minute und 400 Tagen in der Zukunft liegen.'); e.status = 400; throw e; }
@@ -1157,7 +1157,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return !!ub.untouchable - !!ua.untouchable || (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, decl: !!u.decl, ris: !!u.ris, untouchable: !!u.untouchable, groupLabel: u.groupLabel || '', main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return !!ub.untouchable - !!ua.untouchable || (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, decl: !!u.decl, risx: !!u.risx, ris: !!u.ris, untouchable: !!u.untouchable, groupLabel: u.groupLabel || '', main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
@@ -1410,6 +1410,12 @@ async function api(req, res, url) {
         const nd = !!b.decl;
         if (nd && u.ris) return send(res, 400, { error: 'RIS-Konten können nicht deklassifizieren.' });
         if (nd !== !!u.decl) { if (nd) u.decl = true; else delete u.decl; uch.push(nd ? 'darf Berichte deklassifizieren' : 'Deklassifizierungs-Recht entzogen'); }
+      }
+      if ('risx' in b) {
+        if (me.role !== 'owner') return send(res, 403, { error: 'Den RIS-Zugriff für einzelne Konten vergibt nur die Schatten Leitung.' });
+        const nx = !!b.risx;
+        if (nx && u.ris) return send(res, 400, { error: 'RIS-Konten haben bereits ihren eigenen RIS-Zugang.' });
+        if (nx !== !!u.risx) { if (nx) u.risx = true; else delete u.risx; uch.push(nx ? 'RIS-Kooperation freigegeben' : 'RIS-Zugriff entzogen'); }
       }
       let pw = null;
       if (b.reset === true && u.name !== MAIN) { pw = genPassword(); u.hash = hashPw(pw); u.since = Date.now(); u.mustChange = true; uch.push('neues Passwort erzeugt'); }
