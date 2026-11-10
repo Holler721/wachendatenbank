@@ -516,6 +516,11 @@ html.fx-wide .app{max-width:none}
           <div><button class="btn" type="submit">Passwort speichern</button></div>
         </form>
       </section>
+      <section class="panel" id="dcPanel" aria-labelledby="dcH" hidden>
+        <h2 id="dcH">Discord verbinden</h2>
+        <p class="muted" id="dcInfo" style="margin:0 0 10px"></p>
+        <div class="acts"><button class="btn" id="dcLink" type="button">Mit Discord verbinden</button><button class="btn ghost" id="dcUnlink" type="button" hidden>Verbindung trennen</button></div>
+      </section>
       <section class="panel" id="cfgPanel" aria-labelledby="cfgH" hidden>
         <h2 id="cfgH">Anpassung: Ränge, Labels, Berichtsarten</h2>
         <p class="muted" style="margin:0">Hier änderst du, was in Dropdowns und Filtern zur Auswahl steht. Mit ▲ ▼ legst du die Reihenfolge fest; die Reihenfolge der Ränge bestimmt die Sortierung im Personenregister (oben = zuerst). Beim Umbenennen ziehen alle bestehenden Akten, Systeme und Berichte automatisch mit. Entfernen geht nur, wenn nichts mehr damit verknüpft ist. „Bedrohung“ markiert Labels, die im Lagebild und bei Operationen als gefährlich zählen.</p>
@@ -626,6 +631,7 @@ html.fx-wide .app{max-width:none}
     <div class="field"><label for="lPass">PASSWORT</label><input id="lPass" type="password" autocomplete="current-password" required></div>
     <div class="hintline" id="lErr" role="alert"></div>
     <button class="btn" type="submit">Anmelden</button>
+    <button class="btn ghost" type="button" id="dcLogin" hidden>Mit Discord anmelden</button>
   </form>
 </div>
 <div id="force" hidden>
@@ -1999,10 +2005,17 @@ function showLogin(){S.startDone=false;applyPrefs(null);
   if(S.view==='konto')go('dashboard');
   applyRights();
 }
+function dcNotice(){var m=/[?&]dc=([a-z]+)/.exec(location.search);if(!m)return;try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
+  var T={linked:['Discord wurde mit deinem Konto verbunden.','cyan'],ok:['Über Discord angemeldet.','cyan'],unlinked:['Dieses Discord-Konto ist mit keinem Konto verbunden. Melde dich normal an und verbinde es im Reiter „Konto“.','red'],used:['Dieses Discord-Konto ist bereits mit einem anderen Konto verbunden.','red'],denied:['Die Discord-Anmeldung wurde abgebrochen.','red'],state:['Der Discord-Vorgang ist abgelaufen. Bitte erneut versuchen.','red'],error:['Discord antwortet nicht oder lehnt ab. Bitte später erneut versuchen.','red'],limit:['Zu viele Versuche. Bitte warte etwas.','red'],blocked:['Dieses Konto ist gesperrt.','red'],expired:['Dieses temporäre Konto ist abgelaufen.','red']}[m[1]];
+  if(T)setTimeout(function(){toast(T[0],T[1])},600);if(m[1]==='linked')setTimeout(function(){if(H.user)go('konto')},900)}
 function initHosted(){
-  api('GET','/api/session').then(function(j){if(j.user)startHosted(j.user);else showLogin()})
+  dcNotice();
+  api('GET','/api/session').then(function(j){S.dcOn=!!j.discord;$('#dcLogin').hidden=!S.dcOn;if(j.user)startHosted(j.user);else showLogin()})
     .catch(function(){/* Kein Server erreichbar (z. B. GitHub Pages): Gastansicht mit Standarddaten */});
 }
+$('#dcLogin').addEventListener('click',function(){dcGo('login')});
+$('#dcLink').addEventListener('click',function(){dcGo('link')});
+$('#dcUnlink').addEventListener('click',function(){api('POST','/api/discord/unlink',{}).then(function(){H.user.dc=null;renderDc();toast('Discord-Verbindung getrennt.','red')}).catch(apiErr)});
 $('#loginForm').addEventListener('submit',function(e){
   e.preventDefault();var b=$('button',this);b.disabled=true;$('#lErr').textContent='';
   api('POST','/api/login',{username:$('#lUser').value.trim(),password:$('#lPass').value}).then(function(j){
@@ -2076,8 +2089,13 @@ $('#cfgSave').addEventListener('click',function(){
   var body={ranks:strip(D.ranks),states:strip(D.states,true),rtypes:strip(D.rtypes)};
   api('PUT','/api/config',body).then(function(){S.cfgDraft=null;return loadData(true)}).then(function(){renderCfg();renderRegister();renderReports();toast('Anpassungen gespeichert.','cyan')}).catch(apiErr);
 });
+function renderDc(){var on=!!S.dcOn,u=H.user&&H.user.dc;$('#dcPanel').hidden=!(on||u);if($('#dcPanel').hidden)return;
+  $('#dcInfo').textContent=u?'Verbunden mit Discord als „'+u.name+'“. Du kannst dich jetzt auch über Discord anmelden, ohne Name und Passwort einzugeben.':'Verbinde dein Konto mit Discord, dann kannst du dich damit anmelden, falls du deine Anmeldedaten vergisst. Es wird nur dein Discord-Name gelesen, kein Passwort und keine Nachrichten.';
+  $('#dcLink').hidden=!!u;$('#dcUnlink').hidden=!u}
+function dcGo(mode){api('POST','/api/discord/start',{mode:mode}).then(function(j){location.href=j.url}).catch(apiErr)}
 function renderKonto(){
   if(!H.user)return;
+  renderDc();
   renderCfg();
   var own=P('accounts'),grp=P('groups');$('#nuInvF').hidden=H.user.role!=='owner';
   $('#ktLead').textContent='Angemeldet als '+(H.user.display||H.user.name)+(H.user.sid?' (Wächter ID '+H.user.sid+')':'')+' mit der Rolle '+S.role+'.'+(H.user.expires?' Dein Konto ist befristet bis '+expTxt(H.user.expires)+'.':'');
@@ -2103,8 +2121,8 @@ function renderKonto(){
       var opts=roles.map(function(r){return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+RN(r)+'</option>'}).join('');
       return '<tr data-u="'+esc(u.name)+'" data-b="'+(u.blocked?'1':'')+'" data-i="'+(u.inv?'1':'')+'" data-d="'+(u.decl?'1':'')+'" data-x="'+(u.risx?'1':'')+'"><td>'+nm+'</td><td>'+sid+'</td>'+
        '<td><select class="urole" aria-label="Rolle von '+esc(dn)+'">'+opts+'</select></td>'+
-       '<td class="muted">'+(u.mustChange?'wartet auf erste Anmeldung':'selbst gewählt')+(u.inv?'<div style="margin-top:4px"><span class="chip cyan">Jedi Ermittler</span></div>':'')+(u.decl?'<div style="margin-top:4px"><span class="chip vio">Deklassifizierer</span></div>':'')+(u.risx?'<div style="margin-top:4px"><span class="chip amber">RIS-Zugriff (einzeln)</span></div>':'')+(u.ris?'<div style="margin-top:4px"><span class="chip amber">RIS-Konto</span></div>':'')+(u.blocked?'<div style="margin-top:4px"><span class="chip red">Gesperrt</span></div>':'')+(u.expires?'<div style="margin-top:4px"><span class="chip '+(u.expires<=Date.now()?'red':'vio')+'">'+(u.expires<=Date.now()?'abgelaufen seit ':'Temporär bis ')+esc(expTxt(u.expires))+'</span></div>':'')+'<select class="uexp" aria-label="Gültigkeit ändern" style="margin-top:6px"><option value="">Gültigkeit ändern …</option><option value="none">Unbefristet</option><option value="1h">1 Stunde ab jetzt</option><option value="24h">24 Stunden ab jetzt</option><option value="7d">7 Tage ab jetzt</option><option value="30d">30 Tage ab jetzt</option></select></td>'+
-       '<td><div class="acts">'+sv+''+(H.user.role==='owner'?'<button class="btn sm ghost" data-uact="inv">'+(u.inv?'Ermittler entziehen':'Jedi Ermittler')+'</button>'+(u.ris?'':'<button class="btn sm ghost" data-uact="decl">'+(u.decl?'Deklassifizieren entziehen':'Deklassifizieren erlauben')+'</button><button class="btn sm ghost" data-uact="risx">'+(u.risx?'RIS-Zugriff entziehen':'RIS-Zugriff erteilen')+'</button>'):'')+'<button class="btn sm ghost" data-uact="block">'+(u.blocked?'Entsperren':'Sperren')+'</button><button class="btn sm" data-uact="pw">Neues Passwort erzeugen</button><button class="btn sm danger" data-uact="del">Löschen</button></div></td></tr>';
+       '<td class="muted">'+(u.mustChange?'wartet auf erste Anmeldung':'selbst gewählt')+(u.inv?'<div style="margin-top:4px"><span class="chip cyan">Jedi Ermittler</span></div>':'')+(u.decl?'<div style="margin-top:4px"><span class="chip vio">Deklassifizierer</span></div>':'')+(u.risx?'<div style="margin-top:4px"><span class="chip amber">RIS-Zugriff (einzeln)</span></div>':'')+(u.dc?'<div style="margin-top:4px"><span class="chip cyan">Discord verbunden</span></div>':'')+(u.ris?'<div style="margin-top:4px"><span class="chip amber">RIS-Konto</span></div>':'')+(u.blocked?'<div style="margin-top:4px"><span class="chip red">Gesperrt</span></div>':'')+(u.expires?'<div style="margin-top:4px"><span class="chip '+(u.expires<=Date.now()?'red':'vio')+'">'+(u.expires<=Date.now()?'abgelaufen seit ':'Temporär bis ')+esc(expTxt(u.expires))+'</span></div>':'')+'<select class="uexp" aria-label="Gültigkeit ändern" style="margin-top:6px"><option value="">Gültigkeit ändern …</option><option value="none">Unbefristet</option><option value="1h">1 Stunde ab jetzt</option><option value="24h">24 Stunden ab jetzt</option><option value="7d">7 Tage ab jetzt</option><option value="30d">30 Tage ab jetzt</option></select></td>'+
+       '<td><div class="acts">'+sv+''+(H.user.role==='owner'?'<button class="btn sm ghost" data-uact="inv">'+(u.inv?'Ermittler entziehen':'Jedi Ermittler')+'</button>'+(u.ris?'':'<button class="btn sm ghost" data-uact="decl">'+(u.decl?'Deklassifizieren entziehen':'Deklassifizieren erlauben')+'</button><button class="btn sm ghost" data-uact="risx">'+(u.risx?'RIS-Zugriff entziehen':'RIS-Zugriff erteilen')+'</button>'+(u.dc?'<button class="btn sm ghost" data-uact="dcun">Discord trennen</button>':'')):'')+'<button class="btn sm ghost" data-uact="block">'+(u.blocked?'Entsperren':'Sperren')+'</button><button class="btn sm" data-uact="pw">Neues Passwort erzeugen</button><button class="btn sm danger" data-uact="del">Löschen</button></div></td></tr>';
     }).join('');
   }).catch(apiErr);
 }
@@ -2121,6 +2139,7 @@ $('#uBody').addEventListener('click',function(e){
     return;
   }
   if(a==='inv'){var ni=tr.dataset.i!=='1';api('PATCH','/api/users/'+encodeURIComponent(name),{inv:ni}).then(function(){toast(ni?'Ermittler-Freigabe erteilt.':'Ermittler-Freigabe entzogen.',ni?'cyan':'red');renderKonto();if(H.user&&H.user.name===name)loadData(true)}).catch(apiErr);return}
+  if(a==='dcun'){api('PATCH','/api/users/'+encodeURIComponent(name),{dcUnlink:true}).then(function(){toast('Discord-Verknüpfung getrennt.','red');renderKonto()}).catch(apiErr);return}
   if(a==='risx'){var nx=tr.dataset.x!=='1';api('PATCH','/api/users/'+encodeURIComponent(name),{risx:nx}).then(function(){toast(nx?'RIS Kooperation für dieses Konto freigegeben.':'RIS-Zugriff entzogen.',nx?'cyan':'red');renderKonto();if(H.user&&H.user.name===name)loadData(true)}).catch(apiErr);return}
   if(a==='decl'){var nd=tr.dataset.d!=='1';api('PATCH','/api/users/'+encodeURIComponent(name),{decl:nd}).then(function(){toast(nd?'Darf jetzt Berichte deklassifizieren.':'Deklassifizierungs-Recht entzogen.',nd?'cyan':'red');renderKonto()}).catch(apiErr);return}
   if(a==='block'){var nb=tr.dataset.b!=='1';api('PATCH','/api/users/'+encodeURIComponent(name),{blocked:nb}).then(function(){toast(nb?'Konto gesperrt. Aktive Sitzungen sind beendet.':'Konto entsperrt.',nb?'red':'cyan');renderKonto()}).catch(apiErr);return}

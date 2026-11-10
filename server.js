@@ -697,7 +697,7 @@ function cleanPrefs(b) {
   if (Array.isArray(b.hide)) b.hide.forEach(function (k) { if (NAVKEYS.indexOf(k) >= 0 && k !== 'konto' && o.hide.indexOf(k) < 0) o.hide.push(k); });
   return o;
 }
-function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : Object.assign({}, rolePerms(u), u.risx ? { ris: true } : {}), rank: rankOf(u.role), inv: !!u.inv && !u.ris, decl: canDecl(u), ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0, prefs: u.prefs || null }; }
+function publicUser(u) { return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, label: u.groupLabel || (db.roles[u.role] || {}).label || u.role, perms: u.ris ? {} : Object.assign({}, rolePerms(u), u.risx ? { ris: true } : {}), rank: rankOf(u.role), inv: !!u.inv && !u.ris, decl: canDecl(u), ris: !!u.ris, main: u.name === MAIN, mustChange: !!u.mustChange, expires: u.expires || 0, prefs: u.prefs || null, dc: u.discord ? { name: u.discord.name } : null }; }
 function cleanUntil(x) {
   const n = Number(x), now = Date.now();
   if (!isFinite(n) || n < now + 60000 || n > now + 400 * 86400000) { const e = new Error('Das Ablaufdatum muss zwischen 1 Minute und 400 Tagen in der Zukunft liegen.'); e.status = 400; throw e; }
@@ -719,12 +719,90 @@ function genPassword() {
   }
 }
 
+
+/* ---------- Discord-Verknüpfung (OAuth2, nur Scope "identify") ---------- */
+const DC_ID = process.env.DISCORD_CLIENT_ID || '', DC_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
+const DC_API = (process.env.DISCORD_API || 'https://discord.com/api/v10').replace(/\/+$/, '');
+const DC_AUTH = process.env.DISCORD_AUTHORIZE_URL || 'https://discord.com/oauth2/authorize';
+const DC_ON = !!(DC_ID && DC_SECRET);
+const dcStates = new Map();
+function baseUrl(req) {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, '');
+  const host = String((TRUST_PROXY && req.headers['x-forwarded-host']) || req.headers.host || 'localhost').split(',')[0].trim();
+  return (isHttps(req) ? 'https://' : 'http://') + host;
+}
+function dcCleanStates() { const n = Date.now(); dcStates.forEach(function (s, k) { if (s.exp < n) dcStates.delete(k); }); }
+async function dcFetch(url, opts) {
+  const ac = new AbortController(), t = setTimeout(function () { ac.abort(); }, 10000);
+  try { return await fetch(url, Object.assign({ signal: ac.signal }, opts)); } finally { clearTimeout(t); }
+}
+async function dcIdentify(code, redirect) {
+  const tr = await dcFetch(DC_API + '/oauth2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: DC_ID, client_secret: DC_SECRET, grant_type: 'authorization_code', code: code, redirect_uri: redirect }).toString() });
+  if (!tr.ok) throw new Error('token');
+  const tj = await tr.json();
+  if (!tj || typeof tj.access_token !== 'string') throw new Error('token');
+  const mr = await dcFetch(DC_API + '/users/@me', { headers: { Authorization: 'Bearer ' + tj.access_token } });
+  if (!mr.ok) throw new Error('me');
+  const me = await mr.json();
+  if (!me || !/^\d{5,25}$/.test(String(me.id))) throw new Error('me');
+  return { id: String(me.id), name: str(me.global_name || me.username || 'Discord', 60) };
+}
+function dcRedirect(res, qs) { res.writeHead(302, { Location: '/?dc=' + qs, 'Cache-Control': 'no-store' }); res.end(); }
+
 async function api(req, res, url) {
   const method = req.method, p = url.pathname;
   if (method !== 'GET') {
     if (req.headers['x-requested-with'] !== 'shadow-net' || !/^application\/json/.test(req.headers['content-type'] || (method === 'DELETE' ? 'application/json' : ''))) {
       return send(res, 400, { error: 'Ungültige Anfrage.' });
     }
+  }
+  if (p === '/api/discord/callback' && method === 'GET') {
+    const ip = clientIp(req);
+    dcCleanStates();
+    const st = dcStates.get(url.searchParams.get('state') || '');
+    if (st) dcStates.delete(url.searchParams.get('state'));
+    if (!DC_ON || !st || st.exp < Date.now()) return dcRedirect(res, 'state');
+    if (url.searchParams.get('error') || !url.searchParams.get('code')) return dcRedirect(res, 'denied');
+    if (limited('dc:' + ip, 20)) return dcRedirect(res, 'limit');
+    let id;
+    try { id = await dcIdentify(String(url.searchParams.get('code')).slice(0, 200), baseUrl(req) + '/api/discord/callback'); }
+    catch (e) { fail('dc:' + ip); return dcRedirect(res, 'error'); }
+    const holder = Object.keys(db.users).map(function (k) { return db.users[k]; }).filter(function (x) { return x.discord && x.discord.id === id.id; })[0];
+    if (st.mode === 'link') {
+      const u = db.users[st.user];
+      if (!u || u.blocked) return dcRedirect(res, 'error');
+      if (holder && holder.name !== u.name) return dcRedirect(res, 'used');
+      u.discord = { id: id.id, name: id.name, ts: Date.now() };
+      logAct(u, 'Discord verbunden', id.name); save();
+      return dcRedirect(res, 'linked');
+    }
+    if (!holder) { fail('dc:' + ip); return dcRedirect(res, 'unlinked'); }
+    const u = holder;
+    if (u.blocked) { logAct(u, 'Anmeldung abgelehnt', 'Konto gesperrt (Discord)'); save(); return dcRedirect(res, 'blocked'); }
+    if (u.expires && u.expires <= Date.now()) { logAct(u, 'Anmeldung abgelehnt', 'Temporäres Konto abgelaufen (Discord)'); save(); return dcRedirect(res, 'expired'); }
+    u.discord.name = id.name;
+    setCookie(res, req, makeToken(u.name), Math.floor(SESSION_MS / 1000));
+    logAct(u, 'Anmeldung', 'über Discord'); save();
+    return dcRedirect(res, 'ok');
+  }
+  if (p === '/api/discord/start' && method === 'POST') {
+    if (!DC_ON) return send(res, 400, { error: 'Discord ist auf diesem Server nicht eingerichtet.' });
+    const b = await readBody(req), mode = b.mode === 'link' ? 'link' : 'login';
+    let su = null;
+    if (mode === 'link') { su = sessionUser(req); if (!su) return send(res, 401, { error: 'Bitte zuerst anmelden.' }); if (su.mustChange) return send(res, 403, { error: 'Bitte vergib zuerst ein eigenes Passwort.', code: 'must_change' }); }
+    if (limited('dcs:' + clientIp(req), 30)) return send(res, 429, { error: 'Zu viele Versuche. Bitte warte etwas.' });
+    fail('dcs:' + clientIp(req));
+    dcCleanStates();
+    if (dcStates.size > 2000) return send(res, 503, { error: 'Bitte später erneut versuchen.' });
+    const state = crypto.randomBytes(24).toString('hex');
+    dcStates.set(state, { mode: mode, user: su ? su.name : '', exp: Date.now() + 10 * 60 * 1000 });
+    const q = new URLSearchParams({ client_id: DC_ID, response_type: 'code', scope: 'identify', redirect_uri: baseUrl(req) + '/api/discord/callback', state: state, prompt: 'consent' });
+    return send(res, 200, { url: DC_AUTH + '?' + q.toString() });
+  }
+  if (p === '/api/discord/unlink' && method === 'POST') {
+    const su = need(req, 'viewer');
+    if (su.discord) { logAct(su, 'Discord getrennt', su.discord.name); delete su.discord; save(); }
+    return send(res, 200, { ok: true });
   }
   if (p === '/api/public/declass' && method === 'POST') {
     const b = await readBody(req);
@@ -740,7 +818,7 @@ async function api(req, res, url) {
     const lu = sessionUser(req);
     if (lu && !can(lu, 'lockdown')) return send(res, 403, { error: 'Notfall: Die Seite ist für dein Konto gesperrt.', code: 'lockdown' });
   }
-  if (['/api/session', '/api/login', '/api/logout', '/api/password', '/api/prefs'].indexOf(p) < 0 && !/^\/api\/ris(\/|$)/.test(p)) {
+  if (['/api/session', '/api/login', '/api/logout', '/api/password', '/api/prefs', '/api/discord/start', '/api/discord/unlink'].indexOf(p) < 0 && !/^\/api\/ris(\/|$)/.test(p)) {
     const ru0 = sessionUser(req);
     if (ru0 && ru0.ris) return send(res, 403, { error: 'Dieses Konto hat nur Zugriff auf „RIS Kooperation“.', code: 'ris_only' });
   }
@@ -750,7 +828,7 @@ async function api(req, res, url) {
   }
   if (p === '/api/session' && method === 'GET') {
     const u = sessionUser(req);
-    return send(res, 200, { user: u ? publicUser(u) : null, lockdown: !!db.lockdown.active });
+    return send(res, 200, { user: u ? publicUser(u) : null, lockdown: !!db.lockdown.active, discord: DC_ON });
   }
   if (p === '/api/login' && method === 'POST') {
     const b = await readBody(req);
@@ -1157,7 +1235,7 @@ async function api(req, res, url) {
   if (p === '/api/users' && method === 'GET') {
     const lu = need(req, 'viewer');
     if (!can(lu, 'accounts') && !can(lu, 'groups')) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
-    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return !!ub.untouchable - !!ua.untouchable || (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, decl: !!u.decl, risx: !!u.risx, ris: !!u.ris, untouchable: !!u.untouchable, groupLabel: u.groupLabel || '', main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
+    return send(res, 200, { roles: rolesList(), storage: REMOTE ? (remoteOk ? 'remote' : 'remote-error') : 'file', users: !can(lu, 'accounts') ? [] : Object.keys(db.users).sort(function (a, b) { const ua = db.users[a], ub = db.users[b]; return !!ub.untouchable - !!ua.untouchable || (b === MAIN) - (a === MAIN) || rankOf(ub.role) - rankOf(ua.role) || String(dispName(ua)).localeCompare(String(dispName(ub)), 'de'); }).map(function (k) { const u = db.users[k]; return { name: u.name, display: dispName(u), sid: u.sid || '', role: u.role, roleLabel: (db.roles[u.role] || {}).label, created: u.created, expires: u.expires || 0, blocked: !!u.blocked, inv: !!u.inv, decl: !!u.decl, risx: !!u.risx, dc: !!u.discord, ris: !!u.ris, untouchable: !!u.untouchable, groupLabel: u.groupLabel || '', main: u.name === MAIN, mustChange: !!u.mustChange }; }) });
   }
   if (p === '/api/users' && method === 'POST') {
     const me = need(req, 'accounts');
@@ -1416,6 +1494,10 @@ async function api(req, res, url) {
         const nx = !!b.risx;
         if (nx && u.ris) return send(res, 400, { error: 'RIS-Konten haben bereits ihren eigenen RIS-Zugang.' });
         if (nx !== !!u.risx) { if (nx) u.risx = true; else delete u.risx; uch.push(nx ? 'RIS-Kooperation freigegeben' : 'RIS-Zugriff entzogen'); }
+      }
+      if (b.dcUnlink === true && u.discord) {
+        if (me.role !== 'owner') return send(res, 403, { error: 'Die Discord-Verknüpfung anderer Konten trennt nur die Schatten Leitung.' });
+        delete u.discord; uch.push('Discord-Verknüpfung getrennt');
       }
       let pw = null;
       if (b.reset === true && u.name !== MAIN) { pw = genPassword(); u.hash = hashPw(pw); u.since = Date.now(); u.mustChange = true; uch.push('neues Passwort erzeugt'); }

@@ -161,3 +161,12 @@ Akzentfarbe (Farbfeld oder Hex-Wert) färbt jetzt Kopfzeilen, Knöpfe, Rahmen, A
 
 ## RIS-Zugriff pro Konto
 Die Schatten Leitung kann im Reiter „Konto“ einzelnen Konten über „RIS-Zugriff erteilen“ den Zugang zu „RIS Kooperation“ geben, unabhängig von der Gruppe (`risx`). Diese Konten sehen beide Austausch-Bereiche und schreiben im Bereich „Berichts Austausch Wachen“. Entziehen oder Sperren beendet den Zugriff sofort.
+
+## Discord verbinden (Anmeldung ohne Passwort)
+Konten können im Reiter „Konto“ mit Discord verbunden werden. Danach gibt es auf der Anmeldeseite „Mit Discord anmelden“. Es wird nur die Discord-Kennung und der Anzeigename gelesen (Scope `identify`). Ein Discord-Konto gehört zu genau einem Konto; die Schatten Leitung kann Verknüpfungen trennen.
+
+Einrichtung (einmalig):
+1. https://discord.com/developers/applications → „New Application“ → Reiter „OAuth2“.
+2. Unter „Redirects“ eintragen: `https://DEINE-ADRESSE/api/discord/callback` (genau diese Adresse, z. B. die Render-URL).
+3. „Client ID“ und „Client Secret“ kopieren und als Umgebungsvariablen setzen: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`. Optional `PUBLIC_URL` (z. B. `https://deine-adresse.onrender.com`), falls die Adresse hinter einem Proxy nicht automatisch erkannt wird.
+4. Neu starten. Ohne diese Variablen bleibt die Funktion unsichtbar.
