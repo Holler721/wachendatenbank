@@ -268,7 +268,7 @@ function normalizeDb() {
   if (!isObj(db.orders)) db.orders = {};
   ['covers', 'informants', 'talks'].forEach(function (k) { if (!isObj(db.inv[k])) db.inv[k] = {}; });
   if (!isObj(db.ris)) db.ris = {};
-  ['wachen', 'ris'].forEach(function (k) { if (!isObj(db.ris[k])) db.ris[k] = {}; });
+  ['wachen', 'ris', 'req'].forEach(function (k) { if (!isObj(db.ris[k])) db.ris[k] = {}; });
   if (!isObj(db.archive)) db.archive = {};
   if (!isObj(db.tasks)) db.tasks = {};
   if (!isObj(db.notes)) db.notes = {};
@@ -1474,11 +1474,60 @@ async function api(req, res, url) {
     Object.keys(RIS_BOARDS).forEach(function (k) {
       out[k] = Object.keys(db.ris[k]).map(function (id) { const x = db.ris[k][id]; return Object.assign({ id: id }, x, { by: authorId(x.bk, x.by) }); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     });
+    out.req = Object.keys(db.ris.req).map(function (id) {
+      const x = db.ris.req[id];
+      return { id: id, ti: x.ti, kind: x.kind, text: x.text, ts: x.ts, st: x.st, side: x.side, by: authorId(x.bk, x.by), mine: x.bk === ru.name, mineSide: x.side === side, edited: x.edited || 0,
+        replies: (x.replies || []).map(function (r) { return { id: r.id, text: r.text, ts: r.ts, side: r.side, by: authorId(r.bk, r.by), st: r.st || '', att: r.att || [] }; }) };
+    }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     if (out.write.wachen) out.src = {
       persons: Object.keys(db.persons).filter(function (id) { return canSee(ru, db.persons[id]); }).map(function (id) { return { id: id, n: db.persons[id].n }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); }),
       reports: Object.keys(db.reports).filter(function (id) { return canRead(ru, db.reports[id].cls); }).map(function (id) { return { id: id, n: db.reports[id].ti, t: db.reports[id].t }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); })
     };
     return send(res, 200, out);
+  }
+  m = /^\/api\/ris\/req(?:\/([a-f0-9]{6,20})(?:\/(reply))?)?$/.exec(p);
+  if (m) {
+    const ru = need(req, 'viewer'), side = risSide(ru);
+    if (!side) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
+    const sname = function (s) { return s === 'ris' ? 'RIS' : 'Wächter'; };
+    if (!m[1] && method === 'POST') {
+      const b = await readBody(req), ti = str(b.ti, 120).trim(), text = str(b.text, 4000).trim();
+      const kind = b.kind === 'info' ? 'info' : 'akte';
+      if (!ti || !text) return send(res, 400, { error: 'Betreff und Beschreibung der Anfrage müssen ausgefüllt sein.' });
+      if (Object.keys(db.ris.req).length >= 1000) return send(res, 400, { error: 'Zu viele Anfragen. Bitte alte löschen.' });
+      const id = newId();
+      db.ris.req[id] = { ti: ti, kind: kind, text: text, side: side, st: 'open', ts: Date.now(), by: dispName(ru), bk: ru.name, replies: [] };
+      logAct(ru, 'RIS: Anfrage gestellt', sname(side) + ' · ' + (kind === 'info' ? 'Information' : 'Akte') + ': ' + ti); bump();
+      return send(res, 200, { ok: true, id: id });
+    }
+    const cur = m[1] ? db.ris.req[m[1]] : null;
+    if (!cur) return send(res, 404, { error: 'Anfrage nicht gefunden.' });
+    if (m[2] === 'reply' && method === 'POST') {
+      const b = await readBody(req), text = str(b.text, 4000).trim(), isReq = cur.side === side;
+      let st = '';
+      if (b.st) {
+        st = String(b.st);
+        if (isReq ? ['open', 'closed'].indexOf(st) < 0 : ['answered', 'declined'].indexOf(st) < 0) return send(res, 400, { error: 'Dieser Status ist für dich nicht möglich.' });
+      }
+      if (cur.st === 'closed' && st !== 'open') return send(res, 400, { error: 'Die Anfrage ist geschlossen. Nur wer sie gestellt hat, kann sie wieder öffnen.' });
+      if (cur.st === 'closed' && !isReq) return send(res, 403, { error: 'Die Anfrage ist geschlossen.' });
+      let att = null;
+      if (side === 'intern' && 'att' in b) att = risAtt(ru, b, null);
+      if (!text && !(att && att.length) && !st) return send(res, 400, { error: 'Bitte eine Antwort schreiben.' });
+      if ((cur.replies || []).length >= 100) return send(res, 400, { error: 'Zu viele Antworten in dieser Anfrage.' });
+      const r = { id: newId(), text: text, ts: Date.now(), side: side, by: dispName(ru), bk: ru.name };
+      if (st) r.st = st;
+      if (att && att.length) r.att = att;
+      (cur.replies = cur.replies || []).push(r);
+      if (st) cur.st = st;
+      logAct(ru, 'RIS: Anfrage beantwortet', sname(side) + ' · ' + cur.ti + (st ? ' (' + st + ')' : '')); bump();
+      return send(res, 200, { ok: true });
+    }
+    if (!m[2] && method === 'DELETE') {
+      if (!(cur.bk === ru.name || ru.role === 'owner')) return send(res, 403, { error: 'Nur wer die Anfrage gestellt hat (oder die Schatten Leitung) kann sie löschen.' });
+      logAct(ru, 'RIS: Anfrage gelöscht', cur.ti); delete db.ris.req[m[1]]; bump();
+      return send(res, 200, { ok: true });
+    }
   }
   m = /^\/api\/ris\/(wachen|ris)(?:\/([a-f0-9]{6,20}))?$/.exec(p);
   if (m) {

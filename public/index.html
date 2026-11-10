@@ -1641,8 +1641,49 @@ function risAttDraw(f){
   var c=RIS.data.src||{persons:[],reports:[]},has=function(k,id){return RIS.att.some(function(a){return a.k===k&&a.src===id})};
   sel.innerHTML='<option value="">+ Akte oder Bericht hinzufügen …</option><optgroup label="Akten (Personen)">'+c.persons.filter(function(x){return !has('person',x.id)}).map(function(x){return '<option value="person|'+esc(x.id)+'">'+esc(x.n)+'</option>'}).join('')+'</optgroup><optgroup label="Berichte">'+c.reports.filter(function(x){return !has('report',x.id)}).map(function(x){return '<option value="report|'+esc(x.id)+'">'+esc(x.n)+' ('+esc(x.t)+')</option>'}).join('')+'</optgroup>';
 }
+
+/* ---------- RIS Anfragen (Akten / Informationen), für beide Seiten ---------- */
+var RQS={open:['Offen','amber'],answered:['Beantwortet','cyan'],declined:['Abgelehnt','red'],closed:['Geschlossen','vio']};
+function rqSide(s){return s==='ris'?'RIS':'Wächter'}
+function rqAttHtml(list){return (list||[]).map(function(a){return '<details class="fl" style="margin:0"><summary><span><span class="chip '+(a.k==='person'?'cyan':'amber')+'">'+(a.k==='person'?'Akte':'Bericht')+'</span> <b>'+esc(String(a.ti||'').replace(/^(Akte|Bericht): /,''))+'</b></span><span class="muted">'+esc(a.sub||'')+'</span></summary><div class="fb"><pre>'+esc(a.text||'')+'</pre></div></details>'}).join('')}
+function rqNewForm(){return '<form class="fl risForm rqForm" data-rq="new" style="padding:12px;display:grid;gap:8px"><h3 style="margin:0;font-size:14px">Neue Anfrage an '+(RIS.data.side==='ris'?'die Wächter':'das RIS')+'</h3>'+
+  '<div class="field"><label>ART DER ANFRAGE</label><select class="rqkind"><option value="akte">Akte anfordern</option><option value="info">Information anfragen</option></select></div>'+
+  '<div class="field"><label>BETREFF *</label><input class="rqti" type="text" maxlength="120" placeholder="z. B. Akte zu Person XY / Informationen zu Sektor 7"></div>'+
+  '<div class="field"><label>BESCHREIBUNG *</label><textarea class="rqtx" rows="5" maxlength="4000" placeholder="Was wird benötigt, wofür und bis wann?"></textarea></div>'+
+  '<div style="display:flex;gap:8px"><button class="btn sm" type="submit">Anfrage senden</button><button class="btn sm ghost" type="button" data-risact="cancel">Abbrechen</button></div></form>'}
+function rqReplyForm(r){var me=RIS.data.side,isReq=r.side===me,att=!!(RIS.data.write&&RIS.data.write.wachen);
+  var opts=isReq?'<option value="">Nur Nachricht</option><option value="closed">Anfrage schließen (erledigt)</option>':'<option value="answered">Beantwortet</option><option value="declined">Anfrage ablehnen</option><option value="">Status nicht ändern</option>';
+  return '<form class="fl risForm rqForm" data-rq="'+esc(r.id)+'" style="padding:12px;display:grid;gap:8px"><h3 style="margin:0;font-size:14px">'+(isReq?'Nachricht zur Anfrage':'Antwort auf die Anfrage')+'</h3>'+
+  '<div class="field"><label>'+(isReq?'NACHRICHT':'ANTWORT')+'</label><textarea class="rqtx" rows="5" maxlength="4000"></textarea></div>'+
+  (att?'<div class="field"><label>ANHÄNGE (AKTEN / BERICHTE)</label><div class="ratt" style="display:flex;flex-wrap:wrap;gap:6px"></div><select class="rsel"></select></div>':'')+
+  '<div class="field"><label>STATUS</label><select class="rqst">'+opts+'</select></div>'+
+  '<div style="display:flex;gap:8px"><button class="btn sm" type="submit">Senden</button><button class="btn sm ghost" type="button" data-risact="cancel">Abbrechen</button></div></form>'}
+function rqHtml(){
+  var list=RIS.data.req||[],me=RIS.data.side,openN=list.filter(function(x){return x.st==='open'}).length;
+  var h='<section class="panel" data-board="req"><div class="ph"><h2>Anfragen <span class="muted" style="font-size:12px">('+list.length+(openN?', '+openN+' offen':'')+')</span></h2>'+(RIS.edit!=='rq:new'?'<button class="btn sm" data-risact="rqnew">+ Anfrage stellen</button>':'')+'</div>'+
+   '<p class="muted" style="margin:0;font-size:12px">Akten oder Informationen beim jeweils anderen Bereich anfragen. Die Gegenseite antwortet hier, kann Akten und Berichte anhängen oder die Anfrage ablehnen.</p>'+(RIS.edit==='rq:new'?rqNewForm():'');
+  h+=list.map(function(r){
+    var st=RQS[r.st]||RQS.open,isReq=r.side===me,openEdit=RIS.edit==='rq:'+r.id;
+    var th=(r.replies||[]).map(function(p){var pst=p.st&&RQS[p.st];return '<div class="fl" style="padding:10px;display:grid;gap:6px"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="chip '+(p.side==='ris'?'vio':'cyan')+'">'+rqSide(p.side)+'</span><span class="muted" style="font-size:12px">Wächter ID '+esc(p.by)+' · '+esc(fDate(p.ts))+'</span>'+(pst?'<span class="chip '+pst[1]+'">'+pst[0]+'</span>':'')+'</div>'+(p.text?'<div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(p.text)+'</div>':'')+rqAttHtml(p.att)+'</div>'}).join('');
+    var acts='';
+    if(openEdit)acts=rqReplyForm(r);
+    else if(r.st==='closed'){if(isReq)acts='<div><button class="btn sm ghost" data-risact="rqreopen" data-id="'+esc(r.id)+'">Anfrage wieder öffnen</button></div>'}
+    else acts='<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-risact="rqreply" data-id="'+esc(r.id)+'">'+(isReq?'Nachricht schreiben':'Antworten')+'</button></div>';
+    if(r.mine||(H.user&&H.user.role==='owner'))acts+=(openEdit?'':'')+'<div><button class="btn sm danger" data-risact="rqdel" data-id="'+esc(r.id)+'">Löschen</button></div>';
+    return '<details class="fl" data-rq="'+esc(r.id)+'"'+(openEdit?' open':'')+'><summary><span><span class="chip '+(r.kind==='info'?'amber':'cyan')+'">'+(r.kind==='info'?'Information':'Akte')+'</span> <b>'+esc(r.ti)+'</b> <span class="chip '+st[1]+'">'+st[0]+'</span> <span class="chip '+(r.side==='ris'?'vio':'cyan')+'">von '+rqSide(r.side)+'</span></span><span class="muted">'+esc(fDate(r.ts))+' · '+esc(r.by||'')+'</span></summary><div class="fb" style="display:grid;gap:10px"><div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(r.text)+'</div>'+th+acts+'</div></details>'}).join('');
+  if(!list.length)h+='<p class="muted" style="margin:0">Noch keine Anfragen.</p>';
+  return h+'</section>'}
+function rqSend(f){
+  var id=f.dataset.rq,txt=$('.rqtx',f).value.trim();
+  if(id==='new'){var ti=$('.rqti',f).value.trim();if(!ti||!txt){toast('Betreff und Beschreibung müssen ausgefüllt sein.','red');return}
+    api('POST','/api/ris/req',{ti:ti,kind:$('.rqkind',f).value,text:txt}).then(function(){RIS.edit=null;toast('Anfrage gesendet.','cyan');loadRis()}).catch(apiErr);return}
+  var st=$('.rqst',f).value,body={text:txt};if(st)body.st=st;
+  if(RIS.data.write&&RIS.data.write.wachen)body.att=RIS.att.map(function(a){return a.id?{id:a.id}:{k:a.k,src:a.src}});
+  if(!txt&&!st&&!(body.att&&body.att.length)){toast('Bitte eine Nachricht schreiben.','red');return}
+  api('POST','/api/ris/req/'+encodeURIComponent(id)+'/reply',body).then(function(){RIS.edit=null;RIS.att=[];toast('Gesendet.','cyan');loadRis()}).catch(apiErr)}
 function renderRis(){
-  $('#risBody').innerHTML=RISB.map(function(b){var k=b[0],list=RIS.data[k]||[],w=RIS.data.write&&RIS.data.write[k];
+  var wasOpen={};$$('#risBody details[data-rq]').forEach(function(d){if(d.open)wasOpen[d.dataset.rq]=1});
+  $('#risBody').innerHTML=rqHtml()+RISB.map(function(b){var k=b[0],list=RIS.data[k]||[],w=RIS.data.write&&RIS.data.write[k];
     return '<section class="panel" data-board="'+k+'"><div class="ph"><h2>'+esc(b[1])+' <span class="muted" style="font-size:12px">('+list.length+')</span></h2>'+(w&&RIS.edit!==k+':new'?'<button class="btn sm" data-risact="new" data-board="'+k+'">+ Bericht eintragen</button>':'')+'</div><p class="muted" style="margin:0;font-size:12px">'+esc(b[2])+(w?'':' · nur lesen')+'</p>'+
      (RIS.edit===k+':new'?risForm(k,null):'')+
      (list.map(function(it){
@@ -1650,6 +1691,7 @@ function renderRis(){
        var mine=it.bk===(H.user&&H.user.name);
        return '<details class="fl"><summary><span><b>'+esc(it.ti)+'</b>'+(it.ref?' <span class="chip vio">'+esc(it.ref)+'</span>':'')+'</span><span class="muted">'+esc(fDate(it.ts))+' · '+esc(it.by||'')+'</span></summary><div class="fb">'+(k==='ris'?dosHtml(it):(it.text?wdos({kick:'AUSTAUSCH · WÄCHTER',tag:'Austausch',title:it.ti,no:wno(it.id),ts:it.ts,meta:[['Autor',it.by]],rows:it.ref?[['Referenz',it.ref]]:[],text:it.text}):''))+(it.att||[]).map(function(a){return '<details class="fl" style="margin:0"><summary><span><span class="chip '+(a.k==='person'?'cyan':'amber')+'">'+(a.k==='person'?'Akte':'Bericht')+'</span> <b>'+esc(a.ti.replace(/^(Akte|Bericht): /,''))+'</b></span><span class="muted">'+esc(a.sub||'')+'</span></summary><div class="fb"><pre>'+esc(a.text)+'</pre></div></details>'}).join('')+(it.edited?'<span class="muted" style="font-size:11px">Bearbeitet am '+esc(fDate(it.edited))+'</span>':'')+(w?'<div style="display:flex;gap:8px"><button class="btn sm ghost" data-risact="edit" data-board="'+k+'" data-id="'+esc(it.id)+'">Bearbeiten</button><button class="btn sm danger" data-risact="del" data-board="'+k+'" data-id="'+esc(it.id)+'">Löschen</button></div>':'')+'</div></details>'}).join('')||'<p class="muted" style="margin:0">Noch keine Berichte.</p>')+'</section>'}).join('');
   $$('#risBody .risForm').forEach(risAttDraw);
+  $$('#risBody details[data-rq]').forEach(function(d){if(wasOpen[d.dataset.rq])d.open=true});
 }
 function loadRis(){api('GET','/api/ris').then(function(j){RIS.data=j;var a=document.activeElement;if(!RIS.edit||!a||!a.closest||!a.closest('.risForm'))renderRis()}).catch(function(err){if(!(err&&err.code==='lockdown'))apiErr(err)})}
 $('#risRefresh').addEventListener('click',loadRis);
@@ -1660,6 +1702,11 @@ $('#risBody').addEventListener('change',function(e){
 });
 $('#risBody').addEventListener('click',function(e){
   var b=e.target.closest('[data-risact]');if(!b)return;var a=b.dataset.risact,k=b.dataset.board;
+  if(a==='rqnew'){RIS.edit='rq:new';renderRis();return}
+  if(a==='rqreply'){RIS.edit='rq:'+b.dataset.id;RIS.att=[];renderRis();return}
+  if(a==='rqreopen'){api('POST','/api/ris/req/'+encodeURIComponent(b.dataset.id)+'/reply',{st:'open'}).then(function(){toast('Anfrage wieder geöffnet.','cyan');loadRis()}).catch(apiErr);return}
+  if(a==='rqdel'){if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich löschen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Löschen'}},4000);return}
+    api('DELETE','/api/ris/req/'+encodeURIComponent(b.dataset.id)).then(function(){toast('Anfrage gelöscht.','red');loadRis()}).catch(apiErr);return}
   if(a==='new'){RIS.edit=k+':new';RIS.att=[];renderRis();return}
   if(a==='unatt'){RIS.att.splice(+b.dataset.i,1);risAttDraw(b.closest('.risForm'));return}
   if(a==='cancel'){RIS.edit=null;renderRis();return}
@@ -1669,6 +1716,7 @@ $('#risBody').addEventListener('click',function(e){
 });
 $('#risBody').addEventListener('submit',function(e){
   var f=e.target.closest('.risForm');if(!f)return;e.preventDefault();
+  if(f.classList.contains('rqForm')){rqSend(f);return}
   var k=f.dataset.board,d={ti:$('.rti',f).value.trim(),ref:$('.rrf',f).value.trim(),text:$('.rtx',f).value.trim()};
   if(k==='ris'){d.lvl=($('.rlv',f).value.replace(/\D/g,'')||'1');d.rank=$('.rrk',f).value.trim();d.place=$('.rpl',f).value.trim();d.staff=$('.rst',f).value.trim();d.units=$('.run',f).value.trim()}
   if(k==='wachen')d.att=RIS.att.map(function(a){return a.id?{id:a.id}:{k:a.k,src:a.src}});
