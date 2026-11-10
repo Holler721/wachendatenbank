@@ -173,3 +173,6 @@ Einrichtung (einmalig):
 
 ## Aufgaben an Konten
 Neuer Reiter „Aufgaben“. Konten mit dem Recht „Aufgaben zuweisen“ (Schatten Leitung immer, Spektral Rat standardmäßig, für andere Gruppen im Gruppen-Editor einstellbar) weisen einem oder mehreren Konten eine Aufgabe zu (Titel, Beschreibung, Frist: 1 Std. bis 7 Tage, eigene Zeit oder keine). Das Konto bekommt beim Anmelden (und sofort, wenn es online ist) ein Pop-up mit der Aufgabe und kann sie „Erledigt melden“ (optional mit Rückmeldung). Läuft die Frist ab, ohne dass die Aufgabe erledigt ist, bekommt der Ersteller ein Pop-up „Aufgabe nicht erfüllt“; bei Erledigung bekommt er „Aufgabe erledigt“. Aufgaben an höhere Ränge sind nicht möglich. Ersteller und Schatten Leitung können Aufgaben löschen.
+
+### Aufgaben-Recht pro Konto
+Die Schatten Leitung kann im Reiter „Konto“ einzelnen Konten mit „Aufgaben verteilen erlauben“ das Recht geben, Aufgaben zuzuweisen (`taskx`), unabhängig von der Gruppe. Entziehen wirkt sofort.
