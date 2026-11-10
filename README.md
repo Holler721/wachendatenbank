@@ -170,3 +170,6 @@ Einrichtung (einmalig):
 2. Unter „Redirects“ eintragen: `https://DEINE-ADRESSE/api/discord/callback` (genau diese Adresse, z. B. die Render-URL).
 3. „Client ID“ und „Client Secret“ kopieren und als Umgebungsvariablen setzen: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`. Optional `PUBLIC_URL` (z. B. `https://deine-adresse.onrender.com`), falls die Adresse hinter einem Proxy nicht automatisch erkannt wird.
 4. Neu starten. Ohne diese Variablen bleibt die Funktion unsichtbar.
+
+## Aufgaben an Konten
+Neuer Reiter „Aufgaben“. Konten mit dem Recht „Aufgaben zuweisen“ (Schatten Leitung immer, Spektral Rat standardmäßig, für andere Gruppen im Gruppen-Editor einstellbar) weisen einem oder mehreren Konten eine Aufgabe zu (Titel, Beschreibung, Frist: 1 Std. bis 7 Tage, eigene Zeit oder keine). Das Konto bekommt beim Anmelden (und sofort, wenn es online ist) ein Pop-up mit der Aufgabe und kann sie „Erledigt melden“ (optional mit Rückmeldung). Läuft die Frist ab, ohne dass die Aufgabe erledigt ist, bekommt der Ersteller ein Pop-up „Aufgabe nicht erfüllt“; bei Erledigung bekommt er „Aufgabe erledigt“. Aufgaben an höhere Ränge sind nicht möglich. Ersteller und Schatten Leitung können Aufgaben löschen.

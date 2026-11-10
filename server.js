@@ -21,9 +21,9 @@ const COOKIE = 'sh_sess';
 
 const ROLES = { viewer: 1, agent: 2, editor: 3, owner: 4 };
 // Einzelrechte, pro Gruppe auf der Website (Konto -> Gruppen und Rechte) vergebbar
-const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs', 'accounts', 'groups', 'ris', 'archive', 'mark'];
+const PERMS = ['persons', 'files', 'reports', 'opsStart', 'opsManage', 'map', 'others', 'config', 'lockdown', 'open', 'intern', 'secret', 'logs', 'accounts', 'groups', 'ris', 'archive', 'mark', 'tasks'];
 const ALLP = {}; PERMS.forEach(function (x) { ALLP[x] = true; });
-const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen', ris: 'RIS Kooperation', archive: 'Archiv', mark: 'Beschatten / KoS' };
+const PERM_LBL = { persons: 'Personen', files: 'Akten', reports: 'Berichte', opsStart: 'Op. starten', opsManage: 'Op. steuern', map: 'Karte', others: 'Fremde Inhalte', config: 'Anpassung', lockdown: 'Notfall', open: 'Offen lesen', intern: 'Intern lesen', secret: 'Vertraulich lesen', logs: 'Logs', accounts: 'Konten', groups: 'Gruppen', ris: 'RIS Kooperation', archive: 'Archiv', mark: 'Beschatten / KoS', tasks: 'Aufgaben zuweisen' };
 const WRITE_PERMS = ['persons', 'files', 'reports', 'opsStart'];            // früher „Schreiben“
 const MANAGE_PERMS = ['opsManage', 'map', 'others', 'config', 'lockdown'];  // früher „Verwalten“
 const RANK_MAX = 10, RANK_OWNER = 11, BUILTIN_RANK = { viewer: 1, agent: 2, editor: 3, owner: RANK_OWNER };
@@ -31,7 +31,7 @@ function cleanRank(x, def) { const n = Math.round(Number(x)); return isFinite(n)
 const BUILTIN = {
   viewer: { label: 'Schatten', perms: { open: true } },
   agent: { label: 'Phantom', perms: { persons: true, files: true, archive: true, reports: true, opsStart: true, open: true, intern: true } },
-  editor: { label: 'Spektral Rat', perms: { mark: true, persons: true, files: true, archive: true, reports: true, opsStart: true, opsManage: true, map: true, others: true, config: true, lockdown: true, open: true, intern: true, secret: true } },
+  editor: { label: 'Spektral Rat', perms: { tasks: true, mark: true, persons: true, files: true, archive: true, reports: true, opsStart: true, opsManage: true, map: true, others: true, config: true, lockdown: true, open: true, intern: true, secret: true } },
   owner: { label: 'Schatten Leitung', perms: ALLP }
 };
 function upgradePerms(pm) { // Gespeicherte Rechte älterer Versionen (write/manage) umstellen
@@ -270,6 +270,8 @@ function normalizeDb() {
   if (!isObj(db.ris)) db.ris = {};
   ['wachen', 'ris'].forEach(function (k) { if (!isObj(db.ris[k])) db.ris[k] = {}; });
   if (!isObj(db.archive)) db.archive = {};
+  if (!isObj(db.tasks)) db.tasks = {};
+  if (!isObj(db.notes)) db.notes = {};
   ['powers', 'tasks'].forEach(function (k) { if (!isObj(db.archive[k])) db.archive[k] = {}; });
   if (!Array.isArray(db.logs)) db.logs = [];
   if (!isObj(db.map)) db.map = { nodes: [], edges: [], rev: 1 };
@@ -678,7 +680,7 @@ function wiaOut(x, me, kinds) {
 }
 function sidDigits(s) { return String(s || '').replace(/\D/g, ''); }
 function canDecl(u) { return !!u && !u.ris && !u.blocked && (u.role === 'owner' || !!u.decl); }
-const NAVKEYS = ['dashboard', 'register', 'berichte', 'karte', 'ops', 'auftraege', 'archiv', 'ris', 'ermittler', 'logs', 'konto'];
+const NAVKEYS = ['dashboard', 'register', 'berichte', 'karte', 'ops', 'auftraege', 'archiv', 'ris', 'ermittler', 'logs', 'konto', 'aufgaben'];
 function cleanPrefs(b) {
   const o = { accent: '', density: 'normal', nav: [], hide: [], theme: 'dark', bg: '', font: 'display', radius: 'normal', scale: 100, contrast: 'normal', stars: true, ticker: true, scan: true, calm: false, noboot: false, wide: false, start: '' };
   if (!b || typeof b !== 'object') return o;
@@ -749,6 +751,28 @@ async function dcIdentify(code, redirect) {
 }
 function dcRedirect(res, qs) { res.writeHead(302, { Location: '/?dc=' + qs, 'Cache-Control': 'no-store' }); res.end(); }
 
+
+/* ---------- Aufgaben an Konten ---------- */
+function addNote(user, o) {
+  if (!db.users[user]) return;
+  const l = db.notes[user] = Array.isArray(db.notes[user]) ? db.notes[user] : [];
+  l.push(Object.assign({ id: newId(), ts: Date.now() }, o));
+  if (l.length > 100) l.splice(0, l.length - 100);
+}
+function taskSweep() {
+  const n = Date.now(); let ch = false;
+  Object.keys(db.tasks).forEach(function (id) {
+    const t = db.tasks[id];
+    if (t.st === 'open' && t.due && t.due <= n && !t.late) { t.late = n; addNote(t.by, { kind: 'late', tid: id, ti: t.ti, to: t.to, toName: db.users[t.to] ? dispName(db.users[t.to]) : t.to, due: t.due }); ch = true; }
+  });
+  if (ch) save();
+}
+setInterval(function () { try { taskSweep(); } catch (e) { /* ignorieren */ } }, 20000);
+function taskOut(id, t, full) {
+  const tu = db.users[t.to], bu = db.users[t.by];
+  return { id: id, ti: t.ti, text: t.text, due: t.due || 0, ts: t.ts, st: t.st, doneTs: t.doneTs || 0, reply: t.reply || '', late: !!t.late,
+    by: authorId(t.by, t.byName), to: t.to, toName: tu ? dispName(tu) : t.to, toSid: tu ? (tu.sid || '') : '', byFull: full && bu ? dispName(bu) : undefined };
+}
 async function api(req, res, url) {
   const method = req.method, p = url.pathname;
   if (method !== 'GET') {
@@ -802,6 +826,64 @@ async function api(req, res, url) {
   if (p === '/api/discord/unlink' && method === 'POST') {
     const su = need(req, 'viewer');
     if (su.discord) { logAct(su, 'Discord getrennt', su.discord.name); delete su.discord; save(); }
+    return send(res, 200, { ok: true });
+  }
+  if (p === '/api/tasks' && method === 'GET') {
+    const me = need(req, 'viewer'); taskSweep();
+    const ids = Object.keys(db.tasks), isOwner = me.role === 'owner';
+    const mine = ids.filter(function (i) { return db.tasks[i].to === me.name; }).map(function (i) { return taskOut(i, db.tasks[i], false); })
+      .filter(function (t) { return t.st === 'open' || Date.now() - t.doneTs < 7 * 86400000; }).sort(function (a, b) { return (a.st === 'open' ? 0 : 1) - (b.st === 'open' ? 0 : 1) || (a.due || 9e15) - (b.due || 9e15); });
+    const mayAssign = can(me, 'tasks');
+    const given = mayAssign ? ids.filter(function (i) { return isOwner || db.tasks[i].by === me.name; }).map(function (i) { return taskOut(i, db.tasks[i], true); })
+      .sort(function (a, b) { return b.ts - a.ts; }).slice(0, 200) : [];
+    const people = !mayAssign ? [] : Object.keys(db.users).map(function (k) { return db.users[k]; }).filter(function (u) { return !u.ris && !u.blocked && (isOwner || (rankOf(u.role) <= rankOf(me.role))); })
+      .map(function (u) { return { name: u.name, display: dispName(u), sid: u.sid || '' }; }).sort(function (a, b) { return a.display.localeCompare(b.display, 'de'); });
+    return send(res, 200, { mine: mine, given: given, people: people, can: mayAssign, notes: Array.isArray(db.notes[me.name]) ? db.notes[me.name] : [] });
+  }
+  if (p === '/api/tasks' && method === 'POST') {
+    const me = need(req, 'tasks'), b = await readBody(req);
+    const ti = str(b.ti, 120).trim(), text = str(b.text, 2000).trim();
+    if (!ti) return send(res, 400, { error: 'Bitte einen Titel für die Aufgabe angeben.' });
+    const to = (Array.isArray(b.to) ? b.to : [b.to]).map(function (x) { return userKey(str(x, 60)); }).filter(function (x, i, a) { return x && a.indexOf(x) === i; });
+    if (!to.length) return send(res, 400, { error: 'Bitte mindestens ein Konto auswählen.' });
+    if (to.length > 30) return send(res, 400, { error: 'Höchstens 30 Konten auf einmal.' });
+    let due = 0;
+    if (b.due) { due = Math.round(Number(b.due)); if (!isFinite(due) || due < Date.now() + 30000 || due > Date.now() + 365 * 86400000) return send(res, 400, { error: 'Die Frist muss in der Zukunft liegen (höchstens ein Jahr).' }); }
+    for (const k of to) {
+      const u = db.users[k];
+      if (!u || u.ris || u.blocked) return send(res, 400, { error: 'Dieses Konto kann keine Aufgabe erhalten.' });
+      if (me.role !== 'owner' && rankOf(u.role) > rankOf(me.role)) return send(res, 403, { error: 'Du kannst keine Aufgaben an höhere Ränge vergeben.' });
+    }
+    if (Object.keys(db.tasks).length + to.length > 2000) return send(res, 400, { error: 'Zu viele Aufgaben. Bitte alte löschen.' });
+    to.forEach(function (k) {
+      db.tasks[newId()] = { ti: ti, text: text, to: k, by: me.name, byName: dispName(me), due: due, ts: Date.now(), st: 'open' };
+      logAct(me, 'Aufgabe zugewiesen', dispName(db.users[k]) + ': ' + ti);
+    });
+    save();
+    return send(res, 200, { ok: true, n: to.length });
+  }
+  const tm = /^\/api\/tasks\/([a-f0-9]{6,20})(?:\/(done))?$/.exec(p);
+  if (tm) {
+    const me = need(req, 'viewer'), t = db.tasks[tm[1]];
+    if (!t) return send(res, 404, { error: 'Aufgabe nicht gefunden.' });
+    if (tm[2] === 'done' && method === 'POST') {
+      if (t.to !== me.name) return send(res, 403, { error: 'Das ist nicht deine Aufgabe.' });
+      if (t.st === 'done') return send(res, 200, { ok: true });
+      const b = await readBody(req);
+      t.st = 'done'; t.doneTs = Date.now(); t.reply = str(b.reply, 500).trim();
+      addNote(t.by, { kind: 'done', tid: tm[1], ti: t.ti, to: t.to, toName: dispName(me), late: !!t.late, reply: t.reply });
+      logAct(me, 'Aufgabe erledigt', t.ti); save();
+      return send(res, 200, { ok: true });
+    }
+    if (!tm[2] && method === 'DELETE') {
+      if (t.by !== me.name && me.role !== 'owner') return send(res, 403, { error: 'Nur wer die Aufgabe erstellt hat (oder die Schatten Leitung) kann sie löschen.' });
+      delete db.tasks[tm[1]]; logAct(me, 'Aufgabe gelöscht', t.ti); save();
+      return send(res, 200, { ok: true });
+    }
+  }
+  if (p === '/api/notes/ack' && method === 'POST') {
+    const me = need(req, 'viewer'), b = await readBody(req), ids = Array.isArray(b.ids) ? b.ids.map(String) : [];
+    if (Array.isArray(db.notes[me.name])) { db.notes[me.name] = db.notes[me.name].filter(function (n) { return ids.indexOf(n.id) < 0; }); save(); }
     return send(res, 200, { ok: true });
   }
   if (p === '/api/public/declass' && method === 'POST') {

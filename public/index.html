@@ -308,6 +308,8 @@ canvas.map.editing{outline:1px dashed var(--amber);outline-offset:3px;touch-acti
   .split>.b{position:static}
   .date{text-align:left}
 }
+#tkPop .tkbox{border-color:var(--acc,var(--line2));box-shadow:0 0 40px var(--acc-glow,rgba(200,200,200,.18))}#tkPop .tkbox h3{color:var(--acc,var(--fg))}
+.tkit{border:1px solid var(--line2);border-radius:10px;padding:12px;display:grid;gap:8px;background:rgba(255,255,255,.02)}.tkit.late{border-color:var(--red)}.tkit .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 html[data-th=graphite]{--bg:#131418;--bg2:#17181d;--panel:#1b1c22;--panel2:#22232a;--line:#32343c;--line2:#4a4c57}
 html[data-th=navy]{--bg:#060a14;--bg2:#091020;--panel:#0d1424;--panel2:#131c32;--line:#202c48;--line2:#364770}
 html[data-th] .panel{background:color-mix(in srgb,var(--panel) 90%,transparent)}
@@ -367,6 +369,7 @@ html.fx-wide .app{max-width:none}
       <button data-nav="karte"><span>Galaxis Karte</span><small>SR-04</small></button>
       <button data-nav="ops"><span>Operationen</span><small>SR-03</small></button>
       <button data-nav="auftraege"><span>Aktive Aufträge</span><small>SR-AU</small></button>
+      <button data-nav="aufgaben" id="navTasks" hidden><span>Aufgaben</span><small>SR-AF</small></button>
       <button data-nav="archiv"><span>Archiv</span><small>SR-AR</small></button>
       <button data-nav="ris" id="navRis" hidden><span>RIS Kooperation</span><small>SR-RK</small></button>
       <button data-nav="ermittler" id="navInv" hidden><span>Jedi Ermittler</span><small>SR-JE</small></button>
@@ -562,6 +565,22 @@ html.fx-wide .app{max-width:none}
       </section>
     </section>
 
+    <section class="view" id="v-aufgaben" hidden>
+      <header class="head"><div class="t"><div class="eyebrow">SR-AF · AUFGABEN</div><h1 class="sm" data-t="Aufgaben">Aufgaben</h1><p class="lead">Aufgaben, die dir zugewiesen wurden. Beim Anmelden erscheint ein Hinweis. Wird die Frist verpasst, erfährt es, wer die Aufgabe erstellt hat.</p></div></header>
+      <section class="panel"><h2>Meine Aufgaben</h2><div id="tkMine" style="display:grid;gap:10px"></div></section>
+      <section class="panel" id="tkNewPanel" hidden>
+        <h2>Aufgabe zuweisen</h2>
+        <form id="tkForm" style="display:grid;gap:12px">
+          <div class="field"><label>KONTEN (MEHRERE MÖGLICH)</label><div id="tkPeople" style="display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));max-height:220px;overflow:auto;padding:2px"></div></div>
+          <div class="field"><label for="tkTi">TITEL</label><input id="tkTi" type="text" maxlength="120" required></div>
+          <div class="field"><label for="tkTx">BESCHREIBUNG</label><textarea id="tkTx" rows="4" maxlength="2000"></textarea></div>
+          <div class="field"><label for="tkDue">FRIST</label><div class="prrow"><select id="tkDue"><option value="0">Keine Frist</option><option value="1">1 Stunde</option><option value="6">6 Stunden</option><option value="24" selected>24 Stunden</option><option value="72">3 Tage</option><option value="168">7 Tage</option><option value="own">Eigene Zeit …</option></select><input type="datetime-local" id="tkOwn" hidden></div><span class="muted" style="font-size:12px">Wenn die Frist abläuft und die Aufgabe offen ist, bekommst du eine Nachricht.</span></div>
+          <div><button class="btn" type="submit">Aufgabe zuweisen</button></div>
+        </form>
+      </section>
+      <section class="panel" id="tkGivenPanel" hidden><h2>Von mir zugewiesen</h2><div id="tkGiven" style="display:grid;gap:10px"></div></section>
+    </section>
+
     <section class="view" id="v-auftraege" hidden>
       <header class="head"><div class="t"><div class="eyebrow">SR-AU · AKTIVE AUFTRÄGE</div><h1 class="sm" data-t="Aktive Aufträge">Aktive Aufträge</h1><p class="lead">Alle Personen aus dem Personenregister, die beschattet werden oder KoS (Kill on Sight) sind. Hier erklärst und begründest du den Auftrag genau. Unter „Sonstige Aufträge“ legst du freie Aufträge an.</p></div></header>
       <section class="panel">
@@ -623,6 +642,7 @@ html.fx-wide .app{max-width:none}
 <div id="pal" hidden role="dialog" aria-modal="true" aria-label="Befehlspalette">
   <div class="box"><input id="palIn" type="text" placeholder="Ansicht oder Aktion suchen" autocomplete="off"><ul id="palList"></ul></div>
 </div>
+<div class="dlgov" id="tkPop" hidden role="dialog" aria-modal="true" aria-label="Aufgaben und Hinweise"><div class="dlgbox tkbox"><div id="tkPopBody" style="display:grid;gap:14px;max-height:70vh;overflow:auto"></div><div class="acts" id="tkPopAct"></div></div></div>
 <div id="login" hidden>
   <form id="loginForm" class="loginbox">
     <svg class="lgo" role="img" aria-label="Emblem der Schatten"><use href="#emb"/></svg>
@@ -684,7 +704,7 @@ function clone(o){return JSON.parse(JSON.stringify(o))}
 function num(v,d){v=+v;return isFinite(v)?v:d}
 
 /* ---------- Einzelrechte ---------- */
-var PL=[['persons','Personen','Personen anlegen, ändern, entfernen'],['files','Akten','Akten bei Personen schreiben'],['reports','Berichte','Berichte schreiben und Anhänge hinzufügen'],['opsStart','Op. starten','Operationen starten'],['opsManage','Op. steuern','Operationen vorantreiben, umbenennen, Sichtbarkeit, abbrechen, archivieren'],['map','Karte','Galaxis Karte bearbeiten'],['others','Fremde Inhalte','Fremde Berichte, Akten und Anhänge ändern, deklassifizieren'],['config','Anpassung','Ränge, Labels und Berichtsarten ändern'],['lockdown','Notfall','UMBRA auslösen/beenden; bleibt bei UMBRA freigeschaltet'],['open','Offen lesen','Berichte der Stufe Offen lesen'],['intern','Intern lesen','Berichte der Stufe Intern lesen'],['secret','Vertraulich lesen','Berichte der Stufen Vertraulich und Geheim lesen'],['logs','Logs','Protokoll sehen: wer hat wann was gemacht'],['accounts','Konten','Konten anlegen, Gruppe zuweisen, Passwort zurücksetzen, löschen (nur mit Gruppen, deren Rechte man selbst hat)'],['groups','Gruppen','Gruppen und Rechte verwalten (nur Rechte, die man selbst hat)'],['ris','RIS Kooperation','Reiter „RIS Kooperation“ sehen und Berichte für „Wachen“ schreiben'],['archive','Archiv','Im Archiv Machtfähigkeiten und Aufgaben eintragen (lesen dürfen alle)'],['mark','Beschatten / KoS','Personen auf Beschattung oder KoS setzen und aufheben, Aufträge dazu schreiben']];
+var PL=[['tasks','Aufgaben','Aufgaben an Konten zuweisen'],['persons','Personen','Personen anlegen, ändern, entfernen'],['files','Akten','Akten bei Personen schreiben'],['reports','Berichte','Berichte schreiben und Anhänge hinzufügen'],['opsStart','Op. starten','Operationen starten'],['opsManage','Op. steuern','Operationen vorantreiben, umbenennen, Sichtbarkeit, abbrechen, archivieren'],['map','Karte','Galaxis Karte bearbeiten'],['others','Fremde Inhalte','Fremde Berichte, Akten und Anhänge ändern, deklassifizieren'],['config','Anpassung','Ränge, Labels und Berichtsarten ändern'],['lockdown','Notfall','UMBRA auslösen/beenden; bleibt bei UMBRA freigeschaltet'],['open','Offen lesen','Berichte der Stufe Offen lesen'],['intern','Intern lesen','Berichte der Stufe Intern lesen'],['secret','Vertraulich lesen','Berichte der Stufen Vertraulich und Geheim lesen'],['logs','Logs','Protokoll sehen: wer hat wann was gemacht'],['accounts','Konten','Konten anlegen, Gruppe zuweisen, Passwort zurücksetzen, löschen (nur mit Gruppen, deren Rechte man selbst hat)'],['groups','Gruppen','Gruppen und Rechte verwalten (nur Rechte, die man selbst hat)'],['ris','RIS Kooperation','Reiter „RIS Kooperation“ sehen und Berichte für „Wachen“ schreiben'],['archive','Archiv','Im Archiv Machtfähigkeiten und Aufgaben eintragen (lesen dürfen alle)'],['mark','Beschatten / KoS','Personen auf Beschattung oder KoS setzen und aufheben, Aufträge dazu schreiben']];
 var WRITE_P={persons:1,files:1,reports:1,opsStart:1},MANAGE_P={opsManage:1,map:1,others:1,config:1,lockdown:1};
 function P(k){if(S.hosted&&H.user)return !!(H.user.perms&&H.user.perms[k]);return WRITE_P[k]?!!S.canWrite:MANAGE_P[k]?!!S.canMap:false}
 
@@ -865,6 +885,7 @@ function applyRights(){
   var risOnly=!!(S.hosted&&H.user&&H.user.ris);
   $('#navRis').hidden=!(S.hosted&&H.user&&(risOnly||P('ris')));if(S.view==='ris'&&$('#navRis').hidden)go('dashboard');
   $$('#nav button').forEach(function(b){if(risOnly&&b.dataset.nav!=='ris'&&b.id!=='navKonto'&&b.id!=='navPref')b.hidden=true});
+  $('#navTasks').hidden=!(S.hosted&&H.user&&!risOnly);if(S.view==='aufgaben'&&$('#navTasks').hidden)go('dashboard');
   $('#navInv').hidden=!(S.hosted&&H.user&&H.user.inv);if(S.view==='ermittler'&&$('#navInv').hidden)go('dashboard');
   $('#navLogs').hidden=!(S.hosted&&P('logs'));if(S.view==='logs'&&!(S.hosted&&P('logs')))go('dashboard');
   $('#addP').hidden=!P('persons');$('#rNew').hidden=!P('reports');
@@ -923,7 +944,7 @@ function renderOpsMini(){
 }
 
 /* ---------- Einstellungen (pro Konto) ---------- */
-var NAVK=[['dashboard','Dashboard'],['register','Personenregister'],['berichte','Berichte'],['karte','Galaxis Karte'],['ops','Operationen'],['auftraege','Aktive Aufträge'],['archiv','Archiv'],['ris','RIS Kooperation'],['ermittler','Jedi Ermittler'],['logs','Logs'],['konto','Konto']];
+var NAVK=[['dashboard','Dashboard'],['register','Personenregister'],['berichte','Berichte'],['karte','Galaxis Karte'],['ops','Operationen'],['auftraege','Aktive Aufträge'],['archiv','Archiv'],['ris','RIS Kooperation'],['ermittler','Jedi Ermittler'],['logs','Logs'],['konto','Konto'],['aufgaben','Aufgaben']];
 var ACC=[['#c4c4c4','Grau (Standard)'],['#5aa0ff','Blau'],['#4dd6e6','Türkis'],['#5fd38d','Grün'],['#e0b84a','Gold'],['#ff8a3d','Orange'],['#b57cff','Violett'],['#ff6f9f','Rosa']];
 var PREF={};
 function prefDefault(){return {accent:'',density:'normal',nav:[],hide:[],theme:'dark',bg:'',font:'display',radius:'normal',scale:100,contrast:'normal',stars:true,ticker:true,scan:true,calm:false,noboot:false,wide:false,start:''}}
@@ -1578,7 +1599,7 @@ function umbraFlow(){
 $('#umBtn').addEventListener('click',function(){if(S.phase===2)umbraTo(0);else umbraFlow()});
 $('#umCancel').addEventListener('click',function(){setPhase(0)});
 
-var VIEWS={einstellungen:1,auftraege:1,dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1,ermittler:1,ris:1,archiv:1};
+var VIEWS={aufgaben:1,einstellungen:1,auftraege:1,dashboard:1,register:1,berichte:1,karte:1,ops:1,konto:1,logs:1,ermittler:1,ris:1,archiv:1};
 /* ---------- RIS Kooperation ---------- */
 var RIS={data:{wachen:[],ris:[],write:{},side:'',others:false},edit:null,att:[]};
 var RISB=[['wachen','Berichts Austausch Wachen','Berichte der Wachen an das RIS'],['ris','Berichts Austausch RIS','Berichte des RIS an die Wachen']];
@@ -1810,7 +1831,7 @@ function acts(){
   var a=[
    {l:'Dashboard',k:'Ansicht',f:function(){go('dashboard')}},{l:'Personenregister',k:'Ansicht',f:function(){go('register')}},
    {l:'Berichte',k:'Ansicht',f:function(){go('berichte')}},{l:'Galaxis Karte',k:'Ansicht',f:function(){go('karte')}},
-   {l:'Archiv',k:'Ansicht',f:function(){go('archiv')}},{l:'Aktive Aufträge',k:'Ansicht',f:function(){go('auftraege')}},{l:'Einstellungen',k:'Ansicht',f:function(){go('einstellungen')}},{l:'RIS Kooperation',k:'Ansicht',f:function(){go('ris')}},{l:'Jedi Ermittler',k:'Ansicht',f:function(){if(S.hosted&&H.user&&H.user.inv)go('ermittler');else toast('Dafür fehlt die Freigabe „Jedi Ermittler“.','red')}},{l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
+   {l:'Archiv',k:'Ansicht',f:function(){go('archiv')}},{l:'Aktive Aufträge',k:'Ansicht',f:function(){go('auftraege')}},{l:'Aufgaben',k:'Ansicht',f:function(){go('aufgaben')}},{l:'Einstellungen',k:'Ansicht',f:function(){go('einstellungen')}},{l:'RIS Kooperation',k:'Ansicht',f:function(){go('ris')}},{l:'Jedi Ermittler',k:'Ansicht',f:function(){if(S.hosted&&H.user&&H.user.inv)go('ermittler');else toast('Dafür fehlt die Freigabe „Jedi Ermittler“.','red')}},{l:'Operationen',k:'Ansicht',f:function(){go('ops')}},{l:'Logs',k:'Ansicht',f:function(){if(S.hosted&&P('logs'))go('logs');else toast('Dir fehlt das Recht „Logs“.','red')}},
    {l:'UMBRA auslösen',k:'Aktion',f:function(){umbraFlow()}},{l:'UMBRA beenden',k:'Aktion',f:function(){umbraTo(0)}}];
   if(P('persons'))a.push({l:'Person hinzufügen',k:'Aktion',f:function(){go('register');$('#addP').click()}});
   if(P('map'))a.push({l:'Karte bearbeiten',k:'Aktion',f:function(){go('karte');enterEdit()}});
@@ -1843,7 +1864,7 @@ function go(v){
   if(S.hosted&&H.user&&H.user.ris&&v!=='ris'&&v!=='konto'&&v!=='einstellungen')v='ris';S.view=v;
   $$('.view').forEach(function(s){s.hidden=s.id!=='v-'+v});
   $$('#nav button').forEach(function(b){b.setAttribute('aria-current',b.dataset.nav===v?'page':'false')});
-  if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();if(v==='logs'){if(!(S.hosted&&P('logs'))){go('dashboard');return}loadLogs()}if(v==='ris'){if(!(S.hosted&&H.user&&(H.user.ris||P('ris')))){go('dashboard');return}RIS.edit=null;renderRis();loadRis()}if(v==='auftraege')renderOrders();if(v==='einstellungen')renderPrefs();if(v==='archiv'){if(!(S.hosted&&H.user&&!H.user.ris)){go('dashboard');return}AR.edit=null;renderAr();loadAr()}if(v==='ermittler'){if(!(S.hosted&&H.user&&H.user.inv)){go('dashboard');return}INV.edit=null;renderInv();loadInv()}
+  if(v==='register')renderRegister();if(v==='berichte')renderReports();if(v==='karte'){syncMap();renderNode()}if(v==='ops')renderOps();if(v==='konto')renderKonto();if(v==='aufgaben')renderTasks();if(v==='logs'){if(!(S.hosted&&P('logs'))){go('dashboard');return}loadLogs()}if(v==='ris'){if(!(S.hosted&&H.user&&(H.user.ris||P('ris')))){go('dashboard');return}RIS.edit=null;renderRis();loadRis()}if(v==='auftraege')renderOrders();if(v==='einstellungen')renderPrefs();if(v==='archiv'){if(!(S.hosted&&H.user&&!H.user.ris)){go('dashboard');return}AR.edit=null;renderAr();loadAr()}if(v==='ermittler'){if(!(S.hosted&&H.user&&H.user.inv)){go('dashboard');return}INV.edit=null;renderInv();loadInv()}
   if(v==='dashboard'){renderDash();renderCards()}
   if(location.hash!=='#'+v){try{location.hash=v}catch(e){}}
   window.scrollTo(0,0);
@@ -1992,12 +2013,13 @@ function startHosted(u){
   if(u.ris){$$('#nav button').forEach(function(b){b.hidden=b.dataset.nav!=='ris'&&b.id!=='navKonto'&&b.id!=='navPref'});go('ris');clearInterval(H.timer);H.timer=setInterval(function(){if(!document.hidden&&S.view==='ris')loadRis()},15000);return}
   loadData(true);
   if(PREF.start&&!S.startDone){var sb=$('#nav [data-nav="'+PREF.start+'"]');if(sb&&!sb.hidden)go(PREF.start)}S.startDone=true;
+  tkStart();
   clearInterval(H.timer);H.timer=setInterval(function(){
     if(document.hidden)return;
     if(H.locked)api('GET','/api/session').then(function(j){if(j.user&&!j.lockdown){hideLock();loadData(true)}}).catch(function(){});
     else loadData(false)},5000);
 }
-function showLogin(){S.startDone=false;applyPrefs(null);
+function showLogin(){tkStop();S.startDone=false;applyPrefs(null);
   clearInterval(H.timer);hideLock();
   S.canWrite=false;S.canMap=false;S.role='Nur Lesen';S.persons=[];S.reports=[];ops=[];S.rep=null;S.repEdit=null;S.selP=null;H.rev=0;
   if(S.editing)leaveEdit();
@@ -2005,6 +2027,49 @@ function showLogin(){S.startDone=false;applyPrefs(null);
   if(S.view==='konto')go('dashboard');
   applyRights();
 }
+
+/* ---------- Aufgaben ---------- */
+var TK={mine:[],given:[],people:[],can:false,notes:[],seen:{},seenN:{},key:'',timer:null};
+function tkLeft(due){if(!due)return 'ohne Frist';var d=due-Date.now();if(d<=0)return 'abgelaufen';var m=Math.round(d/60000);if(m<60)return 'noch '+m+' Min.';var h=Math.round(m/60);if(h<48)return 'noch '+h+' Std.';return 'noch '+Math.round(h/24)+' Tage'}
+function tkLoad(){return api('GET','/api/tasks').then(function(j){TK.mine=j.mine||[];TK.given=j.given||[];TK.people=j.people||[];TK.can=!!j.can;TK.notes=j.notes||[];
+  var n=TK.mine.filter(function(t){return t.st==='open'}).length;var sp=$('#navTasks span');if(sp)sp.textContent=n?'Aufgaben ('+n+')':'Aufgaben';
+  if(S.view==='aufgaben'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#v-aufgaben')))renderTasks();tkPopup()}).catch(function(){})}
+function tkStart(){TK.seen={};TK.seenN={};TK.key='';clearInterval(TK.timer);tkLoad();TK.timer=setInterval(function(){if(!document.hidden&&H.user&&!H.user.ris)tkLoad()},15000)}
+function tkStop(){clearInterval(TK.timer);TK.mine=[];TK.given=[];TK.notes=[];TK.key='';$('#tkPop').hidden=true}
+function tkPopup(){
+  var open=TK.mine.filter(function(t){return t.st==='open'&&!TK.seen[t.id]}),notes=TK.notes.filter(function(x){return !TK.seenN[x.id]});
+  var key=open.map(function(t){return t.id}).join(',')+'|'+notes.map(function(x){return x.id}).join(',');
+  if(!open.length&&!notes.length){$('#tkPop').hidden=true;TK.key='';return}
+  if(key===TK.key&&!$('#tkPop').hidden)return;TK.key=key;
+  var html='';
+  notes.forEach(function(x){var late=x.kind==='late';html+='<div class="tkit'+(late?' late':'')+'"><h3 style="margin:0;font-size:14px">'+(late?'Aufgabe nicht erfüllt':'Aufgabe erledigt')+'</h3><div><b>'+esc(x.ti)+'</b></div><div class="muted">'+(late?esc(x.toName||x.to)+' hat die Aufgabe bis '+esc(fDate(x.due))+' nicht erledigt.':esc(x.toName||x.to)+' hat die Aufgabe erledigt'+(x.late?' (nach Ablauf der Frist)':'')+'.'+(x.reply?' Rückmeldung: „'+esc(x.reply)+'“':''))+'</div></div>'});
+  open.forEach(function(t){html+='<div class="tkit'+(t.late?' late':'')+'"><h3 style="margin:0;font-size:14px">Neue Aufgabe</h3><div><b>'+esc(t.ti)+'</b></div>'+(t.text?'<div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(t.text)+'</div>':'')+'<div class="muted" style="font-size:12px">Zugewiesen von Wächter ID '+esc(t.by)+' · Frist: '+(t.due?esc(fDate(t.due))+' ('+tkLeft(t.due)+')':'keine')+'</div><div class="row"><input type="text" class="tkRe" data-id="'+t.id+'" maxlength="500" placeholder="Rückmeldung (optional)" style="flex:1;min-width:160px"><button class="btn sm" data-tkdone="'+t.id+'">Erledigt melden</button></div></div>'});
+  $('#tkPopBody').innerHTML=html;
+  $('#tkPopAct').innerHTML='<button class="btn ghost" data-tkclose="1">'+(notes.length&&!open.length?'Verstanden':'Später erledigen')+'</button>'+(open.length?'<button class="btn ghost" data-tkview="1">Zu den Aufgaben</button>':'');
+  $('#tkPop').hidden=false}
+function tkClose(){var open=TK.mine.filter(function(t){return t.st==='open'}),ids=[];open.forEach(function(t){TK.seen[t.id]=1});TK.notes.forEach(function(x){TK.seenN[x.id]=1;ids.push(x.id)});$('#tkPop').hidden=true;TK.key='';if(ids.length)api('POST','/api/notes/ack',{ids:ids}).then(function(){TK.notes=TK.notes.filter(function(x){return ids.indexOf(x.id)<0})}).catch(function(){})}
+function tkDone(id,re){api('POST','/api/tasks/'+id+'/done',{reply:re||''}).then(function(){toast('Aufgabe als erledigt gemeldet.','cyan');TK.key='';return tkLoad()}).catch(apiErr)}
+function renderTasks(){
+  if(!S.hosted||!H.user)return;
+  $('#tkMine').innerHTML=TK.mine.length?TK.mine.map(function(t){var od=t.st==='open'&&t.due&&t.due<=Date.now();
+    return '<div class="tkit'+(od?' late':'')+'"><div class="row"><b>'+esc(t.ti)+'</b>'+(t.st==='done'?'<span class="chip cyan">Erledigt</span>':(od?'<span class="chip red">Überfällig</span>':'<span class="chip amber">Offen</span>'))+'</div>'+(t.text?'<div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(t.text)+'</div>':'')+'<div class="muted" style="font-size:12px">Von Wächter ID '+esc(t.by)+' · Frist: '+(t.due?esc(fDate(t.due))+(t.st==='open'?' ('+tkLeft(t.due)+')':''):'keine')+(t.st==='done'?' · erledigt '+esc(fDate(t.doneTs)):'')+'</div>'+
+     (t.st==='open'?'<div class="row"><input type="text" class="tkRe" data-id="'+t.id+'" maxlength="500" placeholder="Rückmeldung (optional)" style="flex:1;min-width:160px"><button class="btn sm" data-tkdone="'+t.id+'">Erledigt melden</button></div>':'')+'</div>'}).join(''):'<p class="muted" style="margin:0">Keine Aufgaben.</p>';
+  $('#tkNewPanel').hidden=!TK.can;$('#tkGivenPanel').hidden=!TK.can;
+  if(TK.can){
+    if(!$('#tkPeople').children.length||$('#tkPeople').dataset.n!==String(TK.people.length)){var sel={};$$('#tkPeople input:checked').forEach(function(c){sel[c.value]=1});$('#tkPeople').dataset.n=String(TK.people.length);$('#tkPeople').innerHTML=TK.people.map(function(p){return '<label class="prchk"><input type="checkbox" value="'+esc(p.name)+'"'+(sel[p.name]?' checked':'')+'> '+esc(p.display)+(p.sid?' <span class="muted mono" style="font-size:11px">'+esc(p.sid)+'</span>':'')+'</label>'}).join('')}
+    $('#tkGiven').innerHTML=TK.given.length?TK.given.map(function(t){var od=t.st==='open'&&t.due&&t.due<=Date.now(),st=t.st==='done'?'<span class="chip cyan">Erledigt'+(t.late?' (verspätet)':'')+'</span>':(t.late||od?'<span class="chip red">Nicht erfüllt</span>':'<span class="chip amber">Offen</span>');
+      return '<div class="tkit'+(t.late&&t.st==='open'?' late':'')+'"><div class="row"><b>'+esc(t.ti)+'</b>'+st+'<span class="muted" style="font-size:12px">an '+esc(t.toName)+(t.toSid?' ('+esc(t.toSid)+')':'')+(t.byFull&&t.byFull!==(H.user.display||H.user.name)?' · von '+esc(t.byFull):'')+'</span></div>'+(t.text?'<div class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(t.text)+'</div>':'')+'<div class="muted" style="font-size:12px">Frist: '+(t.due?esc(fDate(t.due)):'keine')+(t.st==='done'?' · erledigt '+esc(fDate(t.doneTs)):'')+(t.reply?' · Rückmeldung: „'+esc(t.reply)+'“':'')+'</div><div class="row"><button class="btn sm danger" data-tkdel="'+t.id+'">Löschen</button></div></div>'}).join(''):'<p class="muted" style="margin:0">Noch keine Aufgaben zugewiesen.</p>'}
+}
+document.addEventListener('click',function(e){var b=e.target.closest('[data-tkdone],[data-tkclose],[data-tkview],[data-tkdel]');if(!b)return;
+  if(b.dataset.tkclose){tkClose();return}
+  if(b.dataset.tkview){tkClose();go('aufgaben');return}
+  if(b.dataset.tkdone){var root=b.closest('.tkit'),re=root&&root.querySelector('.tkRe');tkDone(b.dataset.tkdone,re?re.value:'');return}
+  if(b.dataset.tkdel){if(!confirm('Aufgabe wirklich löschen?'))return;api('DELETE','/api/tasks/'+b.dataset.tkdel,{}).then(function(){toast('Aufgabe gelöscht.','red');tkLoad()}).catch(apiErr)}});
+$('#tkDue').addEventListener('change',function(){$('#tkOwn').hidden=this.value!=='own'});
+$('#tkForm').addEventListener('submit',function(e){e.preventDefault();
+  var to=$$('#tkPeople input:checked').map(function(c){return c.value});if(!to.length){toast('Bitte mindestens ein Konto auswählen.','red');return}
+  var dv=$('#tkDue').value,due=0;if(dv==='own'){due=$('#tkOwn').value?new Date($('#tkOwn').value).getTime():0;if(!due){toast('Bitte eine Zeit wählen.','red');return}}else if(dv!=='0')due=Date.now()+(+dv)*3600000;
+  api('POST','/api/tasks',{to:to,ti:$('#tkTi').value.trim(),text:$('#tkTx').value.trim(),due:due}).then(function(j){toast(j.n>1?j.n+' Aufgaben zugewiesen.':'Aufgabe zugewiesen.','cyan');$('#tkTi').value='';$('#tkTx').value='';$$('#tkPeople input').forEach(function(c){c.checked=false});tkLoad()}).catch(apiErr)});
 function dcNotice(){var m=/[?&]dc=([a-z]+)/.exec(location.search);if(!m)return;try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
   var T={linked:['Discord wurde mit deinem Konto verbunden.','cyan'],ok:['Über Discord angemeldet.','cyan'],unlinked:['Dieses Discord-Konto ist mit keinem Konto verbunden. Melde dich normal an und verbinde es im Reiter „Konto“.','red'],used:['Dieses Discord-Konto ist bereits mit einem anderen Konto verbunden.','red'],denied:['Die Discord-Anmeldung wurde abgebrochen.','red'],state:['Der Discord-Vorgang ist abgelaufen. Bitte erneut versuchen.','red'],error:['Discord antwortet nicht oder lehnt ab. Bitte später erneut versuchen.','red'],limit:['Zu viele Versuche. Bitte warte etwas.','red'],blocked:['Dieses Konto ist gesperrt.','red'],expired:['Dieses temporäre Konto ist abgelaufen.','red']}[m[1]];
   if(T)setTimeout(function(){toast(T[0],T[1])},600);if(m[1]==='linked')setTimeout(function(){if(H.user)go('konto')},900)}
