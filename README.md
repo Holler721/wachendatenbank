@@ -179,3 +179,6 @@ Die Schatten Leitung kann im Reiter „Konto“ einzelnen Konten mit „Aufgaben
 
 ## RIS: Anfragen (für beide Seiten)
 Im Reiter „RIS Kooperation“ gibt es oben den Bereich „Anfragen“. Wächter und RIS können sich gegenseitig Akten oder Informationen anfragen („+ Anfrage stellen“: Art, Betreff, Beschreibung). Die Gegenseite antwortet im Verlauf, setzt den Status (Beantwortet oder Abgelehnt) und kann als Wächter-Seite Akten und Berichte anhängen. Wer die Anfrage gestellt hat, kann Nachrichten schreiben, sie schließen (erledigt) und wieder öffnen. Löschen kann der Ersteller und die Schatten Leitung.
+
+## RIS: Deklassifizierte Berichte senden
+Im Reiter „RIS Kooperation“ gibt es den Bereich „Deklassifizierte Berichte“. Wer deklassifizieren darf und Zugriff auf die Kooperation hat, sendet dort eine bestehende Deklassifizierung an das RIS („+ Deklassifizierten Bericht senden“, dazu das Passwort der Deklassifizierung eingeben) oder setzt beim Deklassifizieren den Haken „Zusätzlich an das RIS senden“. Jeder gesendete Eintrag zeigt für beide Seiten immer Link und Passwort (mit Kopieren-Knöpfen) und den Status: Gültig, Passwort geändert (nach erneuter Deklassifizierung, bitte neu senden) oder Widerrufen. Das Passwort wird für diese Einträge im Klartext gespeichert, damit es angezeigt werden kann. Einträge entfernen kann, wer sie gesendet hat, und die Schatten Leitung.

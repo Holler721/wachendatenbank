@@ -268,7 +268,7 @@ function normalizeDb() {
   if (!isObj(db.orders)) db.orders = {};
   ['covers', 'informants', 'talks'].forEach(function (k) { if (!isObj(db.inv[k])) db.inv[k] = {}; });
   if (!isObj(db.ris)) db.ris = {};
-  ['wachen', 'ris', 'req'].forEach(function (k) { if (!isObj(db.ris[k])) db.ris[k] = {}; });
+  ['wachen', 'ris', 'req', 'decl'].forEach(function (k) { if (!isObj(db.ris[k])) db.ris[k] = {}; });
   if (!isObj(db.archive)) db.archive = {};
   if (!isObj(db.tasks)) db.tasks = {};
   if (!isObj(db.notes)) db.notes = {};
@@ -752,6 +752,12 @@ async function dcIdentify(code, redirect) {
 function dcRedirect(res, qs) { res.writeHead(302, { Location: '/?dc=' + qs, 'Cache-Control': 'no-store' }); res.end(); }
 
 
+function shareDecl(u, tok, pw, note) {
+  const e = db.declass[tok], id = newId();
+  db.ris.decl[id] = { tok: tok, ti: e.ti, pw: pw, dts: e.ts, note: note || '', by: dispName(u), bk: u.name, ts: Date.now() };
+  logAct(u, 'RIS: Deklassifizierung gesendet', e.ti); bump();
+  return id;
+}
 /* ---------- Aufgaben an Konten ---------- */
 function addNote(user, o) {
   if (!db.users[user]) return;
@@ -1224,7 +1230,8 @@ async function api(req, res, url) {
         extra: pubEx,
         decName: dispName(u), decSid: u.sid || '', ts: Date.now(), hash: hashPw(pw) };
       logAct(u, old ? 'Deklassifizierung erneuert' : 'Bericht deklassifiziert', cur.ti + ' (per Link und Passwort abrufbar)'); bump();
-      return send(res, 200, { token: tok });
+      if (b.sendRis === true && !u.ris && can(u, 'ris') && Object.keys(db.ris.decl).length < 500) { shareDecl(u, tok, pw, ''); }
+      return send(res, 200, { token: tok, sent: b.sendRis === true && !u.ris && can(u, 'ris') });
     }
   }
   const rm = /^\/api\/reports\/([A-Za-z0-9_-]{1,40})$/.exec(p);
@@ -1479,11 +1486,37 @@ async function api(req, res, url) {
       return { id: id, ti: x.ti, kind: x.kind, text: x.text, ts: x.ts, st: x.st, side: x.side, by: authorId(x.bk, x.by), mine: x.bk === ru.name, mineSide: x.side === side, edited: x.edited || 0,
         replies: (x.replies || []).map(function (r) { return { id: r.id, text: r.text, ts: r.ts, side: r.side, by: authorId(r.bk, r.by), st: r.st || '', att: r.att || [] }; }) };
     }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    out.decl = Object.keys(db.ris.decl).map(function (id) {
+      const x = db.ris.decl[id], e = db.declass[x.tok];
+      return { id: id, ti: x.ti, note: x.note || '', ts: x.ts, by: authorId(x.bk, x.by), link: baseUrl(req) + '/d/' + x.tok, pw: x.pw, mine: x.bk === ru.name, st: !e ? 'revoked' : (e.ts === x.dts ? 'ok' : 'changed') };
+    }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     if (out.write.wachen) out.src = {
       persons: Object.keys(db.persons).filter(function (id) { return canSee(ru, db.persons[id]); }).map(function (id) { return { id: id, n: db.persons[id].n }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); }),
       reports: Object.keys(db.reports).filter(function (id) { return canRead(ru, db.reports[id].cls); }).map(function (id) { return { id: id, n: db.reports[id].ti, t: db.reports[id].t }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); })
     };
     return send(res, 200, out);
+  }
+  m = /^\/api\/ris\/decl(?:\/([a-f0-9]{6,20}))?$/.exec(p);
+  if (m) {
+    const ru = need(req, 'viewer');
+    if (!risSide(ru)) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
+    if (!m[1] && method === 'POST') {
+      if (!risWrite(ru, 'wachen') || !canDecl(ru)) return send(res, 403, { error: 'Dafür brauchst du die Freigabe zum Deklassifizieren und Zugriff auf die RIS Kooperation.' });
+      const b = await readBody(req), tok = String(b.token || ''), e = /^[a-f0-9]{30}$/.test(tok) ? db.declass[tok] : null;
+      if (!e) return send(res, 404, { error: 'Diese Deklassifizierung gibt es nicht (mehr).' });
+      if (limited('rd:' + ru.name, 10)) return send(res, 429, { error: 'Zu viele Versuche. Bitte warte etwas.' });
+      if (typeof b.password !== 'string' || !checkPw(b.password, e.hash)) { fail('rd:' + ru.name); return send(res, 400, { error: 'Das Passwort passt nicht zu dieser Deklassifizierung.' }); }
+      if (Object.keys(db.ris.decl).length >= 500) return send(res, 400, { error: 'Zu viele gesendete Deklassifizierungen. Bitte alte löschen.' });
+      const id = shareDecl(ru, tok, b.password, str(b.note, 500).trim());
+      return send(res, 200, { ok: true, id: id });
+    }
+    const cur = m[1] ? db.ris.decl[m[1]] : null;
+    if (!cur) return send(res, 404, { error: 'Eintrag nicht gefunden.' });
+    if (method === 'DELETE') {
+      if (!(cur.bk === ru.name || ru.role === 'owner')) return send(res, 403, { error: 'Nur wer die Deklassifizierung gesendet hat (oder die Schatten Leitung) kann den Eintrag löschen.' });
+      logAct(ru, 'RIS: gesendete Deklassifizierung entfernt', cur.ti); delete db.ris.decl[m[1]]; bump();
+      return send(res, 200, { ok: true });
+    }
   }
   m = /^\/api\/ris\/req(?:\/([a-f0-9]{6,20})(?:\/(reply))?)?$/.exec(p);
   if (m) {

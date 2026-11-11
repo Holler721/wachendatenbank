@@ -522,7 +522,7 @@ html.fx-wide .app{max-width:none}
       <section class="panel" id="dcPanel" aria-labelledby="dcH" hidden>
         <h2 id="dcH">Discord verbinden</h2>
         <p class="muted" id="dcInfo" style="margin:0 0 10px"></p>
-        <div class="acts"><button class="btn" id="dcLink" type="button">Mit Discord verbinden</button><button class="btn ghost" id="dcUnlink" type="button" hidden>Verbindung trennen</button></div>
+        <div class="acts"><button class="btn" id="dcConnect" type="button">Mit Discord verbinden</button><button class="btn ghost" id="dcUnlink" type="button" hidden>Verbindung trennen</button></div>
       </section>
       <section class="panel" id="cfgPanel" aria-labelledby="cfgH" hidden>
         <h2 id="cfgH">Anpassung: Ränge, Labels, Berichtsarten</h2>
@@ -1312,6 +1312,7 @@ function dcBox(d){
    ((d.extra||[]).length?'<div class="field"><label>ZUSATZFELDER</label><div id="dcEx" style="display:grid;gap:8px">'+d.extra.map(function(x,i){return '<div><input type="text" class="dcT dcExK" maxlength="60" value="'+esc(x.k)+'"><textarea class="dcT dcExV" maxlength="2000" rows="2">'+esc(x.v)+'</textarea></div>'}).join('')+'</div></div>':'')+
    (lk?'<div class="field"><label>LINK</label><input type="text" readonly id="dcLink" value="'+esc(lk)+'"></div>':'')+
    '<div class="field"><label for="dcPw">PASSWORT (8–100 Zeichen, legst du fest)</label><input type="text" id="dcPw" minlength="8" maxlength="100" autocomplete="off" placeholder="neues Passwort für diesen Bericht"></div>'+
+   ((H.user&&H.user.perms&&H.user.perms.ris&&!H.user.ris)?'<label class="prchk"><input type="checkbox" id="dcSend"> Zusätzlich an das RIS senden (Link und Passwort erscheinen im Reiter „RIS Kooperation“)</label>':'')+
    '<div class="rtools"><button class="btn sm" data-act="dcSave">'+(d.dc?'Neues Passwort setzen / Stand erneuern':'Deklassifizieren')+'</button>'+(lk?'<button class="btn sm ghost" data-act="dcCopy">Link kopieren</button>':'')+(d.dc?'<button class="btn sm danger" data-act="dcRevoke">Widerrufen</button>':'')+'<button class="btn sm ghost" data-act="dcClose">Schließen</button></div></div>';
 }
 $('#rTabs').addEventListener('click',function(e){var b=e.target.closest('[data-tab]');if(b){S.tab=b.dataset.tab;renderReports()}});
@@ -1330,7 +1331,7 @@ $('#reader').addEventListener('click',function(e){
   if(a==='dcCopy'){var lk=dcLink(d);if(navigator.clipboard)navigator.clipboard.writeText(lk).then(function(){toast('Link kopiert.','cyan')},function(){toast('Kopieren nicht möglich.','red')});return}
   if(a==='dcSave'&&d){var pw=$('#dcPw').value;if(pw.length<8){toast('Das Passwort braucht mindestens 8 Zeichen.','red');return}
     var db2=$('#dcBody').value;if(H.user.role!=='owner'&&db2.indexOf('[[')<0){toast('Bitte zuerst eigenhändig schwärzen: mindestens eine Stelle in [[Klammern]] setzen.','red');return}
-    var exs=[];$$('#dcEx>div').forEach(function(r){exs.push({k:r.querySelector('.dcExK').value,v:r.querySelector('.dcExV').value})});api('POST','/api/reports/'+encodeURIComponent(d.id)+'/declassify',{password:pw,body:db2,extra:exs}).then(function(){toast('Bericht deklassifiziert. Link und Passwort einzeln weitergeben.','cyan');return loadData(true)}).then(function(){renderReports()}).catch(apiErr);return}
+    var exs=[];$$('#dcEx>div').forEach(function(r){exs.push({k:r.querySelector('.dcExK').value,v:r.querySelector('.dcExV').value})});api('POST','/api/reports/'+encodeURIComponent(d.id)+'/declassify',{password:pw,body:db2,extra:exs,sendRis:!!($('#dcSend')&&$('#dcSend').checked)}).then(function(j){toast(j&&j.sent?'Bericht deklassifiziert und an das RIS gesendet.':'Bericht deklassifiziert. Link und Passwort einzeln weitergeben.','cyan');return loadData(true)}).then(function(){renderReports()}).catch(apiErr);return}
   if(a==='dcRevoke'&&d){api('DELETE','/api/reports/'+encodeURIComponent(d.id)+'/declassify').then(function(){toast('Deklassifizierung widerrufen. Der Link ist ungültig.','red');S.dcForm=null;return loadData(true)}).then(function(){renderReports()}).catch(apiErr);return}
   if(a==='rCancel'){S.repEdit=null;renderReports();return}
   if(!d)return;
@@ -1681,9 +1682,28 @@ function rqSend(f){
   if(RIS.data.write&&RIS.data.write.wachen)body.att=RIS.att.map(function(a){return a.id?{id:a.id}:{k:a.k,src:a.src}});
   if(!txt&&!st&&!(body.att&&body.att.length)){toast('Bitte eine Nachricht schreiben.','red');return}
   api('POST','/api/ris/req/'+encodeURIComponent(id)+'/reply',body).then(function(){RIS.edit=null;RIS.att=[];toast('Gesendet.','cyan');loadRis()}).catch(apiErr)}
+
+/* ---------- RIS: gesendete Deklassifizierungen (Link + Passwort immer sichtbar) ---------- */
+function dcsHtml(){
+  var list=RIS.data.decl||[],canSend=!!(RIS.data.write&&RIS.data.write.wachen&&H.user&&H.user.decl);
+  var st={ok:['Gültig','cyan'],changed:['Passwort wurde geändert – bitte neu senden','amber'],revoked:['Widerrufen – Link ist ungültig','red']};
+  var h='<section class="panel" data-board="decl"><div class="ph"><h2>Deklassifizierte Berichte <span class="muted" style="font-size:12px">('+list.length+')</span></h2>'+(canSend&&RIS.edit!=='dcs:new'?'<button class="btn sm" data-risact="dcsnew">+ Deklassifizierten Bericht senden</button>':'')+'</div>'+
+   '<p class="muted" style="margin:0;font-size:12px">Deklassifizierte Berichte, die an das RIS gesendet wurden. Link und Passwort bleiben hier für beide Seiten sichtbar.</p>';
+  if(RIS.edit==='dcs:new'){
+    var opts=S.reports.filter(function(r){return r.dc&&r.dc.token}).map(function(r){return '<option value="'+esc(r.dc.token)+'">'+esc(r.ti)+'</option>'}).join('');
+    h+='<form class="fl risForm dcsForm" style="padding:12px;display:grid;gap:8px"><h3 style="margin:0;font-size:14px">Deklassifizierten Bericht an das RIS senden</h3>'+
+     (opts?'<div class="field"><label>DEKLASSIFIZIERTER BERICHT *</label><select class="dsTok">'+opts+'</select></div><div class="field"><label>PASSWORT DER DEKLASSIFIZIERUNG *</label><input class="dsPw" type="text" autocomplete="off" maxlength="100" placeholder="das Passwort, das beim Deklassifizieren festgelegt wurde"></div><div class="field"><label>NOTIZ (OPTIONAL)</label><textarea class="dsNote" rows="3" maxlength="500"></textarea></div><div style="display:flex;gap:8px"><button class="btn sm" type="submit">An das RIS senden</button><button class="btn sm ghost" type="button" data-risact="cancel">Abbrechen</button></div>'
+     :'<p class="muted" style="margin:0">Es gibt noch keinen deklassifizierten Bericht. Deklassifiziere zuerst einen Bericht im Reiter „Berichte“ (dort kannst du ihn auch direkt an das RIS senden).</p><div><button class="btn sm ghost" type="button" data-risact="cancel">Schließen</button></div>')+'</form>'}
+  h+=list.map(function(x){var s=st[x.st]||st.ok;
+    return '<div class="fl" style="padding:12px;display:grid;gap:8px"><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><b>'+esc(x.ti)+'</b><span class="chip '+s[1]+'">'+s[0]+'</span><span class="muted" style="font-size:12px">gesendet von Wächter ID '+esc(x.by)+' · '+esc(fDate(x.ts))+'</span></div>'+(x.note?'<div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(x.note)+'</div>':'')+
+     '<div class="field"><label>LINK</label><div class="prrow"><input type="text" readonly value="'+esc(x.link)+'" style="flex:1;min-width:220px"><button class="btn sm ghost" data-risact="cp" data-v="'+esc(x.link)+'">Link kopieren</button></div></div>'+
+     '<div class="field"><label>PASSWORT</label><div class="prrow"><input type="text" readonly value="'+esc(x.pw)+'" style="flex:1;min-width:220px"><button class="btn sm ghost" data-risact="cp" data-v="'+esc(x.pw)+'">Passwort kopieren</button></div></div>'+
+     ((x.mine||(H.user&&H.user.role==='owner'))?'<div><button class="btn sm danger" data-risact="dcsdel" data-id="'+esc(x.id)+'">Eintrag entfernen</button></div>':'')+'</div>'}).join('');
+  if(!list.length&&RIS.edit!=='dcs:new')h+='<p class="muted" style="margin:0">Noch nichts gesendet.</p>';
+  return h+'</section>'}
 function renderRis(){
   var wasOpen={};$$('#risBody details[data-rq]').forEach(function(d){if(d.open)wasOpen[d.dataset.rq]=1});
-  $('#risBody').innerHTML=rqHtml()+RISB.map(function(b){var k=b[0],list=RIS.data[k]||[],w=RIS.data.write&&RIS.data.write[k];
+  $('#risBody').innerHTML=rqHtml()+dcsHtml()+RISB.map(function(b){var k=b[0],list=RIS.data[k]||[],w=RIS.data.write&&RIS.data.write[k];
     return '<section class="panel" data-board="'+k+'"><div class="ph"><h2>'+esc(b[1])+' <span class="muted" style="font-size:12px">('+list.length+')</span></h2>'+(w&&RIS.edit!==k+':new'?'<button class="btn sm" data-risact="new" data-board="'+k+'">+ Bericht eintragen</button>':'')+'</div><p class="muted" style="margin:0;font-size:12px">'+esc(b[2])+(w?'':' · nur lesen')+'</p>'+
      (RIS.edit===k+':new'?risForm(k,null):'')+
      (list.map(function(it){
@@ -1702,6 +1722,10 @@ $('#risBody').addEventListener('change',function(e){
 });
 $('#risBody').addEventListener('click',function(e){
   var b=e.target.closest('[data-risact]');if(!b)return;var a=b.dataset.risact,k=b.dataset.board;
+  if(a==='dcsnew'){RIS.edit='dcs:new';renderRis();return}
+  if(a==='cp'){var v=b.dataset.v||'';if(navigator.clipboard)navigator.clipboard.writeText(v).then(function(){toast('Kopiert.','cyan')},function(){toast('Kopieren nicht möglich.','red')});return}
+  if(a==='dcsdel'){if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Wirklich entfernen?';setTimeout(function(){if(b.isConnected){b.dataset.sure='';b.textContent='Eintrag entfernen'}},4000);return}
+    api('DELETE','/api/ris/decl/'+encodeURIComponent(b.dataset.id)).then(function(){toast('Eintrag entfernt.','red');loadRis()}).catch(apiErr);return}
   if(a==='rqnew'){RIS.edit='rq:new';renderRis();return}
   if(a==='rqreply'){RIS.edit='rq:'+b.dataset.id;RIS.att=[];renderRis();return}
   if(a==='rqreopen'){api('POST','/api/ris/req/'+encodeURIComponent(b.dataset.id)+'/reply',{st:'open'}).then(function(){toast('Anfrage wieder geöffnet.','cyan');loadRis()}).catch(apiErr);return}
@@ -1717,6 +1741,8 @@ $('#risBody').addEventListener('click',function(e){
 $('#risBody').addEventListener('submit',function(e){
   var f=e.target.closest('.risForm');if(!f)return;e.preventDefault();
   if(f.classList.contains('rqForm')){rqSend(f);return}
+  if(f.classList.contains('dcsForm')){var tk=$('.dsTok',f).value,pw=$('.dsPw',f).value;if(!pw){toast('Bitte das Passwort der Deklassifizierung eingeben.','red');return}
+    api('POST','/api/ris/decl',{token:tk,password:pw,note:$('.dsNote',f).value.trim()}).then(function(){RIS.edit=null;toast('An das RIS gesendet.','cyan');loadRis()}).catch(apiErr);return}
   var k=f.dataset.board,d={ti:$('.rti',f).value.trim(),ref:$('.rrf',f).value.trim(),text:$('.rtx',f).value.trim()};
   if(k==='ris'){d.lvl=($('.rlv',f).value.replace(/\D/g,'')||'1');d.rank=$('.rrk',f).value.trim();d.place=$('.rpl',f).value.trim();d.staff=$('.rst',f).value.trim();d.units=$('.run',f).value.trim()}
   if(k==='wachen')d.att=RIS.att.map(function(a){return a.id?{id:a.id}:{k:a.k,src:a.src}});
@@ -2127,7 +2153,7 @@ function initHosted(){
     .catch(function(){/* Kein Server erreichbar (z. B. GitHub Pages): Gastansicht mit Standarddaten */});
 }
 $('#dcLogin').addEventListener('click',function(){dcGo('login')});
-$('#dcLink').addEventListener('click',function(){dcGo('link')});
+$('#dcConnect').addEventListener('click',function(){dcGo('link')});
 $('#dcUnlink').addEventListener('click',function(){api('POST','/api/discord/unlink',{}).then(function(){H.user.dc=null;renderDc();toast('Discord-Verbindung getrennt.','red')}).catch(apiErr)});
 $('#loginForm').addEventListener('submit',function(e){
   e.preventDefault();var b=$('button',this);b.disabled=true;$('#lErr').textContent='';
@@ -2204,7 +2230,7 @@ $('#cfgSave').addEventListener('click',function(){
 });
 function renderDc(){var on=!!S.dcOn,u=H.user&&H.user.dc;$('#dcPanel').hidden=!(on||u);if($('#dcPanel').hidden)return;
   $('#dcInfo').textContent=u?'Verbunden mit Discord als „'+u.name+'“. Du kannst dich jetzt auch über Discord anmelden, ohne Name und Passwort einzugeben.':'Verbinde dein Konto mit Discord, dann kannst du dich damit anmelden, falls du deine Anmeldedaten vergisst. Es wird nur dein Discord-Name gelesen, kein Passwort und keine Nachrichten.';
-  $('#dcLink').hidden=!!u;$('#dcUnlink').hidden=!u}
+  $('#dcConnect').hidden=!!u;$('#dcUnlink').hidden=!u}
 function dcGo(mode){api('POST','/api/discord/start',{mode:mode}).then(function(j){location.href=j.url}).catch(apiErr)}
 function renderKonto(){
   if(!H.user)return;
