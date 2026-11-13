@@ -758,6 +758,18 @@ function shareDecl(u, tok, pw, note) {
   logAct(u, 'RIS: Deklassifizierung gesendet', e.ti); bump();
   return id;
 }
+
+/* ---------- Deklassifizierung: gemeinsame Hilfen für Berichte und Akten ---------- */
+function dKind(e) { return e && e.kind === 'person' ? 'person' : 'report'; }
+function declassOf(kind, id) { return Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === id && dKind(db.declass[t]) === kind; })[0]; }
+function personDText(p) {
+  const rows = [['Rang', p.r], ['Zugehörigkeit', p.s], ['Gefahrenlevel', String(p.p)], ['Ort', p.l], ['Spezies', p.sp], ['Zuletzt gesehen', p.seen]]
+    .filter(function (r) { return r[1] !== undefined && r[1] !== null && String(r[1]).trim() !== ''; }).map(function (r) { return r[0] + ': ' + r[1]; });
+  const parts = [rows.join('\n')];
+  if (p.look && String(p.look).trim()) parts.push('## Aussehen', String(p.look).trim());
+  if (p.note && String(p.note).trim()) parts.push('## Notiz', String(p.note).trim());
+  return parts.join('\n\n');
+}
 /* ---------- Aufgaben an Konten ---------- */
 function addNote(user, o) {
   if (!db.users[user]) return;
@@ -944,9 +956,9 @@ async function api(req, res, url) {
     if (since === db.rev) return send(res, 200, { same: true, rev: db.rev });
     const me = sessionUser(req);
     const persons = Object.keys(db.persons).filter(function (id) { return canSee(me, db.persons[id]); })
-      .map(function (id) { const x = db.persons[id]; return Object.assign({ id: id }, x, { wia: wiaOut(x, me), docs: docsOut(x, me, ['watch', 'kos']), files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
+      .map(function (id) { const x = db.persons[id]; const dcT = declassOf('person', id); return Object.assign({ id: id }, x, { dc: dcT ? { by: sidDigits(db.declass[dcT].decSid) || db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null, wia: wiaOut(x, me), docs: docsOut(x, me, ['watch', 'kos']), files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
       .sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-    const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; const dcT = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === id; })[0]; return Object.assign({ id: id }, x, { byName: authorId(x.by, x.byName), dc: dcT ? { by: sidDigits(db.declass[dcT].decSid) || db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null }, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
+    const reports = Object.keys(db.reports).map(function (id) { const x = db.reports[id]; const dcT = declassOf('report', id); return Object.assign({ id: id }, x, { byName: authorId(x.by, x.byName), dc: dcT ? { by: sidDigits(db.declass[dcT].decSid) || db.declass[dcT].decName, ts: db.declass[dcT].ts, token: canDecl(me) ? dcT : undefined } : null }, { files: (Array.isArray(x.files) ? x.files : []).filter(function (f) { return canSee(me, f); }).map(function (f) { return Object.assign({}, f, { byName: authorId(f.by, f.byName) }); }) }); })
       .filter(function (r) { return canRead(me, r.cls); })
       .sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     const orders = Object.keys(db.orders).map(function (id) { const x = db.orders[id]; return { id: id, ti: x.ti, target: x.target, why: x.why, desc: x.desc, by: authorId(x.bk, x.by), mine: x.bk === me.name, ts: x.ts, edited: x.edited || 0, wia: wiaOut(x, me, ['order']), docs: docsOut(x, me, ['order']) }; })
@@ -1172,7 +1184,7 @@ async function api(req, res, url) {
       if (ch.length) logAct(pu, 'Person geändert', before + ' (' + ch.join(', ') + ')'); bump();
       return send(res, 200, { ok: true });
     }
-    if (method === 'DELETE') { logAct(pu, 'Person entfernt', cur.n); delete db.persons[m[1]]; bump(); return send(res, 200, { ok: true }); }
+    if (method === 'DELETE') { logAct(pu, 'Person entfernt', cur.n); { const dt = declassOf('person', m[1]); if (dt) delete db.declass[dt]; } delete db.persons[m[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/reports' && method === 'POST') {
     const u = need(req, 'reports');
@@ -1184,15 +1196,20 @@ async function api(req, res, url) {
     db.reports[id] = o; logAct(u, 'Bericht angelegt', o.t + ' · ' + o.cls + ': ' + o.ti); bump();
     return send(res, 200, { id: id });
   }
-  const dm = /^\/api\/reports\/([A-Za-z0-9_-]{1,40})\/declassify$/.exec(p);
+  const dm = /^\/api\/(reports|persons)\/([A-Za-z0-9_-]{1,40})\/declassify$/.exec(p);
   if (dm) {
+    const isP = dm[1] === 'persons', kind = isP ? 'person' : 'report';
+    dm[1] = dm[2];
     const u = need(req, 'viewer');
-    const cur = db.reports[dm[1]];
+    const cur0 = isP ? db.persons[dm[1]] : db.reports[dm[1]];
     if (!canDecl(u)) return send(res, 403, { error: 'Dafür brauchst du die Freigabe zum Deklassifizieren (vergibt die Schatten Leitung unter Konten).' });
-    if (!cur || !canRead(u, cur.cls)) return send(res, 404, { error: 'Bericht nicht gefunden.' });
-    const old = Object.keys(db.declass).filter(function (t) { return db.declass[t].rid === dm[1]; })[0];
+    if (!cur0 || !(isP ? canSee(u, cur0) : canRead(u, cur0.cls))) return send(res, 404, { error: isP ? 'Akte nicht gefunden.' : 'Bericht nicht gefunden.' });
+    /* einheitliche Sicht auf die Quelle: Titel, Text, Zusatzfelder */
+    const cur = isP ? { ti: cur0.n, t: 'Akte', d: '', by: '', byName: '', body: personDText(cur0), extra: cur0.extra, cls: '' } : cur0;
+    const old = declassOf(kind, dm[1]);
+    if (method === 'GET' && isP) return send(res, 200, { ti: cur.ti, body: cur.body, extra: Array.isArray(cur.extra) ? cur.extra : [] });
     if (method === 'DELETE') {
-      if (!old) return send(res, 404, { error: 'Dieser Bericht ist nicht deklassifiziert.' });
+      if (!old) return send(res, 404, { error: isP ? 'Diese Akte ist nicht deklassifiziert.' : 'Dieser Bericht ist nicht deklassifiziert.' });
       delete db.declass[old]; logAct(u, 'Deklassifizierung widerrufen', cur.ti); bump();
       return send(res, 200, { ok: true });
     }
@@ -1226,10 +1243,10 @@ async function api(req, res, url) {
       } else pubEx = [];
       if (!old && Object.keys(db.declass).length >= 500) return send(res, 400, { error: 'Zu viele deklassifizierte Berichte.' });
       const tok = old || crypto.randomBytes(15).toString('hex');
-      db.declass[tok] = { rid: dm[1], ti: cur.ti, t: cur.t, d: cur.d, byName: authorId(cur.by, cur.byName), body: text,
+      db.declass[tok] = { rid: dm[1], kind: kind, ti: cur.ti, t: cur.t, d: cur.d, byName: isP ? '' : authorId(cur.by, cur.byName), body: text,
         extra: pubEx,
         decName: dispName(u), decSid: u.sid || '', ts: Date.now(), hash: hashPw(pw) };
-      logAct(u, old ? 'Deklassifizierung erneuert' : 'Bericht deklassifiziert', cur.ti + ' (per Link und Passwort abrufbar)'); bump();
+      logAct(u, old ? 'Deklassifizierung erneuert' : (isP ? 'Akte deklassifiziert' : 'Bericht deklassifiziert'), cur.ti + ' (per Link und Passwort abrufbar)'); bump();
       if (b.sendRis === true && !u.ris && can(u, 'ris') && Object.keys(db.ris.decl).length < 500) { shareDecl(u, tok, pw, ''); }
       return send(res, 200, { token: tok, sent: b.sendRis === true && !u.ris && can(u, 'ris') });
     }
@@ -1246,7 +1263,7 @@ async function api(req, res, url) {
       Object.assign(cur, o); cur.edited = fullDate(); logAct(u, 'Bericht geändert', cur.t + ' · ' + cur.cls + ': ' + cur.ti); bump();
       return send(res, 200, { ok: true });
     }
-    if (method === 'DELETE') { logAct(u, 'Bericht gelöscht', cur.ti); Object.keys(db.declass).forEach(function (t) { if (db.declass[t].rid === rm[1]) delete db.declass[t]; }); delete db.reports[rm[1]]; bump(); return send(res, 200, { ok: true }); }
+    if (method === 'DELETE') { logAct(u, 'Bericht gelöscht', cur.ti); Object.keys(db.declass).forEach(function (t) { if (db.declass[t].rid === rm[1] && dKind(db.declass[t]) === 'report') delete db.declass[t]; }); delete db.reports[rm[1]]; bump(); return send(res, 200, { ok: true }); }
   }
   if (p === '/api/ops' && method === 'POST') {
     const su = need(req, 'opsStart');
