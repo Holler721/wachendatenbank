@@ -188,3 +188,7 @@ Im Personenregister gibt es bei einer Akte (mit Deklassifizier-Freigabe) den Kno
 
 ## Einzelne Akten und Anhänge deklassifizieren
 Jede Akte einer Person und jeder an einen Bericht angeheftete Anhang hat (mit Deklassifizier-Freigabe) im aufgeklappten Eintrag den Knopf „Deklassifizieren“. Es gilt dasselbe System wie bei Berichten und Akten: Link plus Passwort, „▮ Schwärzen“, Pflicht zur eigenen Schwärzung (außer Schatten Leitung), Widerrufen, Erneuern und der Haken „Zusätzlich an das RIS senden“. Im Bereich „Deklassifizierte Berichte und Akten“ der RIS Kooperation lassen sich auch diese Einträge senden. Wird die Akte oder der Anhang (oder die Person bzw. der Bericht) gelöscht, wird der Link ungültig.
+
+
+### RIS Kooperation: Akten und Einträge anhängen
+Beim Anhängen einer Akte wird der Personenname nicht gesendet (nur die Aktennummer „WA-…“, Einträge zeigen nur die Wächter-ID-Ziffern). Unter dem Anhang lässt sich jeder Eintrag der Akte bzw. des Berichts per Haken abhängen, bevor gesendet wird.

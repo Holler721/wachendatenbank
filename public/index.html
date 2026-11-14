@@ -1685,6 +1685,9 @@ function dosHtml(it){
 function risAttDraw(f){
   var box=$('.ratt',f),sel=$('.rsel',f);if(!box||!sel)return;
   box.innerHTML=RIS.att.length?RIS.att.map(function(a,i){return '<span class="chip vio">'+esc(a.ti)+' <button type="button" data-risact="unatt" data-i="'+i+'" aria-label="'+esc(a.ti)+' entfernen" style="background:none;border:0;color:inherit;cursor:pointer;padding:0 0 0 4px">×</button></span>'}).join(''):'<span class="muted" style="font-size:12px">Nichts angehängt.</span>';
+  RIS.att.forEach(function(a,i){if(a.id)return;var c0=RIS.data.src||{persons:[],reports:[]},it=(a.k==='person'?c0.persons:c0.reports).filter(function(y){return y.id===a.src})[0];
+    if(!it||!(it.files||[]).length)return;a.skip=a.skip||[];
+    box.insertAdjacentHTML('beforeend','<div style="flex-basis:100%;margin:6px 0 2px;font-size:12px"><span class="muted">Einträge von „'+esc(a.k==='person'?'Akte':it.n)+'“ mitsenden (Haken entfernen = abhängen):</span>'+it.files.map(function(f){return '<label class="prchk" style="display:block"><input type="checkbox" data-risfile="'+i+'" value="'+esc(f.id)+'"'+(a.skip.indexOf(f.id)<0?' checked':'')+'> '+esc(f.t)+'</label>'}).join('')+'</div>')});
   var c=RIS.data.src||{persons:[],reports:[]},has=function(k,id){return RIS.att.some(function(a){return a.k===k&&a.src===id})};
   sel.innerHTML='<option value="">+ Akte oder Bericht hinzufügen …</option><optgroup label="Akten (Personen)">'+c.persons.filter(function(x){return !has('person',x.id)}).map(function(x){return '<option value="person|'+esc(x.id)+'">'+esc(x.n)+'</option>'}).join('')+'</optgroup><optgroup label="Berichte">'+c.reports.filter(function(x){return !has('report',x.id)}).map(function(x){return '<option value="report|'+esc(x.id)+'">'+esc(x.n)+' ('+esc(x.t)+')</option>'}).join('')+'</optgroup>';
 }
@@ -1725,7 +1728,7 @@ function rqSend(f){
   if(id==='new'){var ti=$('.rqti',f).value.trim();if(!ti||!txt){toast('Betreff und Beschreibung müssen ausgefüllt sein.','red');return}
     api('POST','/api/ris/req',{ti:ti,kind:$('.rqkind',f).value,text:txt}).then(function(){RIS.edit=null;toast('Anfrage gesendet.','cyan');loadRis()}).catch(apiErr);return}
   var st=$('.rqst',f).value,body={text:txt};if(st)body.st=st;
-  if(RIS.data.write&&RIS.data.write.wachen)body.att=RIS.att.map(function(a){return a.id?{id:a.id}:{k:a.k,src:a.src}});
+  if(RIS.data.write&&RIS.data.write.wachen)body.att=RIS.att.map(function(a){return a.id?{id:a.id}:{k:a.k,src:a.src,skip:a.skip||[]}});
   if(!txt&&!st&&!(body.att&&body.att.length)){toast('Bitte eine Nachricht schreiben.','red');return}
   api('POST','/api/ris/req/'+encodeURIComponent(id)+'/reply',body).then(function(){RIS.edit=null;RIS.att=[];toast('Gesendet.','cyan');loadRis()}).catch(apiErr)}
 
@@ -1764,8 +1767,9 @@ function renderRis(){
 function loadRis(){api('GET','/api/ris').then(function(j){RIS.data=j;var a=document.activeElement;if(!RIS.edit||!a||!a.closest||!a.closest('.risForm'))renderRis()}).catch(function(err){if(!(err&&err.code==='lockdown'))apiErr(err)})}
 $('#risRefresh').addEventListener('click',loadRis);
 $('#risBody').addEventListener('change',function(e){
+  if(e.target.dataset&&e.target.dataset.risfile!==undefined){var at=RIS.att[+e.target.dataset.risfile];if(at){at.skip=at.skip||[];var ix=at.skip.indexOf(e.target.value);if(e.target.checked){if(ix>=0)at.skip.splice(ix,1)}else if(ix<0)at.skip.push(e.target.value)}return}
   if(!e.target.classList.contains('rsel'))return;var v=e.target.value.split('|'),k=v.shift(),id=v.join('|'),c=RIS.data.src||{persons:[],reports:[]},x=(k==='person'?c.persons:c.reports).filter(function(y){return y.id===id})[0];
-  if(x&&RIS.att.length<10&&!RIS.att.some(function(a){return a.k===k&&a.src===id}))RIS.att.push({k:k,src:id,ti:(k==='person'?'Akte: ':'Bericht: ')+x.n});else if(RIS.att.length>=10)toast('Höchstens 10 Anhänge.','red');
+  if(x&&RIS.att.length<10&&!RIS.att.some(function(a){return a.k===k&&a.src===id}))RIS.att.push({k:k,src:id,skip:[],ti:(k==='person'?'Akte (Name wird nicht gesendet)':'Bericht: '+x.n)});else if(RIS.att.length>=10)toast('Höchstens 10 Anhänge.','red');
   risAttDraw(e.target.closest('.risForm'));
 });
 $('#risBody').addEventListener('click',function(e){
@@ -1793,7 +1797,7 @@ $('#risBody').addEventListener('submit',function(e){
     api('POST','/api/ris/decl',{token:tk,password:pw,note:$('.dsNote',f).value.trim()}).then(function(){RIS.edit=null;toast('An das RIS gesendet.','cyan');loadRis()}).catch(apiErr);return}
   var k=f.dataset.board,d={ti:$('.rti',f).value.trim(),ref:$('.rrf',f).value.trim(),text:$('.rtx',f).value.trim()};
   if(k==='ris'){d.lvl=($('.rlv',f).value.replace(/\D/g,'')||'1');d.rank=$('.rrk',f).value.trim();d.place=$('.rpl',f).value.trim();d.staff=$('.rst',f).value.trim();d.units=$('.run',f).value.trim()}
-  if(k==='wachen')d.att=RIS.att.map(function(a){return a.id?{id:a.id}:{k:a.k,src:a.src}});
+  if(k==='wachen')d.att=RIS.att.map(function(a){return a.id?{id:a.id}:{k:a.k,src:a.src,skip:a.skip||[]}});
   if(!d.ti||(!d.text&&!(d.att&&d.att.length))){toast(k==='wachen'?'Titel und Bericht (oder ein Anhang) müssen ausgefüllt sein.':'Titel und Bericht müssen ausgefüllt sein.','red');return}
   var isNew=RIS.edit===k+':new';
   api(isNew?'POST':'PATCH',isNew?'/api/ris/'+k:'/api/ris/'+k+'/'+encodeURIComponent(RIS.edit.split(':')[1]),d).then(function(){RIS.edit=null;toast('Bericht gespeichert.','cyan');loadRis()}).catch(apiErr);

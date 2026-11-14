@@ -1456,15 +1456,22 @@ async function api(req, res, url) {
     }
   }
   /* RIS Kooperation: Berichtsaustausch zwischen Wächtern und RIS */
-  const risFilesText = function (u, par) {
-    const fl = (Array.isArray(par.files) ? par.files : []).filter(function (f) { return canSee(u, f); });
+  const wnoS = function (id) {
+    const s = String(id || 'x'); let a = 2166136261, b = 5381, o = '';
+    for (let r = 0; r < 9; r++) { for (let i = 0; i < s.length; i++) { a = Math.imul(a ^ s.charCodeAt(i) ^ r, 16777619) >>> 0; b = (Math.imul(b, 33) ^ (s.charCodeAt(i) + a)) >>> 0; } o += ((a ^ b) >>> 0).toString(36).slice(-1); }
+    return 'WA-' + o.toUpperCase();
+  };
+  const attOut = function (l) { return (l || []).map(function (a) { return a.k === 'person' ? Object.assign({}, a, { ti: 'Akte: ' + wnoS(a.src) }) : a; }); };
+  const risFilesText = function (u, par, skip) {
+    const fl = (Array.isArray(par.files) ? par.files : []).filter(function (f) { return canSee(u, f) && !(skip && skip.indexOf(f.id) >= 0); });
     if (!fl.length) return '';
-    return '\n\n— EINTRÄGE —\n' + fl.map(function (f) { return '\n[' + (f.title || 'Eintrag') + '] ' + (f.byName || f.by || '') + '\n' + (f.text || ''); }).join('\n');
+    return '\n\n— EINTRÄGE —\n' + fl.map(function (f) { return '\n[' + (f.title || 'Eintrag') + '] ' + authorId(f.by, f.byName) + '\n' + (f.text || ''); }).join('\n');
   };
   const risSnap = function (u, x) { // Kopie einer Akte (Person) oder eines Berichts von der Website, mit den Rechten des Schreibenden
     const bad = function (m) { const e = new Error(m); e.status = 400; throw e; };
     const id = x && typeof x.src === 'string' ? x.src : '';
     let a;
+    const skip = Array.isArray(x && x.skip) ? x.skip.filter(function (v) { return typeof v === 'string'; }).slice(0, 200) : [];
     if (x && x.k === 'person') {
       const q = db.persons[id];
       if (!q || !canSee(u, q)) bad('Eine gewählte Akte existiert nicht (mehr) oder ist für dich nicht sichtbar.');
@@ -1475,11 +1482,11 @@ async function api(req, res, url) {
       if (q.look) L.push('Aussehen: ' + q.look);
       if (q.note) L.push('Notiz: ' + q.note);
       (Array.isArray(q.extra) ? q.extra : []).forEach(function (e) { L.push(e.k + ': ' + e.v); });
-      a = { k: 'person', ti: 'Akte: ' + q.n, sub: q.r + ' · ' + q.s, text: L.join('\n') + risFilesText(u, q) };
+      a = { k: 'person', ti: 'Akte: ' + wnoS(id), sub: q.r + ' · ' + q.s, text: L.join('\n') + risFilesText(u, q, skip) };
     } else if (x && x.k === 'report') {
       const q = db.reports[id];
       if (!q || !canRead(u, q.cls)) bad('Ein gewählter Bericht existiert nicht (mehr) oder ist für dich nicht lesbar.');
-      a = { k: 'report', ti: 'Bericht: ' + q.ti, sub: q.t + ' · ' + q.cls, text: (q.body || '') + risFilesText(u, q) };
+      a = { k: 'report', ti: 'Bericht: ' + q.ti, sub: q.t + ' · ' + q.cls, text: (q.body || '') + risFilesText(u, q, skip) };
     } else bad('Ungültiger Anhang.');
     a.text = a.text.slice(0, 30000); a.src = id; a.id = newId(); a.ts = Date.now();
     return a;
@@ -1503,20 +1510,20 @@ async function api(req, res, url) {
     if (!side) return send(res, 403, { error: 'Dafür fehlen dir die Rechte.' });
     const out = { side: side, write: { wachen: risWrite(ru, 'wachen'), ris: risWrite(ru, 'ris') }, others: side === 'intern' && can(ru, 'others') };
     Object.keys(RIS_BOARDS).forEach(function (k) {
-      out[k] = Object.keys(db.ris[k]).map(function (id) { const x = db.ris[k][id]; return Object.assign({ id: id }, x, { by: authorId(x.bk, x.by) }); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+      out[k] = Object.keys(db.ris[k]).map(function (id) { const x = db.ris[k][id]; return Object.assign({ id: id }, x, { by: authorId(x.bk, x.by), att: attOut(x.att) }); }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     });
     out.req = Object.keys(db.ris.req).map(function (id) {
       const x = db.ris.req[id];
       return { id: id, ti: x.ti, kind: x.kind, text: x.text, ts: x.ts, st: x.st, side: x.side, by: authorId(x.bk, x.by), mine: x.bk === ru.name, mineSide: x.side === side, edited: x.edited || 0,
-        replies: (x.replies || []).map(function (r) { return { id: r.id, text: r.text, ts: r.ts, side: r.side, by: authorId(r.bk, r.by), st: r.st || '', att: r.att || [] }; }) };
+        replies: (x.replies || []).map(function (r) { return { id: r.id, text: r.text, ts: r.ts, side: r.side, by: authorId(r.bk, r.by), st: r.st || '', att: attOut(r.att) }; }) };
     }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     out.decl = Object.keys(db.ris.decl).map(function (id) {
       const x = db.ris.decl[id], e = db.declass[x.tok];
       return { id: id, ti: x.ti, note: x.note || '', ts: x.ts, by: authorId(x.bk, x.by), link: baseUrl(req) + '/d/' + x.tok, pw: x.pw, mine: x.bk === ru.name, st: !e ? 'revoked' : (e.ts === x.dts ? 'ok' : 'changed') };
     }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
     if (out.write.wachen) out.src = {
-      persons: Object.keys(db.persons).filter(function (id) { return canSee(ru, db.persons[id]); }).map(function (id) { return { id: id, n: db.persons[id].n }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); }),
-      reports: Object.keys(db.reports).filter(function (id) { return canRead(ru, db.reports[id].cls); }).map(function (id) { return { id: id, n: db.reports[id].ti, t: db.reports[id].t }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); })
+      persons: Object.keys(db.persons).filter(function (id) { return canSee(ru, db.persons[id]); }).map(function (id) { return { id: id, n: db.persons[id].n, files: (db.persons[id].files || []).filter(function (f) { return canSee(ru, f); }).map(function (f) { return { id: f.id, t: f.title || 'Eintrag' }; }) }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); }),
+      reports: Object.keys(db.reports).filter(function (id) { return canRead(ru, db.reports[id].cls); }).map(function (id) { return { id: id, n: db.reports[id].ti, t: db.reports[id].t, files: (db.reports[id].files || []).filter(function (f) { return canSee(ru, f); }).map(function (f) { return { id: f.id, t: f.title || 'Eintrag' }; }) }; }).sort(function (a, b) { return String(a.n).localeCompare(String(b.n), 'de'); })
     };
     return send(res, 200, out);
   }
