@@ -793,6 +793,64 @@ function taskOut(id, t, full) {
   return { id: id, ti: t.ti, text: t.text, due: t.due || 0, ts: t.ts, st: t.st, doneTs: t.doneTs || 0, reply: t.reply || '', late: !!t.late,
     by: authorId(t.by, t.byName), to: t.to, toName: tu ? dispName(tu) : t.to, toSid: tu ? (tu.sid || '') : '', byFull: full && bu ? dispName(bu) : undefined };
 }
+/* ---------- Hub-Anbindung: Einmal-Anmeldung über die Hub-Seite ----------
+   Der Hub signiert kurzlebige Tokens (HMAC, Secret HUB_SSO_SECRET, in beiden Seiten gleich).
+   Konten, die so entstehen, tragen hub:true. Lokale Konten (Owner, Mace Windu, selbst angelegte) werden nie übernommen. */
+const HUB_SECRET = process.env.HUB_SSO_SECRET || '';
+const HUB_AUD = 'schatten';
+const HUB_URL = (process.env.HUB_URL || '').replace(/\/+$/, '');
+const hubSeen = new Map();
+function hubVerify(tok, kind) {
+  if (!HUB_SECRET || typeof tok !== 'string' || tok.length > 600) return null;
+  const parts = tok.split('.');
+  if (parts.length !== 2) return null;
+  const good = Buffer.from(crypto.createHmac('sha256', HUB_SECRET).update(kind + '.' + parts[0]).digest('base64url')), got = Buffer.from(parts[1]);
+  if (good.length !== got.length || !crypto.timingSafeEqual(good, got)) return null;
+  let t; try { t = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')); } catch (e) { return null; }
+  const now = Date.now();
+  if (!t || t.aud !== HUB_AUD || typeof t.d !== 'string' || typeof t.jti !== 'string' || !(t.exp > now) || t.exp > now + 5 * 60 * 1000) return null;
+  hubSeen.forEach(function (e, k) { if (e < now) hubSeen.delete(k); });
+  if (hubSeen.has(t.jti)) return null; // jedes Token nur einmal
+  hubSeen.set(t.jti, t.exp);
+  return t;
+}
+function hubPage(res, status, title, text, go) {
+  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
+  res.end('<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + '</title>' +
+    (go ? '<meta http-equiv="refresh" content="0;url=/"><script>location.replace("/")</script>' : '') +
+    '<style>body{background:#15100b;color:#f0e4c9;font-family:Georgia,serif;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;text-align:center}main{max-width:420px}a{color:#cfa95e}</style></head><body><main><h1>' + title + '</h1><p>' + text + '</p>' +
+    (!go && HUB_URL ? '<p><a href="' + HUB_URL + '">Zurück zum Hub</a></p>' : '') + '</main></body></html>');
+}
+function hubHandle(req, res, url) {
+  const t = hubVerify(url.searchParams.get('t'), 'sso');
+  if (!t) return hubPage(res, 403, 'Anmeldung abgelehnt', 'Der Link ist abgelaufen, wurde schon benutzt oder ist ungültig. Bitte öffne die Seite erneut über den Hub.');
+  let display;
+  try { display = cleanDisplay(t.d); } catch (e) { return hubPage(res, 400, 'Anmeldung abgelehnt', 'Der Kontoname vom Hub ist hier nicht zulässig.'); }
+  const key = userKey(display);
+  let u = db.users[key];
+  if (u && !u.hub) return hubPage(res, 403, 'Anmeldung abgelehnt', 'Unter diesem Namen gibt es hier bereits ein eigenes Konto. Bitte melde dich mit diesem direkt an.');
+  if (u && u.blocked && !u.hubBlocked) return hubPage(res, 403, 'Konto gesperrt', 'Dieses Konto wurde hier gesperrt. Bitte wende dich an die Leitung.');
+  const HUB_ROLE = 'viewer';
+  if (!u) {
+    u = db.users[key] = { name: key, display: display, sid: genSid(), role: HUB_ROLE, hash: '!', created: new Date().toISOString(), since: Date.now(), hub: true };
+    logAct(null, 'Hub-Konto angelegt', display);
+  } else {
+    if (u.hubBlocked) { delete u.blocked; delete u.hubBlocked; }
+    if (!db.roles[u.role]) u.role = HUB_ROLE;
+  }
+  logAct(u, 'Anmeldung über Hub', ''); save();
+  setCookie(res, req, makeToken(u.name), Math.floor(SESSION_MS / 1000));
+  return hubPage(res, 200, 'Anmeldung …', 'Du wirst weitergeleitet.', true);
+}
+async function hubRevoke(req, res) {
+  const b = await readBody(req);
+  const t = hubVerify(b && b.t, 'revoke');
+  if (!t) return send(res, 403, { error: 'Ungültig.' });
+  const u = db.users[userKey(t.d)];
+  if (u && u.hub) { u.blocked = true; u.hubBlocked = true; u.since = Date.now(); logAct(null, 'Hub-Zugang entzogen', dispName(u)); save(); }
+  return send(res, 200, { ok: true });
+}
+
 async function api(req, res, url) {
   const method = req.method, p = url.pathname;
   if (method !== 'GET') {
@@ -916,6 +974,8 @@ async function api(req, res, url) {
     if (!e || !pw || !checkPw(pw, e.hash)) { fail(ipk); fail(tk); return send(res, 403, { error: 'Link oder Passwort ungültig.' }); }
     return send(res, 200, { ti: e.ti, t: e.t, d: e.d, byName: e.byName, body: e.body, extra: Array.isArray(e.extra) ? e.extra : [], decName: sidDigits(e.decSid) || e.decName, ts: e.ts });
   }
+  if (p === '/api/sso' && method === 'GET') return hubHandle(req, res, url);
+  if (p === '/api/hub/revoke' && method === 'POST') return hubRevoke(req, res);
   if (db.lockdown.active && ['/api/session', '/api/login', '/api/logout'].indexOf(p) < 0) {
     const lu = sessionUser(req);
     if (lu && !can(lu, 'lockdown')) return send(res, 403, { error: 'Notfall: Die Seite ist für dein Konto gesperrt.', code: 'lockdown' });

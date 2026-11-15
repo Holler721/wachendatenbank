@@ -194,3 +194,6 @@ Jede Akte einer Person und jeder an einen Bericht angeheftete Anhang hat (mit De
 Beim Anhängen einer Akte wird der Personenname nicht gesendet (nur die Aktennummer „WA-…“, Einträge zeigen nur die Wächter-ID-Ziffern). Unter dem Anhang lässt sich jeder Eintrag der Akte bzw. des Berichts per Haken abhängen, bevor gesendet wird.
 
 Geteilte Akten und Berichte erscheinen im RIS-Austausch als Dossier (Kopf mit Aktennummer, Eckdaten, Datenzeilen, Einträge als nummerierte Abschnitte) statt als Rohtext.
+
+## Hub-Anmeldung (optional)
+Konten aus dem Jedi Hub können sich per Einmal-Anmeldung hier anmelden. Dafür in Render die Variable `HUB_SSO_SECRET` setzen (gleicher Wert wie im Hub), optional `HUB_URL`. Ohne `HUB_SSO_SECRET` ist die Funktion aus. Hub-Konten tragen hier die Rolle „Schatten“ (Schatten Datenbank) bzw. „Gesandter“ (Jedi Wissensarchiv); die Rechte lassen sich wie bei jedem Konto ändern.

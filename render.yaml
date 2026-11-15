@@ -11,3 +11,7 @@ services:
         sync: false
       - key: UPSTASH_REDIS_REST_TOKEN
         sync: false
+      - key: HUB_SSO_SECRET
+        sync: false
+      - key: HUB_URL
+        sync: false
