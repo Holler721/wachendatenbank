@@ -192,3 +192,5 @@ Jede Akte einer Person und jeder an einen Bericht angeheftete Anhang hat (mit De
 
 ### RIS Kooperation: Akten und Einträge anhängen
 Beim Anhängen einer Akte wird der Personenname nicht gesendet (nur die Aktennummer „WA-…“, Einträge zeigen nur die Wächter-ID-Ziffern). Unter dem Anhang lässt sich jeder Eintrag der Akte bzw. des Berichts per Haken abhängen, bevor gesendet wird.
+
+Geteilte Akten und Berichte erscheinen im RIS-Austausch als Dossier (Kopf mit Aktennummer, Eckdaten, Datenzeilen, Einträge als nummerierte Abschnitte) statt als Rohtext.
