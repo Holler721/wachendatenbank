@@ -801,7 +801,7 @@ const HUB_AUD = 'schatten';
 const HUB_URL = (process.env.HUB_URL || '').replace(/\/+$/, '');
 const hubSeen = new Map();
 function hubVerify(tok, kind) {
-  if (!HUB_SECRET || typeof tok !== 'string' || tok.length > 600) return null;
+  if (!HUB_SECRET || typeof tok !== 'string' || tok.length > 3000) return null;
   const parts = tok.split('.');
   if (parts.length !== 2) return null;
   const good = Buffer.from(crypto.createHmac('sha256', HUB_SECRET).update(kind + '.' + parts[0]).digest('base64url')), got = Buffer.from(parts[1]);
@@ -849,6 +849,61 @@ async function hubRevoke(req, res) {
   const u = db.users[userKey(t.d)];
   if (u && u.hub) { u.blocked = true; u.hubBlocked = true; u.since = Date.now(); logAct(null, 'Hub-Zugang entzogen', dispName(u)); save(); }
   return send(res, 200, { ok: true });
+}
+
+
+/* Konten-Abgleich: Der Hub führt. Er schickt Name, Passwort-Hash und Sperre; Konten, die hier schon lokal existieren, werden erst über den Export (Übernahme im Hub) zu Hub-Konten. */
+const HUB_HASH = /^scrypt\$[0-9a-f]{32}\$[0-9a-f]{128}$/;
+function hubRole() {
+  const HUB_ROLE = 'viewer';
+  return HUB_ROLE;
+}
+function hubSign(kind, o) {
+  const body = b64(JSON.stringify(Object.assign({ aud: HUB_AUD, exp: Date.now() + 60000, jti: crypto.randomBytes(12).toString('hex') }, o)));
+  return body + '.' + crypto.createHmac('sha256', HUB_SECRET).update(kind + '.' + body).digest('base64url');
+}
+function hubProtected(u, key) { return !!u && (u.role === 'owner' || !!u.untouchable || key === MAIN); }
+async function hubSync(req, res) {
+  const b = await readBody(req);
+  const t = hubVerify(b && b.t, 'sync');
+  if (!t) return send(res, 403, { error: 'Ungültig.' });
+  let display; try { display = cleanDisplay(t.d); } catch (e) { return send(res, 400, { error: 'Name hier nicht zulässig.' }); }
+  if (!HUB_HASH.test(String(t.h))) return send(res, 400, { error: 'Ungültiges Passwort-Format.' });
+  const key = userKey(display);
+  let u = db.users[key];
+  if (u && (hubProtected(u, key) || !u.hub)) return send(res, 409, { error: 'Auf dieser Seite gibt es unter dem Namen schon ein lokales Konto.' });
+  if (!u) {
+    if (t.blk) return send(res, 200, { ok: true });
+    u = db.users[key] = { name: key, display: display, sid: genSid(), role: hubRole(), hash: t.h, created: new Date().toISOString(), since: Date.now(), hub: true };
+    logAct(null, 'Hub-Konto angelegt', display);
+  } else {
+    if (u.hash !== t.h) { u.hash = t.h; u.since = Date.now(); }
+    if (!db.roles[u.role]) u.role = hubRole();
+  }
+  if (t.mc) u.mustChange = true; else delete u.mustChange;
+  if (t.blk) { if (!u.blocked || u.hubBlocked) { u.blocked = true; u.hubBlocked = true; u.since = Date.now(); } }
+  else if (u.hubBlocked) { delete u.blocked; delete u.hubBlocked; }
+  save();
+  return send(res, 200, { ok: true });
+}
+async function hubExport(req, res) { // alle normalen lokalen Konten an den Hub geben und ab jetzt als Hub-Konten führen
+  const b = await readBody(req);
+  if (!hubVerify(b && b.t, 'export')) return send(res, 403, { error: 'Ungültig.' });
+  const out = [];
+  Object.keys(db.users).forEach(function (k) {
+    const u = db.users[k];
+    if (hubProtected(u, k) || u.expires || u.ris || u.hubBlocked || (u.blocked && !u.hub) || !HUB_HASH.test(String(u.hash))) return;
+    u.hub = true;
+    out.push({ d: dispName(u), h: u.hash, mc: !!u.mustChange });
+  });
+  save();
+  return send(res, 200, { users: out });
+}
+async function hubPasswd(u, hash) { // eigenes Passwort ändern: erst im Hub, damit alle Seiten dasselbe haben
+  if (!HUB_URL || !HUB_SECRET) return;
+  let r = null;
+  try { r = await fetch(HUB_URL + '/api/site/passwd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'jedi-hub' }, body: JSON.stringify({ t: hubSign('passwd', { d: dispName(u), h: hash }) }), signal: AbortSignal.timeout(60000) }); } catch (e) { r = null; }
+  if (!r || !r.ok) { const e = new Error('Der Hub ist gerade nicht erreichbar. Das Passwort wurde nicht geändert, bitte später noch einmal versuchen.'); e.status = 502; throw e; }
 }
 
 async function api(req, res, url) {
@@ -976,6 +1031,8 @@ async function api(req, res, url) {
   }
   if (p === '/api/sso' && method === 'GET') return hubHandle(req, res, url);
   if (p === '/api/hub/revoke' && method === 'POST') return hubRevoke(req, res);
+  if (p === '/api/hub/sync' && method === 'POST') return hubSync(req, res);
+  if (p === '/api/hub/export' && method === 'POST') return hubExport(req, res);
   if (db.lockdown.active && ['/api/session', '/api/login', '/api/logout'].indexOf(p) < 0) {
     const lu = sessionUser(req);
     if (lu && !can(lu, 'lockdown')) return send(res, 403, { error: 'Notfall: Die Seite ist für dein Konto gesperrt.', code: 'lockdown' });
@@ -1396,7 +1453,9 @@ async function api(req, res, url) {
     validPassword(b.next);
     if (checkPw(String(b.next), u.hash)) return send(res, 400, { error: 'Das neue Passwort muss sich vom bisherigen unterscheiden.' });
     const first = !!u.mustChange;
-    u.hash = hashPw(b.next); u.since = Date.now(); u.mustChange = false; logAct(u, first ? 'Eigenes Passwort gewählt (erste Anmeldung)' : 'Passwort geändert', ''); save();
+    const newHash = hashPw(b.next);
+    if (u.hub) await hubPasswd(u, newHash);
+    u.hash = newHash; u.since = Date.now(); u.mustChange = false; logAct(u, first ? 'Eigenes Passwort gewählt (erste Anmeldung)' : 'Passwort geändert', ''); save();
     setCookie(res, req, makeToken(u.name), Math.floor(SESSION_MS / 1000));
     return send(res, 200, { ok: true, user: publicUser(u) });
   }
@@ -1760,6 +1819,7 @@ async function api(req, res, url) {
         if (nt && u.ris) return send(res, 400, { error: 'RIS-Konten können keine Aufgaben verteilen.' });
         if (nt !== !!u.taskx) { if (nt) u.taskx = true; else delete u.taskx; uch.push(nt ? 'darf Aufgaben verteilen' : 'Aufgaben-Recht entzogen'); }
       }
+      if (b.reset === true && u.hub) return send(res, 400, { error: 'Dieses Konto wird im Hub verwaltet. Das Passwort bitte dort zurücksetzen.' });
       let pw = null;
       if (b.reset === true && u.name !== MAIN) { pw = genPassword(); u.hash = hashPw(pw); u.since = Date.now(); u.mustChange = true; uch.push('neues Passwort erzeugt'); }
       if (uch.length) logAct(me, 'Konto geändert', dispName(u) + ': ' + uch.join(', '));
