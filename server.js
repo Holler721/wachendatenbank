@@ -1047,7 +1047,7 @@ async function api(req, res, url) {
   }
   if (p === '/api/session' && method === 'GET') {
     const u = sessionUser(req);
-    return send(res, 200, { user: u ? publicUser(u) : null, lockdown: !!db.lockdown.active, discord: DC_ON });
+    return send(res, 200, { user: u ? publicUser(u) : null, lockdown: !!db.lockdown.active, discord: DC_ON, hub: /^https?:\/\//.test(HUB_URL) ? HUB_URL : '' });
   }
   if (p === '/api/login' && method === 'POST') {
     const b = await readBody(req);

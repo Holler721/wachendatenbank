@@ -197,3 +197,5 @@ Geteilte Akten und Berichte erscheinen im RIS-Austausch als Dossier (Kopf mit Ak
 
 ## Hub-Anmeldung (optional)
 Konten aus dem Jedi Hub können sich per Einmal-Anmeldung hier anmelden. Dafür in Render die Variable `HUB_SSO_SECRET` setzen (gleicher Wert wie im Hub), optional `HUB_URL`. Ohne `HUB_SSO_SECRET` ist die Funktion aus. Die Konten sind dieselben wie im Hub (gleicher Name, gleiches Passwort); der Hub führt, auch Passwort-Zurücksetzen geht nur dort. Für Passwortänderungen auf dieser Seite muss `HUB_URL` gesetzt sein. Hub-Konten tragen hier die Rolle „Schatten“ (Schatten Datenbank) bzw. „Gesandter“ (Jedi Wissensarchiv); die Rechte lassen sich wie bei jedem Konto ändern.
+
+Ist `HUB_URL` gesetzt, erscheint links unten der Knopf „← Zurück zum Hub“.
